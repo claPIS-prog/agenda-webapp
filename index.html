@@ -7,27 +7,13 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body {
-      margin: 0; padding: 16px;
-      font: 16px/1.5 system-ui, sans-serif;
-      background: var(--tg-theme-bg-color, #fff);
-      color: var(--tg-theme-text-color, #17212b);
-    }
+    body { margin: 0; padding: 16px; font: 16px/1.5 system-ui, sans-serif; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #17212b); }
     h1 { font-size: 1.3rem; margin-bottom: 16px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
     .row.full { grid-template-columns: 1fr; }
     label { display: block; font-size: 0.85rem; margin-bottom: 4px; opacity: 0.8; }
-    input, select {
-      width: 100%; min-height: 44px; padding: 8px;
-      font: inherit; border: 1px solid #88939d; border-radius: 8px;
-      background: var(--tg-theme-secondary-bg-color, #f4f4f5); color: inherit;
-    }
-    button {
-      width: 100%; min-height: 50px; margin-top: 16px;
-      font: inherit; font-weight: bold; border: none; border-radius: 8px;
-      background: var(--tg-theme-button-color, #1769aa);
-      color: var(--tg-theme-button-text-color, #fff);
-    }
+    input, select, textarea { width: 100%; min-height: 44px; padding: 8px; font: inherit; border: 1px solid #88939d; border-radius: 8px; background: var(--tg-theme-secondary-bg-color, #f4f4f5); color: inherit; }
+    button { width: 100%; min-height: 50px; margin-top: 16px; font: inherit; font-weight: bold; border: none; border-radius: 8px; background: var(--tg-theme-button-color, #1769aa); color: var(--tg-theme-button-text-color, #fff); }
     #status { margin-top: 12px; text-align: center; font-size: 0.9rem; }
   </style>
 </head>
@@ -35,22 +21,27 @@
   <h1>📋 Nuovo Nominativo</h1>
   <form id="form">
     <div class="row full"><div><label>Nominativo *</label><input id="nominativo" required></div></div>
+    
     <div class="row">
       <div><label>UserID</label><input id="user_id"></div>
       <div><label>Password</label><input id="password"></div>
     </div>
+    
     <div class="row">
       <div><label>Cellulare</label><input id="cellulare" type="tel"></div>
       <div><label>WhatsApp</label><input id="whatsapp" type="tel"></div>
     </div>
+    
     <div class="row">
       <div><label>Server</label><select id="server"><option value="">—</option></select></div>
       <div><label>Reseller</label><select id="reseller"><option value="">—</option></select></div>
     </div>
+    
     <div class="row">
       <div><label>Procuratore</label><select id="procuratore"><option value="">—</option></select></div>
       <div><label>Prezzo (€)</label><input id="prezzo" type="number" step="0.01" value="0"></div>
     </div>
+    
     <div class="row">
       <div><label>Cadenza</label>
         <select id="cadenza">
@@ -67,48 +58,63 @@
         </select>
       </div>
     </div>
+    
     <div class="row full"><div><label>Quale VPN</label><input id="quale_vpn"></div></div>
+    
     <div class="row">
       <div><label>Città</label><input id="residenza_citta"></div>
       <div><label>CAP</label><input id="residenza_cap"></div>
     </div>
+    
     <div class="row full"><div><label>Provincia</label><input id="residenza_provincia" maxlength="2"></div></div>
+    
+    <!-- CAMPO NOTE IN EVIDENZA -->
+    <div class="row full">
+      <div>
+        <label style="font-weight: bold; color: #1769aa;">📝 Note</label>
+        <textarea id="note" rows="4" placeholder="Scrivi qui la nota..."></textarea>
+      </div>
+    </div>
+    
     <button type="submit">💾 Salva nel bot</button>
     <p id="status"></p>
   </form>
+
   <script>
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
- // Legge i parametri dall'URL passati dal bot
+
+    // Popola i menu a tendina
     const params = new URLSearchParams(window.location.search);
     function popola(selectId, paramName) {
       const select = document.getElementById(selectId);
       try {
         const lista = JSON.parse(params.get(paramName) || "[]");
-        lista.forEach(nome => {
-          const opt = document.createElement("option");
-          opt.value = nome;
-          opt.textContent = nome;
-          select.appendChild(opt);
+        lista.forEach(nome => { 
+          const opt = document.createElement("option"); 
+          opt.value = nome; 
+          opt.textContent = nome; 
+          select.appendChild(opt); 
         });
-      } catch (e) {
-        console.error("Errore parsing", paramName, e);
-      }
+      } catch (e) { console.error("Errore parsing", paramName, e); }
     }
-    popola("server", "servers");
-    popola("reseller", "resellers");
+    popola("server", "servers"); 
+    popola("reseller", "resellers"); 
     popola("procuratore", "procuratori");
+
+    // Gestione invio modulo
     document.getElementById("form").addEventListener("submit", (e) => {
       e.preventDefault();
+      
       const dati = {
         nominativo: document.getElementById("nominativo").value.trim(),
         user_id: document.getElementById("user_id").value.trim(),
         password: document.getElementById("password").value.trim(),
         cellulare: document.getElementById("cellulare").value.trim(),
         whatsapp: document.getElementById("whatsapp").value.trim(),
-        server: document.getElementById("server").value.trim(),
-        reseller: document.getElementById("reseller").value.trim(),
-        procuratore: document.getElementById("procuratore").value.trim(),
+        server: document.getElementById("server").value,
+        reseller: document.getElementById("reseller").value,
+        procuratore: document.getElementById("procuratore").value,
         prezzo: parseFloat(document.getElementById("prezzo").value) || 0,
         cadenza: document.getElementById("cadenza").value,
         uso_vpn: parseInt(document.getElementById("uso_vpn").value),
@@ -116,7 +122,9 @@
         residenza_citta: document.getElementById("residenza_citta").value.trim(),
         residenza_cap: document.getElementById("residenza_cap").value.trim(),
         residenza_provincia: document.getElementById("residenza_provincia").value.trim().toUpperCase(),
+        note: document.getElementById("note").value.trim()
       };
+
       if (!dati.nominativo) {
         document.getElementById("status").textContent = "Il nominativo è obbligatorio";
         return;
@@ -125,6 +133,7 @@
         document.getElementById("status").textContent = "Apri questa pagina dal bot Telegram";
         return;
       }
+      
       tg.sendData(JSON.stringify(dati));
       document.getElementById("status").textContent = "Inviato! Chiudi questa finestra.";
     });
