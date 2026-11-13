@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Elenco Nominativi</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
+    input { width: 100%; padding: 12px; margin-bottom: 16px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+    .card { position: relative; border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f9f9f9); }
+    .name { font-weight: bold; font-size: 1.1em; margin-bottom: 4px; cursor: pointer; color: #1769aa; text-decoration: underline; }
+    .info { color: #666; font-size: 0.9em; margin-bottom: 2px; }
+    .empty { text-align: center; color: #999; margin-top: 40px; }
+    .btn-del { position: absolute; top: 8px; right: 8px; background: #d32f2f; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  </style>
+</head>
+<body>
+  <h1>📋 Elenco Nominativi</h1>
+  
+  <input type="text" id="search" placeholder="Cerca per nome o userId..." oninput="filtra()">
+  
+  <div id="lista"></div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
+
+    const params = new URLSearchParams(window.location.search);
+    let contatti = [];
+    try {
+      contatti = JSON.parse(params.get("contatti") || "[]");
+    } catch (e) { console.error(e); }
+
+    const listaDiv = document.getElementById("lista");
+    const searchInput = document.getElementById("search");
+
+    function render(lista) {
+      listaDiv.innerHTML = "";
+      if (lista.length === 0) {
+        listaDiv.innerHTML = "<div class='empty'>Nessun nominativo trovato.</div>";
+        return;
+      }
+      lista.forEach(c => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <div class="name" onclick="modifica(${c.id})">${c.nominativo}</div>
+          <div class="info">🆔 ${c.user_id || '-'}</div>
+          <div class="info">💶 ${c.prezzo || 0}€ / ${c.cadenza || '-'}</div>
+          <button class="btn-del" onclick="cancella(${c.id}, '${c.nominativo}')">X</button>
+        `;
+        listaDiv.appendChild(div);
+      });
+    }
+
+    function modifica(id) {
+      // Apre la pagina di modifica
+      window.location.href = `modifica.html?id=${id}`;
+    }
+
+    function cancella(id, nome) {
+      if (confirm(`Sei sicuro di voler cancellare definitivamente ${nome}?`)) {
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+          tg.sendData(JSON.stringify({ azione: "cancella", id: id }));
+        }
+      }
+    }
+
+    function filtra() {
+      const q = searchInput.value.toLowerCase();
+      const filtrati = contatti.filter(c => 
+        (c.nominativo && c.nominativo.toLowerCase().includes(q)) || 
+        (c.user_id && c.user_id.toLowerCase().includes(q))
+      );
+      render(filtrati);
+    }
+
+    render(contatti);
+  </script>
+</body>
+</html>
