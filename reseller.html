@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestione Reseller</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
+    h1 { font-size: 1.3rem; margin-bottom: 16px; }
+    input { width: 100%; padding: 12px; margin-bottom: 16px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+    .card { position: relative; border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f9f9f9); display: flex; justify-content: space-between; align-items: center; }
+    .name { font-weight: bold; font-size: 1.1em; }
+    .btn-del { background: #d32f2f; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-weight: bold; }
+    .btn-add { width: 100%; padding: 12px; background: #1769aa; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 16px; }
+    .empty { text-align: center; color: #999; margin-top: 40px; }
+    .form-box { display: none; margin-top: 16px; padding: 16px; border: 1px solid #1769aa; border-radius: 8px; background: #e3f2fd; }
+    .form-box input { margin-bottom: 8px; }
+    .form-box button { width: 100%; padding: 10px; background: #1769aa; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    .btn-close { background: #666; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>🏢 Gestione Reseller</h1>
+  
+  <div id="lista"></div>
+  
+  <button class="btn-add" onclick="mostraForm()">➕ Aggiungi Reseller</button>
+  
+  <div id="form-box" class="form-box">
+    <h3 id="form-title">Nuovo Reseller</h3>
+    <input type="hidden" id="edit-id">
+    <input type="text" id="edit-nome" placeholder="Nome del reseller">
+    <button onclick="salvaReseller()">💾 Salva</button>
+    <button class="btn-close" onclick="chiudiForm()">Annulla</button>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
+
+    const params = new URLSearchParams(window.location.search);
+    let resellers = [];
+    try {
+      resellers = JSON.parse(params.get("resellers") || "[]");
+    } catch (e) { console.error(e); }
+
+    const listaDiv = document.getElementById("lista");
+    const formBox = document.getElementById("form-box");
+    const formTitle = document.getElementById("form-title");
+    const editId = document.getElementById("edit-id");
+    const editNome = document.getElementById("edit-nome");
+
+    function render() {
+      listaDiv.innerHTML = "";
+      if (resellers.length === 0) {
+        listaDiv.innerHTML = "<div class='empty'>Nessun reseller trovato.</div>";
+        return;
+      }
+      resellers.forEach(r => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <div class="name">${r.nominativo}</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-del" onclick="elimina(${r.id}, '${r.nominativo}')">🗑️</button>
+          </div>
+        `;
+        div.querySelector(".name").onclick = () => mostraForm(r.id, r.nominativo);
+        listaDiv.appendChild(div);
+      });
+    }
+
+    function mostraForm(id = "", nome = "") {
+      formTitle.textContent = id ? "Modifica Reseller" : "Nuovo Reseller";
+      editId.value = id;
+      editNome.value = nome;
+      formBox.style.display = "block";
+      editNome.focus();
+    }
+
+    function chiudiForm() {
+      formBox.style.display = "none";
+      editId.value = "";
+      editNome.value = "";
+    }
+
+    function salvaReseller() {
+      const nome = editNome.value.trim();
+      if (!nome) { alert("Inserisci un nome!"); return; }
+      
+      const id = editId.value;
+      if (tg) {
+        tg.sendData(JSON.stringify({
+          azione: id ? "modifica_reseller" : "nuovo_reseller",
+          id: id,
+          nominativo: nome
+        }));
+      }
+    }
+
+    function elimina(id, nome) {
+      if (confirm(`Sei sicuro di voler cancellare il reseller ${nome}?`)) {
+        if (tg) {
+          tg.sendData(JSON.stringify({ azione: "cancella_reseller", id: id }));
+        }
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
