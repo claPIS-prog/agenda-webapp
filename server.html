@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestione Server</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
+    h1 { font-size: 1.3rem; margin-bottom: 16px; }
+    .card { position: relative; border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f9f9f9); display: flex; justify-content: space-between; align-items: center; }
+    .name { font-weight: bold; font-size: 1.1em; color: #1769aa; text-decoration: underline; cursor: pointer; }
+    .btn-del { background: #d32f2f; color: white; border: none; border-radius: 6px; padding: 8px 12px; cursor: pointer; font-weight: bold; }
+    .btn-add { width: 100%; padding: 12px; background: #1769aa; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 16px; }
+    .empty { text-align: center; color: #999; margin-top: 40px; }
+    .form-box { display: none; margin-top: 16px; padding: 16px; border: 1px solid #1769aa; border-radius: 8px; background: #e3f2fd; }
+    .form-box input { width: 100%; padding: 8px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; font-size: 16px; }
+    .form-box button { width: 100%; padding: 10px; background: #1769aa; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    .btn-close { background: #666; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>🖥️ Gestione Server</h1>
+  
+  <div id="lista"></div>
+  
+  <button class="btn-add" onclick="mostraForm()">➕ Aggiungi Server</button>
+  
+  <div id="form-box" class="form-box">
+    <h3 id="form-title">Nuovo Server</h3>
+    <input type="hidden" id="edit-id">
+    <input type="text" id="edit-nome" placeholder="Nome del server">
+    <button onclick="salvaServer()">💾 Salva</button>
+    <button class="btn-close" onclick="chiudiForm()">Annulla</button>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
+
+    const params = new URLSearchParams(window.location.search);
+    let servers = [];
+    try {
+      servers = JSON.parse(params.get("servers") || "[]");
+    } catch (e) { console.error(e); }
+
+    const listaDiv = document.getElementById("lista");
+    const formBox = document.getElementById("form-box");
+    const formTitle = document.getElementById("form-title");
+    const editId = document.getElementById("edit-id");
+    const editNome = document.getElementById("edit-nome");
+
+    function render() {
+      listaDiv.innerHTML = "";
+      if (servers.length === 0) {
+        listaDiv.innerHTML = "<div class='empty'>Nessun server trovato.</div>";
+        return;
+      }
+      servers.forEach(r => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <div class="name" onclick="mostraForm(${r.id}, '${r.nominativo}')">${r.nominativo}</div>
+          <button class="btn-del" onclick="elimina(${r.id}, '${r.nominativo}')">🗑️</button>
+        `;
+        listaDiv.appendChild(div);
+      });
+    }
+
+    function mostraForm(id = "", nome = "") {
+      formTitle.textContent = id ? "Modifica Server" : "Nuovo Server";
+      editId.value = id;
+      editNome.value = nome;
+      formBox.style.display = "block";
+      editNome.focus();
+    }
+
+    function chiudiForm() {
+      formBox.style.display = "none";
+      editId.value = "";
+      editNome.value = "";
+    }
+
+    function salvaServer() {
+      const nome = editNome.value.trim();
+      if (!nome) { alert("Inserisci un nome!"); return; }
+      
+      const id = editId.value;
+      if (tg) {
+        tg.sendData(JSON.stringify({
+          azione: id ? "modifica_server" : "nuovo_server",
+          id: id,
+          nominativo: nome
+        }));
+      }
+    }
+
+    function elimina(id, nome) {
+      if (confirm(`Sei sicuro di voler cancellare il server ${nome}?`)) {
+        if (tg) {
+          tg.sendData(JSON.stringify({ azione: "cancella_server", id: id }));
+        }
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
