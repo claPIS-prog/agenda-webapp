@@ -68,7 +68,7 @@
     
     <div class="row full"><div><label>Provincia</label><input id="residenza_provincia" maxlength="2"></div></div>
     
-    <!-- CAMPO NOTE IN EVIDENZA -->
+    <!-- CAMPO NOTE -->
     <div class="row full">
       <div>
         <label style="font-weight: bold; color: #1769aa;">📝 Note</label>
@@ -84,7 +84,6 @@
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
 
-    // Popola i menu a tendina
     const params = new URLSearchParams(window.location.search);
     function popola(selectId, paramName) {
       const select = document.getElementById(selectId);
@@ -102,7 +101,6 @@
     popola("reseller", "resellers"); 
     popola("procuratore", "procuratori");
 
-    // Gestione invio modulo
     document.getElementById("form").addEventListener("submit", (e) => {
       e.preventDefault();
       
@@ -122,6 +120,7 @@
         residenza_citta: document.getElementById("residenza_citta").value.trim(),
         residenza_cap: document.getElementById("residenza_cap").value.trim(),
         residenza_provincia: document.getElementById("residenza_provincia").value.trim().toUpperCase(),
+        // ⚠️ QUESTA ERA LA RIGA MANCANTE! ⚠️
         note: document.getElementById("note").value.trim()
       };
 
