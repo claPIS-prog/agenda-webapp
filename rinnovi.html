@@ -12,7 +12,7 @@
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
     .row.full { grid-template-columns: 1fr; }
     label { display: block; font-size: 0.85rem; margin-bottom: 4px; opacity: 0.8; }
-    input, select { width: 100%; min-height: 44px; padding: 8px; font: inherit; border: 1px solid #88939d; border-radius: 8px; background: var(--tg-theme-secondary-bg-color, #f4f4f5); color: inherit; }
+    input, select, textarea { width: 100%; min-height: 44px; padding: 8px; font: inherit; border: 1px solid #88939d; border-radius: 8px; background: var(--tg-theme-secondary-bg-color, #f4f4f5); color: inherit; }
     button { width: 100%; min-height: 50px; margin-top: 16px; font: inherit; font-weight: bold; border: none; border-radius: 8px; background: var(--tg-theme-button-color, #1769aa); color: var(--tg-theme-button-text-color, #fff); }
     #status { margin-top: 12px; text-align: center; font-size: 0.9rem; }
   </style>
@@ -30,7 +30,13 @@
     </div>
     
     <div class="row">
-      <div><label>Tipo</label><input id="tipo" value="rinnovo"></div>
+      <div>
+        <label>Tipo *</label>
+        <select id="tipo" required>
+          <option value="rinnovo">Rinnovo</option>
+          <option value="nuovo">Nuovo</option>
+        </select>
+      </div>
       <div><label>Data Operazione</label><input id="data_operazione" type="date"></div>
     </div>
     
@@ -45,7 +51,7 @@
     </div>
     
     <div class="row full">
-      <div><label>Note</label><textarea id="note" rows="3" style="width:100%; border-radius:8px; padding:8px; font-family:inherit;"></textarea></div>
+      <div><label>Note</label><textarea id="note" rows="3"></textarea></div>
     </div>
     
     <button type="submit">💾 Registra Rinnovo</button>
@@ -64,7 +70,6 @@
 
     const selectNom = document.getElementById("nominativo");
     
-    // Popola il menu a tendina con i nominativi
     nominativi.forEach(n => {
       const opt = document.createElement("option");
       opt.value = n.id;
@@ -72,11 +77,9 @@
       selectNom.appendChild(opt);
     });
 
-    // Imposta la data di oggi come default
     const oggi = new Date().toISOString().split('T')[0];
     document.getElementById("data_operazione").value = oggi;
 
-    // Calcola la scadenza automaticamente
     function calcolaScadenza() {
       const dataOp = document.getElementById("data_operazione").value;
       const mesi = parseInt(document.getElementById("mesi").value) || 0;
@@ -96,13 +99,12 @@
     document.getElementById("mesi").addEventListener("input", calcolaScadenza);
     calcolaScadenza();
 
-    // Gestione invio
     document.getElementById("form").addEventListener("submit", (e) => {
       e.preventDefault();
       
       const dati = {
         nominativo_id: document.getElementById("nominativo").value,
-        tipo: document.getElementById("tipo").value.trim(),
+        tipo: document.getElementById("tipo").value,
         data_operazione: document.getElementById("data_operazione").value,
         mesi: parseInt(document.getElementById("mesi").value),
         scadenza: document.getElementById("scadenza").value,
