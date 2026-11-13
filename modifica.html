@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modifica Nominativo</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; font: 16px/1.5 system-ui, sans-serif; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #17212b); }
+    h1 { font-size: 1.3rem; margin-bottom: 16px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .row.full { grid-template-columns: 1fr; }
+    label { display: block; font-size: 0.85rem; margin-bottom: 4px; opacity: 0.8; }
+    input, select, textarea { width: 100%; min-height: 44px; padding: 8px; font: inherit; border: 1px solid #88939d; border-radius: 8px; background: var(--tg-theme-secondary-bg-color, #f4f4f5); color: inherit; }
+    button { width: 100%; min-height: 50px; margin-top: 16px; font: inherit; font-weight: bold; border: none; border-radius: 8px; background: var(--tg-theme-button-color, #1769aa); color: var(--tg-theme-button-text-color, #fff); }
+    #status { margin-top: 12px; text-align: center; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>✏️ Modifica Nominativo</h1>
+  <form id="form">
+    <input type="hidden" id="id">
+    <div class="row full"><div><label>Nominativo *</label><input id="nominativo" required></div></div>
+    <div class="row"><div><label>UserID</label><input id="user_id"></div><div><label>Password</label><input id="password"></div></div>
+    <div class="row"><div><label>Cellulare</label><input id="cellulare" type="tel"></div><div><label>WhatsApp</label><input id="whatsapp" type="tel"></div></div>
+    <div class="row"><div><label>Server</label><input id="server"></div><div><label>Reseller</label><input id="reseller"></div></div>
+    <div class="row"><div><label>Procuratore</label><input id="procuratore"></div><div><label>Prezzo (€)</label><input id="prezzo" type="number" step="0.01"></div></div>
+    <div class="row">
+      <div><label>Cadenza</label><select id="cadenza"><option value="mensile">Mensile</option><option value="trimestrale">Trimestrale</option><option value="semestrale">Semestrale</option><option value="annuale">Annuale</option></select></div>
+      <div><label>Uso VPN</label><select id="uso_vpn"><option value="0">No</option><option value="1">Sì</option></select></div>
+    </div>
+    <div class="row full"><div><label>Quale VPN</label><input id="quale_vpn"></div></div>
+    <div class="row"><div><label>Città</label><input id="residenza_citta"></div><div><label>CAP</label><input id="residenza_cap"></div></div>
+    <div class="row full"><div><label>Provincia</label><input id="residenza_provincia" maxlength="2"></div></div>
+    <button type="submit">💾 Salva Modifiche</button>
+    <p id="status"></p>
+  </form>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
+
+    const params = new URLSearchParams(window.location.search);
+    let datiContatto = null;
+    try {
+      datiContatto = JSON.parse(params.get("contatto") || "null");
+    } catch (e) { console.error(e); }
+
+    if (datiContatto) {
+      // Popola i campi con i dati esistenti
+      document.getElementById("id").value = datiContatto.id || "";
+      document.getElementById("nominativo").value = datiContatto.nominativo || "";
+      document.getElementById("user_id").value = datiContatto.user_id || "";
+      document.getElementById("password").value = datiContatto.password || "";
+      document.getElementById("cellulare").value = datiContatto.cellulare || "";
+      document.getElementById("whatsapp").value = datiContatto.whatsapp || "";
+      document.getElementById("server").value = datiContatto.server || "";
+      document.getElementById("reseller").value = datiContatto.reseller || "";
+      document.getElementById("procuratore").value = datiContatto.procuratore || "";
+      document.getElementById("prezzo").value = datiContatto.prezzo || 0;
+      document.getElementById("cadenza").value = datiContatto.cadenza || "mensile";
+      document.getElementById("uso_vpn").value = datiContatto.uso_vpn || 0;
+      document.getElementById("quale_vpn").value = datiContatto.quale_vpn || "";
+      
+      // Gestione residenza (se concatenata)
+      if (datiContatto.residenza) {
+        const parti = datiContatto.residenza.split(" ");
+        document.getElementById("residenza_citta").value = parti[0] || "";
+        document.getElementById("residenza_cap").value = parti[1] || "";
+        document.getElementById("residenza_provincia").value = parti[2] || "";
+      }
+    }
+
+    document.getElementById("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      
+      const dati = {
+        azione: "modifica",
+        id: document.getElementById("id").value,
+        nominativo: document.getElementById("nominativo").value.trim(),
+        user_id: document.getElementById("user_id").value.trim(),
+        password: document.getElementById("password").value.trim(),
+        cellulare: document.getElementById("cellulare").value.trim(),
+        whatsapp: document.getElementById("whatsapp").value.trim(),
+        server: document.getElementById("server").value.trim(),
+        reseller: document.getElementById("reseller").value.trim(),
+        procuratore: document.getElementById("procuratore").value.trim(),
+        prezzo: parseFloat(document.getElementById("prezzo").value) || 0,
+        cadenza: document.getElementById("cadenza").value,
+        uso_vpn: parseInt(document.getElementById("uso_vpn").value),
+        quale_vpn: document.getElementById("quale_vpn").value.trim(),
+        residenza_citta: document.getElementById("residenza_citta").value.trim(),
+        residenza_cap: document.getElementById("residenza_cap").value.trim(),
+        residenza_provincia: document.getElementById("residenza_provincia").value.trim().toUpperCase()
+      };
+
+      if (!dati.nominativo) {
+        document.getElementById("status").textContent = "Il nominativo è obbligatorio";
+        return;
+      }
+      
+      if (!tg) {
+        document.getElementById("status").textContent = "Apri questa pagina dal bot Telegram";
+        return;
+      }
+      
+      tg.sendData(JSON.stringify(dati));
+      document.getElementById("status").textContent = "Modifiche inviate! Chiudi questa finestra.";
+    });
+  </script>
+</body>
+</html>
