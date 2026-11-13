@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scadenze</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
+    h1 { font-size: 1.4rem; margin-bottom: 16px; }
+    .card { border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 6px solid; background: var(--tg-theme-secondary-bg-color, #f9f9f9); }
+    .card.rosso { border-color: #d32f2f; background: #ffebee; }
+    .card.giallo { border-color: #f57c00; background: #fff3e0; }
+    .card.verde { border-color: #388e3c; background: #e8f5e9; }
+    .name { font-weight: bold; font-size: 1.1em; margin-bottom: 4px; }
+    .info { font-size: 0.95em; color: #444; }
+    .empty { text-align: center; color: #999; margin-top: 40px; font-size: 1.1em; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; color: white; margin-left: 8px; }
+    .badge.rosso { background: #d32f2f; }
+    .badge.giallo { background: #f57c00; }
+    .badge.verde { background: #388e3c; }
+  </style>
+</head>
+<body>
+  <h1>⏰ Scadenze</h1>
+  <div id="lista"></div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand();
