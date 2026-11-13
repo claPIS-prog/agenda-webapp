@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invia Nota</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
+    .contact { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+    .name { font-weight: bold; font-size: 1.1em; }
+    .note { color: #666; font-style: italic; margin: 8px 0; }
+    button { width: 100%; padding: 10px; background: #25D366; color: white; border: none; border-radius: 8px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>💬 Invia Nota</h1>
+  <div id="lista"></div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
+
+    // Legge i dati passati dal bot tramite l'URL
+    const params = new URLSearchParams(window.location.search);
+    let contatti = [];
+    try {
+      contatti = JSON.parse(params.get("contatti") || "[]");
+    } catch (e) { console.error(e); }
+
+    const lista = document.getElementById("lista");
+    if (contatti.length === 0) {
+      lista.innerHTML = "<p>Nessun contatto con note disponibile.</p>";
+    } else {
+      contatti.forEach(c => {
+        const div = document.createElement("div");
+        div.className = "contact";
+        div.innerHTML = `
+          <div class="name">${c.nominativo} (${c.user_id || '-'})</div>
+          <div class="note">${c.note || 'Nessuna nota'}</div>
+        `;
+        const btn = document.createElement("button");
+        btn.textContent = "🟢 Apri WhatsApp";
+        btn.onclick = () => {
+          const numero = c.whatsapp.replace(/\D/g, "");
+          const testo = encodeURIComponent(`Ciao ${c.nominativo}, ecco la tua nota: ${c.note}`);
+          window.open(`https://wa.me/${numero}?text=${testo}`, "_blank");
+        };
+        div.appendChild(btn);
+        lista.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>
