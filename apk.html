@@ -11,9 +11,7 @@
     .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f9f9f9); display: flex; justify-content: space-between; align-items: center; }
     .name { font-weight: bold; font-size: 1.1em; }
     .desc { color: #666; font-size: 0.9em; margin-top: 4px; }
-    .actions { display: flex; gap: 8px; }
     .btn-download { padding: 10px 16px; background: #1769aa; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; }
-    .btn-delete { padding: 10px 16px; background: #d32f2f; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
     .empty { text-align: center; color: #999; margin-top: 40px; }
   </style>
 </head>
@@ -44,22 +42,10 @@
             <div class="name">${f.nome}</div>
             <div class="desc">${f.descrizione || ''}</div>
           </div>
-          <div class="actions">
-            <a href="${f.url}" class="btn-download" target="_blank">⬇️ Scarica</a>
-            <button class="btn-delete" onclick="cancella('${f.nome}', '${f.url}')">🗑️</button>
-          </div>
+          <a href="${f.url}" class="btn-download" target="_blank">⬇️ Scarica</a>
         `;
         listaDiv.appendChild(div);
       });
-    }
-
-    function cancella(nome, url) {
-      if (confirm(`Vuoi cancellare il file ${nome}? Verrai reindirizzato a GitHub per rimuoverlo.`)) {
-        const tg = window.Telegram?.WebApp;
-        if (tg) {
-          tg.sendData(JSON.stringify({ azione: "cancella_apk", nome: nome, url: url }));
-        }
-      }
     }
   </script>
 </body>
