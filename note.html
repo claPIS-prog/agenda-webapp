@@ -3,52 +3,95 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invia Nota</title>
+  <title>Invia Messaggio WhatsApp</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
-    .contact { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+    .contact { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f4f4f5); cursor: pointer; }
+    .contact:hover { border-color: #25D366; }
     .name { font-weight: bold; font-size: 1.1em; }
-    .note { color: #666; font-style: italic; margin: 8px 0; }
-    button { width: 100%; padding: 10px; background: #25D366; color: white; border: none; border-radius: 8px; font-weight: bold; }
+    .phone { color: #666; font-size: 0.9em; }
+    .message-box { display: none; margin-top: 16px; padding: 16px; border: 1px solid #25D366; border-radius: 8px; background: #e8f5e9; }
+    textarea { width: 100%; height: 100px; padding: 8px; border-radius: 8px; border: 1px solid #ccc; font-family: inherit; margin-bottom: 8px; }
+    button { width: 100%; padding: 12px; background: #25D366; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; }
+    button:disabled { background: #a5d6a7; cursor: not-allowed; }
+    .back-btn { background: #666; margin-bottom: 16px; }
   </style>
 </head>
 <body>
-  <h1>💬 Invia Nota</h1>
-  <div id="lista"></div>
+  <h1>💬 Invia Messaggio</h1>
+  
+  <div id="lista-contatti"></div>
+
+  <div id="message-area" class="message-box">
+    <h3 id="selected-name"></h3>
+    <textarea id="message-text" placeholder="Scrivi qui il tuo messaggio..."></textarea>
+    <button id="send-btn" onclick="inviaMessaggio()">🟢 Apri WhatsApp e Invia</button>
+    <button class="back-btn" onclick="tornaAllaLista()">⬅ Torna alla lista</button>
+  </div>
 
   <script>
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
 
-    // Legge i dati passati dal bot tramite l'URL
     const params = new URLSearchParams(window.location.search);
     let contatti = [];
     try {
       contatti = JSON.parse(params.get("contatti") || "[]");
     } catch (e) { console.error(e); }
 
-    const lista = document.getElementById("lista");
+    let contattoSelezionato = null;
+
+    const listaDiv = document.getElementById("lista-contatti");
+    const messageArea = document.getElementById("message-area");
+    const selectedName = document.getElementById("selected-name");
+    const messageText = document.getElementById("message-text");
+
     if (contatti.length === 0) {
-      lista.innerHTML = "<p>Nessun contatto con note disponibile.</p>";
+      listaDiv.innerHTML = "<p>Nessun contatto salvato. Aggiungine uno dal modulo!</p>";
     } else {
       contatti.forEach(c => {
         const div = document.createElement("div");
         div.className = "contact";
         div.innerHTML = `
-          <div class="name">${c.nominativo} (${c.user_id || '-'})</div>
-          <div class="note">${c.note || 'Nessuna nota'}</div>
+          <div class="name">${c.nominativo}</div>
+          <div class="phone">${c.whatsapp}</div>
         `;
-        const btn = document.createElement("button");
-        btn.textContent = "🟢 Apri WhatsApp";
-        btn.onclick = () => {
-          const numero = c.whatsapp.replace(/\D/g, "");
-          const testo = encodeURIComponent(`Ciao ${c.nominativo}, ecco la tua nota: ${c.note}`);
-          window.open(`https://wa.me/${numero}?text=${testo}`, "_blank");
-        };
-        div.appendChild(btn);
-        lista.appendChild(div);
+        div.onclick = () => selezionaContatto(c);
+        listaDiv.appendChild(div);
       });
+    }
+
+    function selezionaContatto(c) {
+      contattoSelezionato = c;
+      listaDiv.style.display = "none";
+      messageArea.style.display = "block";
+      selectedName.textContent = `Invia a: ${c.nominativo}`;
+      messageText.value = ""; // Svuota il campo
+      messageText.focus();
+    }
+
+    function tornaAllaLista() {
+      contattoSelezionato = null;
+      listaDiv.style.display = "block";
+      messageArea.style.display = "none";
+    }
+
+    function inviaMessaggio() {
+      if (!contattoSelezionato) return;
+      
+      const testo = messageText.value.trim();
+      if (!testo) {
+        alert("Scrivi un messaggio prima di inviare!");
+        return;
+      }
+
+      // Pulisce il numero (toglie spazi, +, trattini)
+      const numero = contattoSelezionato.whatsapp.replace(/\D/g, "");
+      const testoEncoded = encodeURIComponent(testo);
+      
+      // Apre WhatsApp
+      window.open(`https://wa.me/${numero}?text=${testoEncoded}`, "_blank");
     }
   </script>
 </body>
