@@ -10,8 +10,11 @@
     input { width: 100%; padding: 12px; margin-bottom: 16px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
     .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f9f9f9); }
     .name { font-weight: bold; font-size: 1.1em; margin-bottom: 4px; }
-    .info { color: #666; font-size: 0.9em; }
+    .info { color: #666; font-size: 0.9em; margin-bottom: 2px; }
     .empty { text-align: center; color: #999; margin-top: 40px; }
+    .actions { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-mod { flex: 1; padding: 8px; background: #1769aa; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .btn-del { flex: 1; padding: 8px; background: #d32f2f; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -47,9 +50,27 @@
           <div class="name">${c.nominativo}</div>
           <div class="info">🆔 ${c.user_id || '-'}</div>
           <div class="info">💶 ${c.prezzo || 0}€ / ${c.cadenza || '-'}</div>
+          <div class="actions">
+            <button class="btn-mod" onclick="modifica(${c.id})">✏️ Modifica</button>
+            <button class="btn-del" onclick="cancella(${c.id}, '${c.nominativo}')">🗑️ Cancella</button>
+          </div>
         `;
         listaDiv.appendChild(div);
       });
+    }
+
+    function modifica(id) {
+      // Reindirizza alla pagina di modifica passando l'ID
+      window.location.href = `modifica.html?id=${id}`;
+    }
+
+    function cancella(id, nome) {
+      if (confirm(`Sei sicuro di voler cancellare definitivamente ${nome}?`)) {
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+          tg.sendData(JSON.stringify({ azione: "cancella", id: id }));
+        }
+      }
     }
 
     function filtra() {
