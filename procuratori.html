@@ -8,24 +8,37 @@
   <style>
     body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
     .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f9f9f9); }
-    .name { font-weight: bold; font-size: 1.1em; }
+    .name { font-weight: bold; font-size: 1.1em; margin-bottom: 8px; }
     .empty { text-align: center; color: #999; margin-top: 40px; }
+    .actions { display: flex; gap: 8px; }
+    .btn-mod { flex: 1; padding: 8px; background: #1769aa; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .btn-del { flex: 1; padding: 8px; background: #d32f2f; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .input-group { margin-bottom: 16px; display: flex; gap: 8px; }
+    .input-group input { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #ccc; }
+    .btn-add { padding: 10px 16px; background: #2e7d32; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
   </style>
 </head>
 <body>
-  <h1>🏢 Procuratori</h1>
+  <h1>⚖️ Procuratori</h1>
+  
+  <div class="input-group">
+    <input type="text" id="nuovoNome" placeholder="Nuovo Procuratore...">
+    <button class="btn-add" onclick="aggiungi()">Aggiungi</button>
+  </div>
+
   <div id="lista"></div>
 
   <script>
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
     const API_BASE = ""; 
+    const TABELLA = "procuratori"; 
     const listaDiv = document.getElementById("lista");
 
     async function carica() {
       try {
         listaDiv.innerHTML = "<div class='empty'>Caricamento...</div>";
-        const r = await fetch(`${API_BASE}/api/procuratori`);
+        const r = await fetch(`${API_BASE}/api/${TABELLA}`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const lista = await r.json();
         render(lista);
@@ -37,15 +50,64 @@
     function render(lista) {
       listaDiv.innerHTML = "";
       if (lista.length === 0) {
-        listaDiv.innerHTML = "<div class='empty'>Nessun procuratore trovato.</div>";
+        listaDiv.innerHTML = "<div class='empty'>Nessun elemento trovato.</div>";
         return;
       }
       lista.forEach(item => {
         const div = document.createElement("div");
         div.className = "card";
-        div.innerHTML = `<div class="name">${item.nominativo}</div>`;
+        div.innerHTML = `
+          <div class="name">${item.nominativo}</div>
+          <div class="actions">
+            <button class="btn-mod" onclick="modifica(${item.id}, '${item.nominativo}')">✏️ Modifica</button>
+            <button class="btn-del" onclick="cancella(${item.id})">🗑️ Cancella</button>
+          </div>
+        `;
         listaDiv.appendChild(div);
       });
+    }
+
+    async function aggiungi() {
+      const nome = document.getElementById("nuovoNome").value.trim();
+      if (!nome) return alert("Inserisci un nome!");
+      try {
+        const r = await fetch(`${API_BASE}/api/azione_generica`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dati: { azione: "nuovo_generico", tabella: TABELLA, nominativo: nome } })
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        document.getElementById("nuovoNome").value = "";
+        carica();
+      } catch (e) { alert("Errore: " + e.message); }
+    }
+
+    async function modifica(id, vecchioNome) {
+      const nuovoNome = prompt("Modifica nome:", vecchioNome);
+      if (nuovoNome && nuovoNome.trim() !== "" && nuovoNome !== vecchioNome) {
+        try {
+          const r = await fetch(`${API_BASE}/api/azione_generica`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dati: { azione: "modifica_generica", tabella: TABELLA, id: id, nominativo: nuovoNome.trim() } })
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          carica();
+        } catch (e) { alert("Errore: " + e.message); }
+      }
+    }
+
+    async function cancella(id) {
+      if (!confirm("Sei sicuro di voler cancellare?")) return;
+      try {
+        const r = await fetch(`${API_BASE}/api/azione_generica`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dati: { azione: "cancella_generica", tabella: TABELLA, id: id } })
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        carica();
+      } catch (e) { alert("Errore: " + e.message); }
     }
 
     carica();
