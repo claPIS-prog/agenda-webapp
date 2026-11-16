@@ -28,8 +28,9 @@
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
 
-    // URL del tuo backend su Render
-    const API_BASE = "https://agenda-webapp.onrender.com";
+    // Ora che la pagina è servita da Render, usiamo un percorso relativo.
+    // Stesso dominio = niente problemi di CORS.
+    const API_BASE = ""; 
 
     let contatti = [];
     const listaDiv = document.getElementById("lista");
@@ -39,7 +40,6 @@
       try {
         listaDiv.innerHTML = "<div class='empty'>Caricamento in corso...</div>";
         
-        // Chiamata semplificata: niente header personalizzati, solo il necessario
         const r = await fetch(`${API_BASE}/api/contatti`);
         
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
