@@ -88,6 +88,38 @@ def api_nominativi():
     finally:
         conn.close()
 
+# --- API PER RESELLER, PROCURATORI, SERVER ---
+
+@app.get("/api/resellers")
+def api_resellers():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM resellers ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/procuratori")
+def api_procuratori():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM procuratori ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/servers")
+def api_servers():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM servers ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
 class RinnovoPayload(BaseModel):
     dati: dict
 
