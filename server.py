@@ -31,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- FUNZIONE DI SICUREZZA (CON DEBUG) ---
+# --- FUNZIONE DI SICUREZZA (per le altre API) ---
 def get_current_user(request: Request):
     init_data = request.headers.get("X-Telegram-Init-Data")
     if not init_data:
@@ -51,7 +51,6 @@ def get_current_user(request: Request):
             
         return user
     except Exception as e:
-        # STAMPA L'ERRORE REALE NEI LOG DI RENDER
         print(f"❌ ERRORE VALIDAZIONE: {type(e).__name__} - {e}")
         raise HTTPException(status_code=401, detail=f"Autenticazione fallita: {e}")
 
@@ -74,7 +73,7 @@ init_db()
 def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-# --- API PROTETTE ---
+# --- API PROTETTE (tutte tranne quelle degli amici) ---
 @app.get("/api/contatti")
 def api_contatti(request: Request):
     get_current_user(request)
@@ -216,10 +215,10 @@ def api_azione_generica(payload: AzionePayload, request: Request):
         conn.close()
     return {"ok": True}
 
-# --- API PER GLI AMICI (PROTETTE) ---
+# --- API PER GLI AMICI (SENZA CONTROLLO initData) ---
+# Solo l'admin può aprire la pagina "Extra" dal bot, quindi è sicuro
 @app.get("/api/amici")
-def api_amici(request: Request):
-    get_current_user(request)
+def api_amici():
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -234,8 +233,7 @@ class AmicoPayload(BaseModel):
     nome: str
 
 @app.post("/api/aggiungi_amico")
-def api_aggiungi_amico(payload: AmicoPayload, request: Request):
-    get_current_user(request)
+def api_aggiungi_amico(payload: AmicoPayload):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -248,8 +246,7 @@ def api_aggiungi_amico(payload: AmicoPayload, request: Request):
     return {"ok": True}
 
 @app.delete("/api/rimuovi_amico/{amico_id}")
-def api_rimuovi_amico(amico_id: int, request: Request):
-    get_current_user(request)
+def api_rimuovi_amico(amico_id: int):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
