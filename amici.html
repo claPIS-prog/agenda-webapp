@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestisci Amici</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f9f9f9); }
+    .name { font-weight: bold; font-size: 1.1em; margin-bottom: 4px; }
+    .info { color: #666; font-size: 0.9em; margin-bottom: 8px; }
+    .empty { text-align: center; color: #999; margin-top: 40px; }
+    .actions { display: flex; gap: 8px; }
+    .btn-del { padding: 8px; background: #d32f2f; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .input-group { margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
+    .input-group input { padding: 10px; border-radius: 6px; border: 1px solid #ccc; }
+    .btn-add { padding: 12px; background: #2e7d32; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>👥 Gestisci Amici</h1>
+  
+  <div class="input-group">
+    <input type="number" id="tg_id" placeholder="ID Telegram dell'amico (es. 123456789)">
+    <input type="text" id="nome" placeholder="Nome (es. Mario Rossi)">
+    <input type="text" id="password" placeholder="Password per l'amico">
+    <button class="btn-add" onclick="aggiungi()">Aggiungi Amico</button>
+  </div>
+
+  <h2>Amici Autorizzati</h2>
+  <div id="lista"></div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
+    const API_BASE = ""; 
+    const listaDiv = document.getElementById("lista");
+
+    // Funzione per inviare i dati con l'autenticazione di Telegram
+    async function apiFetch(url, options = {}) {
+      const headers = {
+        ...options.headers,
+        "X-Telegram-Init-Data": tg?.initData || ""
+      };
+      return fetch(`${API_BASE}${url}`, { ...options, headers });
+    }
+
+    async function carica() {
+      try {
+        listaDiv.innerHTML = "<div class='empty'>Caricamento...</div>";
+        const r = await apiFetch('/api/amici');
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const lista = await r.json();
+        render(lista);
+      } catch (e) {
+        listaDiv.innerHTML = `<div class='empty'>Errore: ${e.message}</div>`;
+      }
+    }
+
+    function render(lista) {
+      listaDiv.innerHTML = "";
+      if (lista.length === 0) {
+        listaDiv.innerHTML = "<div class='empty'>Nessun amico aggiunto.</div>";
+        return;
+      }
+      lista.forEach(amico => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <div class="name">${amico.nome}</div>
+          <div class="info">ID: ${amico.telegram_id}</div>
+          <div class="actions">
+            <button class="btn-del" onclick="rimuovi(${amico.id}, '${amico.nome}')">🗑️ Rimuovi</button>
+          </div>
+        `;
+        listaDiv.appendChild(div);
+      });
+    }
+
+    async function aggiungi() {
+      const tg_id = document.getElementById("tg_id").value;
+      const nome = document.getElementById("nome").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if (!tg_id || !nome || !password) return alert("Compila tutti i campi!");
+
+      try {
+        const r = await apiFetch('/api/aggiungi_amico', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ telegram_id: parseInt(tg_id), nome: nome, password: password })
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        
+        // Svuota i campi e ricarica la lista
+        document.getElementById("tg_id").value = "";
+        document.getElementById("nome").value = "";
+        document.getElementById("password").value = "";
+        carica();
+        alert("✅ Amico aggiunto!");
+      } catch (e) {
+        alert("Errore: " + e.message);
+      }
+    }
+
+    async function rimuovi(id, nome) {
+      if (!confirm(`Sei sicuro di voler rimuovere ${nome}?`)) return;
+      try {
+        const r = await apiFetch(`/api/rimuovi_amico/${id}`, { method: "DELETE" });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        carica();
+      } catch (e) {
+        alert("Errore: " + e.message);
+      }
+    }
+
+    carica();
+  </script>
+</body>
+</html>

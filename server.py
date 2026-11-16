@@ -8,14 +8,18 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from telegram_init_data import validate, parse
 import uvicorn
 from dotenv import load_dotenv
 
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise SystemExit("❌ DATABASE_URL mancante.")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+AUTHORIZED_IDS = {int(x) for x in os.getenv("AUTHORIZED_IDS", "").split(",") if x}
+
+if not DATABASE_URL or not BOT_TOKEN:
+    raise SystemExit("❌ DATABASE_URL o BOT_TOKEN mancanti.")
 
 app = FastAPI()
 
@@ -27,16 +31,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- FUNZIONE DI SICUREZZA ---
+def get_current_user(request: Request):
+    init_data = request.headers.get("X-Telegram-Init-Data")
+    if not init_data:
+        raise HTTPException(status_code=401, detail="Header initData mancante")
+    
+    try:
+        validate(init_data, BOT_TOKEN)
+        data = parse(init_data)
+        user = data.get("user")
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="Dati utente non trovati")
+            
+        uid = user.get("id")
+        if AUTHORIZED_IDS and uid not in AUTHORIZED_IDS:
+            raise HTTPException(status_code=403, detail="Utente non autorizzato")
+            
+        return user
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Autenticazione fallita: {e}")
+
 def init_db():
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor() as cur:
-            # Creazione tabelle base
             cur.execute("""CREATE TABLE IF NOT EXISTS nominativi (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, prezzo REAL DEFAULT 0, cadenza TEXT, tipo TEXT);""")
             cur.execute("""CREATE TABLE IF NOT EXISTS rinnovi (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), tipo TEXT, data_operazione TEXT, mesi INTEGER, scadenza TEXT, importo_acconto REAL DEFAULT 0, importo_saldo REAL DEFAULT 0, data_acconto TEXT, data_saldo TEXT, note TEXT, creato_il TEXT);""")
             cur.execute("CREATE TABLE IF NOT EXISTS servers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
             cur.execute("CREATE TABLE IF NOT EXISTS resellers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
             cur.execute("CREATE TABLE IF NOT EXISTS procuratori (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
+            # Tabella per gli amici autorizzati
+            cur.execute("""CREATE TABLE IF NOT EXISTS autorizzati (
+                id SERIAL PRIMARY KEY,
+                telegram_id BIGINT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                nome TEXT
+            );""")
         conn.commit()
     finally:
         conn.close()
@@ -46,19 +78,33 @@ init_db()
 def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
+# --- API PER I NOMINATIVI ---
 @app.get("/api/contatti")
-def api_contatti():
+def api_contatti(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Usiamo solo le colonne sicure
             cur.execute("SELECT id, nominativo, prezzo, cadenza, tipo FROM nominativi ORDER BY nominativo")
             return cur.fetchall()
     finally:
         conn.close()
 
+@app.get("/api/nominativi")
+def api_nominativi(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM nominativi ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+# --- API PER SCADENZE E RINNOVI ---
 @app.get("/api/scadenze")
-def api_scadenze():
+def api_scadenze(request: Request):
+    get_current_user(request)
     oggi = datetime.now()
     tra30 = oggi + timedelta(days=30)
     conn = db_conn()
@@ -80,54 +126,12 @@ def api_scadenze():
     finally:
         conn.close()
 
-@app.get("/api/nominativi")
-def api_nominativi():
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, nominativo FROM nominativi ORDER BY nominativo")
-            return cur.fetchall()
-    finally:
-        conn.close()
-
-@app.get("/api/resellers")
-def api_resellers():
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, nominativo FROM resellers ORDER BY nominativo")
-            return cur.fetchall()
-    finally:
-        conn.close()
-
-@app.get("/api/procuratori")
-def api_procuratori():
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, nominativo FROM procuratori ORDER BY nominativo")
-            return cur.fetchall()
-    finally:
-        conn.close()
-
-@app.get("/api/servers")
-def api_servers():
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, nominativo FROM servers ORDER BY nominativo")
-            return cur.fetchall()
-    finally:
-        conn.close()
-
 class RinnovoPayload(BaseModel):
     dati: dict
 
-class AzionePayload(BaseModel):
-    dati: dict
-
 @app.post("/api/rinnovo")
-def api_rinnovo(payload: RinnovoPayload):
+def api_rinnovo(payload: RinnovoPayload, request: Request):
+    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -140,8 +144,90 @@ def api_rinnovo(payload: RinnovoPayload):
         conn.close()
     return {"ok": True}
 
+# --- API PER RESELLER, PROCURATORI, SERVER ---
+@app.get("/api/resellers")
+def api_resellers(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM resellers ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/procuratori")
+def api_procuratori(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM procuratori ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/servers")
+def api_servers(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM servers ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+# --- API PER GLI AMICI ---
+@app.get("/api/amici")
+def api_amici(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, telegram_id, nome FROM autorizzati ORDER BY id")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+class AmicoPayload(BaseModel):
+    telegram_id: int
+    password: str
+    nome: str
+
+@app.post("/api/aggiungi_amico")
+def api_aggiungi_amico(payload: AmicoPayload, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO autorizzati (telegram_id, password, nome) VALUES (%s, %s, %s) 
+                           ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome""",
+                        (payload.telegram_id, payload.password, payload.nome))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/rimuovi_amico/{amico_id}")
+def api_rimuovi_amico(amico_id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM autorizzati WHERE id = %s", (amico_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# --- API PER AZIONI GENERICHE (NOMINATIVI E CATEGORIE) ---
+class AzionePayload(BaseModel):
+    dati: dict
+
 @app.post("/api/azione")
-def api_azione(payload: AzionePayload):
+def api_azione(payload: AzionePayload, request: Request):
+    get_current_user(request)
     dati = payload.dati
     azione = dati.get("azione", "")
     conn = db_conn()
@@ -161,7 +247,8 @@ def api_azione(payload: AzionePayload):
     return {"ok": True}
 
 @app.post("/api/azione_generica")
-def api_azione_generica(payload: AzionePayload):
+def api_azione_generica(payload: AzionePayload, request: Request):
+    get_current_user(request)
     dati = payload.dati
     azione = dati.get("azione", "")
     tabella = dati.get("tabella", "")
