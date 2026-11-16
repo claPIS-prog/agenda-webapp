@@ -6,126 +6,108 @@
   <title>Nuovo Rinnovo</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 16px; font: 16px/1.5 system-ui, sans-serif; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #17212b); }
-    h1 { font-size: 1.3rem; margin-bottom: 16px; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-    .row.full { grid-template-columns: 1fr; }
-    label { display: block; font-size: 0.85rem; margin-bottom: 4px; opacity: 0.8; }
-    input, select, textarea { width: 100%; min-height: 44px; padding: 8px; font: inherit; border: 1px solid #88939d; border-radius: 8px; background: var(--tg-theme-secondary-bg-color, #f4f4f5); color: inherit; }
-    button { width: 100%; min-height: 50px; margin-top: 16px; font: inherit; font-weight: bold; border: none; border-radius: 8px; background: var(--tg-theme-button-color, #1769aa); color: var(--tg-theme-button-text-color, #fff); }
-    #status { margin-top: 12px; text-align: center; font-size: 0.9rem; }
+    body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
+    input, select { width: 100%; padding: 12px; margin-bottom: 16px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; box-sizing: border-box; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; }
+    button { width: 100%; padding: 14px; background: #1769aa; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    button:disabled { background: #ccc; }
   </style>
 </head>
 <body>
   <h1>🔄 Nuovo Rinnovo</h1>
-  <form id="form">
-    <div class="row full">
-      <div>
-        <label>Seleziona Nominativo *</label>
-        <select id="nominativo" required>
-          <option value="">— Scegli —</option>
-        </select>
-      </div>
-    </div>
-    
-    <div class="row">
-      <div>
-        <label>Tipo *</label>
-        <select id="tipo" required>
-          <option value="rinnovo">Rinnovo</option>
-          <option value="nuovo">Nuovo</option>
-        </select>
-      </div>
-      <div><label>Data Operazione</label><input id="data_operazione" type="date"></div>
-    </div>
-    
-    <div class="row">
-      <div><label>Mesi (1-12)</label><input id="mesi" type="number" min="1" max="12" value="1"></div>
-      <div><label>Scadenza calcolata</label><input id="scadenza" readonly style="background:#e0e0e0;"></div>
-    </div>
-    
-    <div class="row">
-      <div><label>Importo Acconto (€)</label><input id="importo_acconto" type="number" step="0.01" value="0"></div>
-      <div><label>Importo Saldo (€)</label><input id="importo_saldo" type="number" step="0.01" value="0"></div>
-    </div>
-    
-    <div class="row full">
-      <div><label>Note</label><textarea id="note" rows="3"></textarea></div>
-    </div>
-    
-    <button type="submit">💾 Registra Rinnovo</button>
-    <p id="status"></p>
-  </form>
+  
+  <label>Seleziona Nominativo:</label>
+  <select id="nominativo"></select>
+
+  <label>Tipo Rinnovo:</label>
+  <input type="text" id="tipo" value="rinnovo">
+
+  <label>Data Operazione (gg/mm/aaaa):</label>
+  <input type="date" id="data_operazione">
+
+  <label>Mesi (1-12):</label>
+  <input type="number" id="mesi" min="1" max="12" value="1">
+
+  <label>Importo Acconto (€):</label>
+  <input type="number" id="acconto" step="0.01" value="0">
+
+  <label>Importo Saldo (€):</label>
+  <input type="number" id="saldo" step="0.01" value="0">
+
+  <button id="btnSalva" onclick="salvaRinnovo()">Registra Rinnovo</button>
 
   <script>
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
+    const API_BASE = ""; 
 
-    const params = new URLSearchParams(window.location.search);
-    let nominativi = [];
-    try {
-      nominativi = JSON.parse(params.get("nominativi") || "[]");
-    } catch (e) { console.error(e); }
+    // Imposta la data di oggi di default
+    document.getElementById("data_operazione").valueAsDate = new Date();
 
-    const selectNom = document.getElementById("nominativo");
-    
-    nominativi.forEach(n => {
-      const opt = document.createElement("option");
-      opt.value = n.id;
-      opt.textContent = n.nominativo;
-      selectNom.appendChild(opt);
-    });
-
-    const oggi = new Date().toISOString().split('T')[0];
-    document.getElementById("data_operazione").value = oggi;
-
-    function calcolaScadenza() {
-      const dataOp = document.getElementById("data_operazione").value;
-      const mesi = parseInt(document.getElementById("mesi").value) || 0;
-      if (!dataOp || !mesi) return;
-      
-      const dt = new Date(dataOp);
-      dt.setMonth(dt.getMonth() + mesi);
-      
-      const gg = String(dt.getDate()).padStart(2, '0');
-      const mm = String(dt.getMonth() + 1).padStart(2, '0');
-      const aaaa = dt.getFullYear();
-      
-      document.getElementById("scadenza").value = `${gg}/${mm}/${aaaa}`;
+    async function caricaNominativi() {
+      try {
+        const r = await fetch(`${API_BASE}/api/nominativi`);
+        const lista = await r.json();
+        const select = document.getElementById("nominativo");
+        select.innerHTML = '<option value="">-- Scegli --</option>';
+        lista.forEach(n => {
+          select.innerHTML += `<option value="${n.id}">${n.nominativo}</option>`;
+        });
+      } catch (e) {
+        alert("Errore nel caricamento nominativi: " + e.message);
+      }
     }
 
-    document.getElementById("data_operazione").addEventListener("change", calcolaScadenza);
-    document.getElementById("mesi").addEventListener("input", calcolaScadenza);
-    calcolaScadenza();
+    async function salvaRinnovo() {
+      const btn = document.getElementById("btnSalva");
+      btn.disabled = true;
+      btn.innerText = "Salvataggio in corso...";
 
-    document.getElementById("form").addEventListener("submit", (e) => {
-      e.preventDefault();
+      const nomId = document.getElementById("nominativo").value;
+      const dataOp = document.getElementById("data_operazione").value;
+      const mesi = parseInt(document.getElementById("mesi").value);
       
-      const dati = {
-        nominativo_id: document.getElementById("nominativo").value,
-        tipo: document.getElementById("tipo").value,
-        data_operazione: document.getElementById("data_operazione").value,
-        mesi: parseInt(document.getElementById("mesi").value),
-        scadenza: document.getElementById("scadenza").value,
-        importo_acconto: parseFloat(document.getElementById("importo_acconto").value) || 0,
-        importo_saldo: parseFloat(document.getElementById("importo_saldo").value) || 0,
-        note: document.getElementById("note").value.trim()
+      if (!nomId || !dataOp) {
+        alert("Seleziona un nominativo e una data.");
+        btn.disabled = false;
+        btn.innerText = "Registra Rinnovo";
+        return;
+      }
+
+      // Calcolo scadenza (stessa logica del bot)
+      const dataObj = new Date(dataOp);
+      dataObj.setMonth(dataObj.getMonth() + mesi);
+      const scadenzaStr = dataObj.toLocaleDateString('it-IT'); // gg/mm/aaaa
+
+      const payload = {
+        dati: {
+          nominativo_id: nomId,
+          tipo: document.getElementById("tipo").value,
+          data_operazione: dataOp,
+          mesi: mesi,
+          scadenza: scadenzaStr,
+          importo_acconto: document.getElementById("acconto").value,
+          importo_saldo: document.getElementById("saldo").value
+        }
       };
 
-      if (!dati.nominativo_id) {
-        document.getElementById("status").textContent = "Seleziona un nominativo!";
-        return;
+      try {
+        const r = await fetch(`${API_BASE}/api/rinnovo`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        alert("✅ Rinnovo registrato con successo!\nNuova scadenza: " + scadenzaStr);
+        if (tg) tg.close(); // Chiude la WebApp
+      } catch (e) {
+        alert("Errore: " + e.message);
+        btn.disabled = false;
+        btn.innerText = "Registra Rinnovo";
       }
-      
-      if (!tg) {
-        document.getElementById("status").textContent = "Apri questa pagina dal bot Telegram";
-        return;
-      }
-      
-      tg.sendData(JSON.stringify(dati));
-      document.getElementById("status").textContent = "Inviato! Chiudi questa finestra.";
-    });
+    }
+
+    caricaNominativi();
   </script>
 </body>
 </html>
