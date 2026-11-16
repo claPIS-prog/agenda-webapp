@@ -17,17 +17,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Usiamo DATABASE_URL invece di DB_FILE (per Neon/Postgres)
 DATABASE_URL = os.getenv("DATABASE_URL")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 AUTHORIZED_IDS = {int(x) for x in os.getenv("AUTHORIZED_IDS", "").split(",") if x}
 
 if not DATABASE_URL:
-    raise SystemExit("❌ DATABASE_URL mancante. Imposta la stringa di connessione di Neon.")
+    raise SystemExit("❌ DATABASE_URL mancante.")
 
 app = FastAPI()
 
-# CORS: configurazione precisa per Telegram WebApp
+# CORS: configurazione esplicita (NON usare "*" con credentials)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -35,16 +34,12 @@ app.add_middleware(
         "https://clapIS-prog.github.io",
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=[
-        "Content-Type",
-        "X-Telegram-Init-Data",
-        "X-Requested-With",
-    ],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Telegram-Init-Data", "X-Requested-With", "Accept", "Origin"],
 )
 
 # ------------------------------------------------------------
-# Inizializzazione Tabelle su Neon (Postgres)
+# Inizializzazione Tabelle
 # ------------------------------------------------------------
 def init_db():
     conn = psycopg2.connect(DATABASE_URL)
@@ -69,22 +64,13 @@ def init_db():
 
 init_db()
 
-# ------------------------------------------------------------
-# Connessione a Postgres
-# ------------------------------------------------------------
 def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-# ------------------------------------------------------------
-# FUNZIONE DI SICUREZZA (BYPASSATA PER TEST)
-# ------------------------------------------------------------
+# BYPASS SICUREZZA (temporaneo)
 def get_current_user(request: Request):
-    # MODIFICA TEMPORANEA: Accetta chiunque per far funzionare la WebApp
     return {"id": 129937740, "first_name": "Claudio"}
 
-# ------------------------------------------------------------
-# API
-# ------------------------------------------------------------
 @app.get("/api/contatti")
 def api_contatti(request: Request):
     get_current_user(request)
