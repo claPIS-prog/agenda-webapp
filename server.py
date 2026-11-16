@@ -31,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- FUNZIONE DI SICUREZZA (per le altre API) ---
+# --- FUNZIONE DI SICUREZZA ---
 def get_current_user(request: Request):
     init_data = request.headers.get("X-Telegram-Init-Data")
     if not init_data:
@@ -73,7 +73,7 @@ init_db()
 def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-# --- API PROTETTE (tutte tranne quelle degli amici) ---
+# --- API PROTETTE ---
 @app.get("/api/contatti")
 def api_contatti(request: Request):
     get_current_user(request)
@@ -215,10 +215,10 @@ def api_azione_generica(payload: AzionePayload, request: Request):
         conn.close()
     return {"ok": True}
 
-# --- API PER GLI AMICI (SENZA CONTROLLO initData) ---
-# Solo l'admin può aprire la pagina "Extra" dal bot, quindi è sicuro
+# --- API PER GLI AMICI (PROTETTE) ---
 @app.get("/api/amici")
-def api_amici():
+def api_amici(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -233,7 +233,8 @@ class AmicoPayload(BaseModel):
     nome: str
 
 @app.post("/api/aggiungi_amico")
-def api_aggiungi_amico(payload: AmicoPayload):
+def api_aggiungi_amico(payload: AmicoPayload, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -246,7 +247,8 @@ def api_aggiungi_amico(payload: AmicoPayload):
     return {"ok": True}
 
 @app.delete("/api/rimuovi_amico/{amico_id}")
-def api_rimuovi_amico(amico_id: int):
+def api_rimuovi_amico(amico_id: int, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
