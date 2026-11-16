@@ -37,12 +37,11 @@
 
     async function caricaContatti() {
       try {
-        // Mostriamo un messaggio di caricamento
         listaDiv.innerHTML = "<div class='empty'>Caricamento in corso...</div>";
         
-        const r = await fetch(`${API_BASE}/api/contatti`, {
-          headers: { "X-Telegram-Init-Data": tg?.initData || "" }
-        });
+        // Chiamata semplificata: niente header personalizzati, solo il necessario
+        const r = await fetch(`${API_BASE}/api/contatti`);
+        
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         contatti = await r.json();
         render(contatti);
@@ -83,8 +82,7 @@
         const r = await fetch(`${API_BASE}/api/azione`, {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
-            "X-Telegram-Init-Data": tg?.initData || ""
+            "Content-Type": "application/json"
           },
           body: JSON.stringify({ dati: { azione: "cancella", id } })
         });
