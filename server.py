@@ -11,6 +11,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import uvicorn
 from dotenv import load_dotenv
@@ -26,23 +28,13 @@ if not DATABASE_URL:
 
 app = FastAPI()
 
-# CORS definitivo: accetta l'origine di GitHub Pages e gli header di Telegram
+# CORS permissivo per sicurezza
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://claPIS-prog.github.io",
-        "https://clapIS-prog.github.io",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=[
-        "Content-Type",
-        "X-Telegram-Init-Data",
-        "X-Telegram-User",
-        "X-Requested-With",
-        "Accept",
-        "Origin",
-    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ------------------------------------------------------------
@@ -122,6 +114,10 @@ def api_azione(payload: AzionePayload, request: Request):
 @app.get("/health")
 def health():
     return {"ok": True}
+
+# --- SERVE I FILE STATICI (HTML) ---
+# Questo permette a Render di servire elencazione.html
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
