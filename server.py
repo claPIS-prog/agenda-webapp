@@ -78,6 +78,33 @@ def api_scadenze():
     finally:
         conn.close()
 
+@app.get("/api/nominativi")
+def api_nominativi():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM nominativi ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+class RinnovoPayload(BaseModel):
+    dati: dict
+
+@app.post("/api/rinnovo")
+def api_rinnovo(payload: RinnovoPayload):
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO rinnovi (nominativo_id, tipo, data_operazione, mesi, scadenza, importo_acconto, importo_saldo, data_acconto, data_saldo, note, creato_il) 
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", 
+                           (int(dati.get("nominativo_id")), dati.get("tipo", "rinnovo"), dati.get("data_operazione"), int(dati.get("mesi")), dati.get("scadenza"), float(dati.get("importo_acconto", 0)), float(dati.get("importo_saldo", 0)), "", "", "", datetime.now().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
 class AzionePayload(BaseModel):
     dati: dict
 
