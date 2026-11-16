@@ -31,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- FUNZIONE DI SICUREZZA ---
+# --- FUNZIONE DI SICUREZZA (CON DEBUG) ---
 def get_current_user(request: Request):
     init_data = request.headers.get("X-Telegram-Init-Data")
     if not init_data:
@@ -51,6 +51,8 @@ def get_current_user(request: Request):
             
         return user
     except Exception as e:
+        # STAMPA L'ERRORE REALE NEI LOG DI RENDER
+        print(f"❌ ERRORE VALIDAZIONE: {type(e).__name__} - {e}")
         raise HTTPException(status_code=401, detail=f"Autenticazione fallita: {e}")
 
 def init_db():
