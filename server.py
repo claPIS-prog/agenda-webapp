@@ -27,17 +27,20 @@ if not DATABASE_URL:
 
 app = FastAPI()
 
-# CORS: consenti GitHub Pages (entrambe le varianti) + localhost
+# CORS: configurazione precisa per Telegram WebApp
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://claPIS-prog.github.io",
         "https://clapIS-prog.github.io",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
     ],
+    allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=[
+        "Content-Type",
+        "X-Telegram-Init-Data",
+        "X-Requested-With",
+    ],
 )
 
 # ------------------------------------------------------------
