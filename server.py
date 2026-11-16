@@ -62,13 +62,7 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS servers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
             cur.execute("CREATE TABLE IF NOT EXISTS resellers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
             cur.execute("CREATE TABLE IF NOT EXISTS procuratori (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
-            # Tabella per gli amici autorizzati
-            cur.execute("""CREATE TABLE IF NOT EXISTS autorizzati (
-                id SERIAL PRIMARY KEY,
-                telegram_id BIGINT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                nome TEXT
-            );""")
+            cur.execute("""CREATE TABLE IF NOT EXISTS autorizzati (id SERIAL PRIMARY KEY, telegram_id BIGINT UNIQUE NOT NULL, password TEXT NOT NULL, nome TEXT);""")
         conn.commit()
     finally:
         conn.close()
@@ -78,7 +72,7 @@ init_db()
 def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-# --- API PER I NOMINATIVI ---
+# --- API PROTETTE ---
 @app.get("/api/contatti")
 def api_contatti(request: Request):
     get_current_user(request)
@@ -101,7 +95,6 @@ def api_nominativi(request: Request):
     finally:
         conn.close()
 
-# --- API PER SCADENZE E RINNOVI ---
 @app.get("/api/scadenze")
 def api_scadenze(request: Request):
     get_current_user(request)
@@ -144,7 +137,6 @@ def api_rinnovo(payload: RinnovoPayload, request: Request):
         conn.close()
     return {"ok": True}
 
-# --- API PER RESELLER, PROCURATORI, SERVER ---
 @app.get("/api/resellers")
 def api_resellers(request: Request):
     get_current_user(request)
@@ -178,50 +170,6 @@ def api_servers(request: Request):
     finally:
         conn.close()
 
-# --- API PER GLI AMICI ---
-@app.get("/api/amici")
-def api_amici(request: Request):
-    get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, telegram_id, nome FROM autorizzati ORDER BY id")
-            return cur.fetchall()
-    finally:
-        conn.close()
-
-class AmicoPayload(BaseModel):
-    telegram_id: int
-    password: str
-    nome: str
-
-@app.post("/api/aggiungi_amico")
-def api_aggiungi_amico(payload: AmicoPayload, request: Request):
-    get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""INSERT INTO autorizzati (telegram_id, password, nome) VALUES (%s, %s, %s) 
-                           ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome""",
-                        (payload.telegram_id, payload.password, payload.nome))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
-
-@app.delete("/api/rimuovi_amico/{amico_id}")
-def api_rimuovi_amico(amico_id: int, request: Request):
-    get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM autorizzati WHERE id = %s", (amico_id,))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
-
-# --- API PER AZIONI GENERICHE (NOMINATIVI E CATEGORIE) ---
 class AzionePayload(BaseModel):
     dati: dict
 
@@ -261,6 +209,49 @@ def api_azione_generica(payload: AzionePayload, request: Request):
                 cur.execute(f"UPDATE {tabella} SET nominativo = %s WHERE id = %s", (dati.get("nominativo"), dati.get("id")))
             elif azione == "nuovo_generico":
                 cur.execute(f"INSERT INTO {tabella} (nominativo) VALUES (%s)", (dati.get("nominativo"),))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# --- API PER GLI AMICI (PROTETTE) ---
+@app.get("/api/amici")
+def api_amici(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, telegram_id, nome FROM autorizzati ORDER BY id")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+class AmicoPayload(BaseModel):
+    telegram_id: int
+    password: str
+    nome: str
+
+@app.post("/api/aggiungi_amico")
+def api_aggiungi_amico(payload: AmicoPayload, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO autorizzati (telegram_id, password, nome) VALUES (%s, %s, %s) 
+                           ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome""",
+                        (payload.telegram_id, payload.password, payload.nome))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/rimuovi_amico/{amico_id}")
+def api_rimuovi_amico(amico_id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM autorizzati WHERE id = %s", (amico_id,))
         conn.commit()
     finally:
         conn.close()
