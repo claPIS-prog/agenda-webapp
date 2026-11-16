@@ -27,11 +27,12 @@ if not DATABASE_URL:
 
 app = FastAPI()
 
-# CORS: consenti GitHub Pages + localhost
+# CORS: consenti GitHub Pages (entrambe le varianti) + localhost
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://claPIS-prog.github.io",
+        "https://clapIS-prog.github.io",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
     ],
