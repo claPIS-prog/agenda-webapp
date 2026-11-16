@@ -26,7 +26,7 @@ if not DATABASE_URL:
 
 app = FastAPI()
 
-# CORS: configurazione esplicita (NON usare "*" con credentials)
+# CORS definitivo: accetta l'origine di GitHub Pages e gli header di Telegram
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -35,7 +35,14 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Telegram-Init-Data", "X-Requested-With", "Accept", "Origin"],
+    allow_headers=[
+        "Content-Type",
+        "X-Telegram-Init-Data",
+        "X-Telegram-User",
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+    ],
 )
 
 # ------------------------------------------------------------
