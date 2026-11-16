@@ -25,7 +25,7 @@
     async function carica() {
       try {
         listaDiv.innerHTML = "<div class='empty'>Caricamento...</div>";
-        const r = await fetch(`${API_BASE}/api/server`);
+        const r = await fetch(`${API_BASE}/api/servers`);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const lista = await r.json();
         render(lista);
