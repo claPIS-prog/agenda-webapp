@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestione Liste</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f9f9f9); }
+    .name { font-weight: bold; font-size: 1.1em; margin-bottom: 4px; }
+    .actions { display: flex; gap: 8px; }
+    .btn-mod { flex: 1; padding: 8px; background: #1769aa; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .btn-del { flex: 1; padding: 8px; background: #d32f2f; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .input-group { margin-bottom: 16px; display: flex; gap: 8px; }
+    .input-group input { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #ccc; }
+    .btn-add { padding: 10px 16px; background: #2e7d32; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    h2 { margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <h1>⚙️ Gestione Liste</h1>
+  
+  <!-- DISPOSITIVI -->
+  <h2>📱 Dispositivi</h2>
+  <div class="input-group">
+    <input type="text" id="dispNome" placeholder="Nuovo Dispositivo...">
+    <button class="btn-add" onclick="aggiungi('dispositivi')">Aggiungi</button>
+  </div>
+  <div id="lista-dispositivi"></div>
+
+  <!-- SISTEMI OPERATIVI -->
+  <h2>💻 Sistemi Operativi</h2>
+  <div class="input-group">
+    <input type="text" id="soNome" placeholder="Nuovo Sistema Operativo...">
+    <button class="btn-add" onclick="aggiungi('sistemi_operativi')">Aggiungi</button>
+  </div>
+  <div id="lista-sistemi_operativi"></div>
+
+  <!-- BUFFETT -->
+  <h2>🍔 Buffett</h2>
+  <div class="input-group">
+    <input type="text" id="buffettNome" placeholder="Nuovo Buffett...">
+    <button class="btn-add" onclick="aggiungi('buffetts')">Aggiungi</button>
+  </div>
+  <div id="lista-buffetts"></div>
+
+  <!-- METODI DI PAGAMENTO -->
+  <h2>💳 Metodi di Pagamento</h2>
+  <div class="input-group">
+    <input type="text" id="metodoNome" placeholder="Nuovo Metodo...">
+    <button class="btn-add" onclick="aggiungi('metodi_pagamento')">Aggiungi</button>
+  </div>
+  <div id="lista-metodi_pagamento"></div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); }
+    const API_BASE = ""; 
+
+    async function apiFetch(url, options = {}) {
+      const headers = {
+        ...options.headers,
+        "X-Telegram-Init-Data": tg?.initData || ""
+      };
+      return fetch(`${API_BASE}${url}`, { ...options, headers });
+    }
+
+    async function caricaLista(tabella) {
+      const div = document.getElementById(`lista-${tabella}`);
+      try {
+        div.innerHTML = "<div class='empty'>Caricamento...</div>";
+        const r = await apiFetch(`/api/${tabella}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const lista = await r.json();
+        
+        div.innerHTML = "";
+        if (lista.length === 0) {
+          div.innerHTML = "<div class='empty'>Nessun elemento.</div>";
+          return;
+        }
+        lista.forEach(item => {
+          const card = document.createElement("div");
+          card.className = "card";
+          card.innerHTML = `
+            <div class="name">${item.nome}</div>
+            <div class="actions">
+              <button class="btn-mod" onclick="modifica('${tabella}', ${item.id}, '${item.nome}')">✏️ Modifica</button>
+              <button class="btn-del" onclick="cancella('${tabella}', ${item.id})">🗑️ Cancella</button>
+            </div>
+          `;
+          div.appendChild(card);
+        });
+      } catch (e) {
+        div.innerHTML = `<div class='empty'>Errore: ${e.message}</div>`;
+      }
+    }
+
+    async function aggiungi(tabella) {
+      const input = document.getElementById(`${tabella.replace('_', '')}Nome`);
+      const nome = input.value.trim();
+      if (!nome) return alert("Inserisci un nome!");
+      
+      try {
+        const r = await apiFetch('/api/lista/nuovo', {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nome: nome, tabella: tabella })
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        input.value = "";
+        caricaLista(tabella);
+      } catch (e) {
+        alert("Errore: " + e.message);
+      }
+    }
+
+    async function modifica(tabella, id, vecchioNome) {
+      const nuovoNome = prompt("Modifica nome:", vecchioNome);
+      if (nuovoNome && nuovoNome.trim() !== "" && nuovoNome !== vecchioNome) {
+        try {
+          const r = await apiFetch(`/api/lista/modifica?id=${id}&nome=${encodeURIComponent(nuovoNome)}&tabella=${tabella}`, {
+            method: "POST"
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          caricaLista(tabella);
+        } catch (e) {
+          alert("Errore: " + e.message);
+        }
+      }
+    }
+
+    async function cancella(tabella, id) {
+      if (!confirm("Sei sicuro di voler cancellare?")) return;
+      try {
+        const r = await apiFetch(`/api/lista/cancella/${id}?tabella=${tabella}`, { method: "DELETE" });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        caricaLista(tabella);
+      } catch (e) {
+        alert("Errore: " + e.message);
+      }
+    }
+
+    // Carica tutte le liste all'avvio
+    ['dispositivi', 'sistemi_operativi', 'buffetts', 'metodi_pagamento'].forEach(t => caricaLista(t));
+  </script>
+</body>
+</html>
