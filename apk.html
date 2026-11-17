@@ -16,21 +16,24 @@ h2 { text-align: center; color: #333; margin-bottom: 20px; }
 </style>
 </head>
 <body>
-<h2>📥 Download APK</h2>
-<div id="lista"></div>
-<script>
-const tg = window.Telegram.WebApp;
-tg.expand();
-const params = new URLSearchParams(window.location.search);
-const raw = params.get('files');
-let files = [];
-try { files = raw ? JSON.parse(decodeURIComponent(raw)) : []; } catch(e) { files = []; }
-const container = document.getElementById('lista');
-if (!Array.isArray(files) || files.length === 0) {
-  container.innerHTML = '<div class="empty">Nessun file disponibile.</div>';
-} else {
-  container.innerHTML = files.map(f => '<div class="card"><h3>' + f.nome + '</h3><a class="btn" href="' + f.url + '" target="_blank">Scarica</a></div>').join('');
-}
-</script>
+    <h2>📥 Download APK</h2>
+    <div id="lista"></div>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        function render() {
+            const params = new URLSearchParams(window.location.search);
+            const raw = params.get('files');
+            const container = document.getElementById('lista');
+            let files = [];
+            try { files = raw ? JSON.parse(decodeURIComponent(raw)) : []; } catch(e) { files = []; }
+            if (!Array.isArray(files) || files.length === 0) {
+                container.innerHTML = '<div class="empty">Nessun file disponibile.</div>';
+                return;
+            }
+            container.innerHTML = files.map(f => '<div class="card"><h3>' + f.nome + '</h3><a class="btn" href="' + f.url + '" target="_blank">Scarica</a></div>').join('');
+        }
+        render();
+    </script>
 </body>
 </html>
