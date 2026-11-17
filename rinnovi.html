@@ -20,55 +20,55 @@ button:active { background: #388e3c; }
 </style>
 </head>
 <body>
-    <div class="container">
-        <h2>🔄 Nuovo Rinnovo</h2>
-        <div id="form"></div>
-    </div>
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-        let nominativi = [];
-        try {
-            const params = new URLSearchParams(window.location.search);
-            const raw = params.get('nominativi');
-            if (raw) nominativi = JSON.parse(decodeURIComponent(raw));
-        } catch(e) { console.error('Parse error', e); }
-        if (!Array.isArray(nominativi) || nominativi.length === 0) {
-            document.getElementById('form').innerHTML = '<div class="empty">Nessun nominativo disponibile.</div>';
-        } else {
-            const options = nominativi.map(n => '<option value="' + n.id + '">' + n.nominativo + '</option>').join('');
-            document.getElementById('form').innerHTML = '<label>Seleziona Nominativo:</label><select id="nominativo_id">' + options + '</select><label>Tipo Rinnovo:</label><select id="tipo"><option value="rinnovo">Rinnovo</option><option value="nuovo">Nuovo</option><option value="cambio">Cambio</option></select><label>Data Operazione:</label><input type="date" id="data_operazione" value="' + new Date().toISOString().split('T')[0] + '"><div class="row"><div><label>Mesi:</label><input type="number" id="mesi" min="1" max="12" value="12"></div><div><label>Orario Scadenza:</label><input type="time" id="orario_scadenza" value="00:00"></div></div><div class="row"><div><label>Acconto (€):</label><input type="number" id="importo_acconto" step="0.01" value="0"></div><div><label>Saldo (€):</label><input type="number" id="importo_saldo" step="0.01" value="0"></div></div><label>Note:</label><input type="text" id="note" placeholder="opzionale"><div class="scadenza-preview" id="scadenzaPreview"></div><button onclick="invia()">Registra Rinnovo</button>';
-            ['data_operazione','mesi'].forEach(id => document.getElementById(id).addEventListener('input', calcolaScadenza));
-            calcolaScadenza();
-        }
-        function calcolaScadenza() {
-            const d = document.getElementById('data_operazione').value;
-            const m = parseInt(document.getElementById('mesi').value) || 0;
-            if (!d || m < 1) return;
-            const dt = new Date(d);
-            const newDate = new Date(dt.getFullYear(), dt.getMonth() + m, dt.getDate());
-            const s = newDate.toLocaleDateString('it-IT');
-            const o = document.getElementById('orario_scadenza').value;
-            document.getElementById('scadenzaPreview').textContent = 'Scadenza: ' + s + ' ore ' + o;
-            document.getElementById('scadenzaPreview').dataset.scadenza = s;
-        }
-        function invia() {
-            const data = {
-                azione: 'nuovo_rinnovo',
-                nominativo_id: parseInt(document.getElementById('nominativo_id').value),
-                tipo: document.getElementById('tipo').value,
-                data_operazione: document.getElementById('data_operazione').value,
-                mesi: parseInt(document.getElementById('mesi').value),
-                scadenza: document.getElementById('scadenzaPreview').dataset.scadenza || '',
-                orario_scadenza: document.getElementById('orario_scadenza').value,
-                importo_acconto: parseFloat(document.getElementById('importo_acconto').value) || 0,
-                importo_saldo: parseFloat(document.getElementById('importo_saldo').value) || 0,
-                note: document.getElementById('note').value
-            };
-            if (!data.nominativo_id) { tg.showAlert('⚠️ Seleziona un nominativo'); return; }
-            if (!data.data_operazione) { tg.showAlert('⚠️ Inserisci la data'); return; }
-            tg.sendData(JSON.stringify(data));
-        }
-    </script>
+<div class="container">
+<h2>🔄 Nuovo Rinnovo</h2>
+<div id="form"></div>
+</div>
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+let nominativi = [];
+try {
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get('nominativi');
+  if (raw) nominativi = JSON.parse(decodeURIComponent(raw));
+} catch(e) {}
+if (!Array.isArray(nominativi) || nominativi.length === 0) {
+  document.getElementById('form').innerHTML = '<div class="empty">Nessun nominativo disponibile.</div>';
+} else {
+  const options = nominativi.map(n => '<option value="' + n.id + '">' + n.nominativo + '</option>').join('');
+  document.getElementById('form').innerHTML = '<label>Seleziona Nominativo:</label><select id="nominativo_id">' + options + '</select><label>Tipo Rinnovo:</label><select id="tipo"><option value="rinnovo">Rinnovo</option><option value="nuovo">Nuovo</option><option value="cambio">Cambio</option></select><label>Data Operazione:</label><input type="date" id="data_operazione" value="' + new Date().toISOString().split('T')[0] + '"><div class="row"><div><label>Mesi:</label><input type="number" id="mesi" min="1" max="12" value="12"></div><div><label>Orario Scadenza:</label><input type="time" id="orario_scadenza" value="00:00"></div></div><div class="row"><div><label>Acconto (€):</label><input type="number" id="importo_acconto" step="0.01" value="0"></div><div><label>Saldo (€):</label><input type="number" id="importo_saldo" step="0.01" value="0"></div></div><label>Note:</label><input type="text" id="note" placeholder="opzionale"><div class="scadenza-preview" id="scadenzaPreview"></div><button onclick="invia()">Registra Rinnovo</button>';
+  ['data_operazione','mesi'].forEach(id => document.getElementById(id).addEventListener('input', calcolaScadenza));
+  calcolaScadenza();
+}
+function calcolaScadenza() {
+  const d = document.getElementById('data_operazione').value;
+  const m = parseInt(document.getElementById('mesi').value) || 0;
+  if (!d || m < 1) return;
+  const dt = new Date(d);
+  const newDate = new Date(dt.getFullYear(), dt.getMonth() + m, dt.getDate());
+  const s = newDate.toLocaleDateString('it-IT');
+  const o = document.getElementById('orario_scadenza').value;
+  document.getElementById('scadenzaPreview').textContent = 'Scadenza: ' + s + ' ore ' + o;
+  document.getElementById('scadenzaPreview').dataset.scadenza = s;
+}
+function invia() {
+  const data = {
+    azione: 'nuovo_rinnovo',
+    nominativo_id: parseInt(document.getElementById('nominativo_id').value),
+    tipo: document.getElementById('tipo').value,
+    data_operazione: document.getElementById('data_operazione').value,
+    mesi: parseInt(document.getElementById('mesi').value),
+    scadenza: document.getElementById('scadenzaPreview').dataset.scadenza || '',
+    orario_scadenza: document.getElementById('orario_scadenza').value,
+    importo_acconto: parseFloat(document.getElementById('importo_acconto').value) || 0,
+    importo_saldo: parseFloat(document.getElementById('importo_saldo').value) || 0,
+    note: document.getElementById('note').value
+  };
+  if (!data.nominativo_id) { tg.showAlert('⚠️ Seleziona un nominativo'); return; }
+  if (!data.data_operazione) { tg.showAlert('⚠️ Inserisci la data'); return; }
+  tg.sendData(JSON.stringify(data));
+}
+</script>
 </body>
 </html>
