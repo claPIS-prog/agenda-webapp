@@ -30,62 +30,69 @@ button { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size
 </style>
 </head>
 <body>
-<div class="container">
-<h2>🔔 Gestione Notifiche</h2>
-<div class="info">• Le notifiche controllano le scadenze nei prossimi 7 giorni<br>• L'orario è in UTC (+1 inverno, +2 estate per l'Italia)<br>• Le modifiche si applicano immediatamente</div>
-<div id="statusBox" class="status"></div>
-<label>⏰ Orario di invio (UTC):</label>
-<div class="time-row">
-<input type="number" id="ora" min="0" max="23" placeholder="Ora">
-<span>:</span>
-<input type="number" id="minuto" min="0" max="59" placeholder="Min">
-</div>
-<div class="toggle-row">
-<span>🔔 Notifiche attive:</span>
-<label class="switch"><input type="checkbox" id="attivo"><span class="slider"></span></label>
-</div>
-<button class="btn-save" onclick="salva()">💾 Salva Configurazione</button>
-<button class="btn-test" onclick="test()">🧪 Invia Notifica di Test</button>
-</div>
-<script>
-const tg = window.Telegram.WebApp;
-tg.expand();
-let cfg = { ora: 7, minuto: 0, attivo: true };
-try {
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get('config');
-  if (raw) cfg = JSON.parse(decodeURIComponent(raw));
-} catch(e) {}
-document.getElementById('ora').value = cfg.ora;
-document.getElementById('minuto').value = cfg.minuto;
-document.getElementById('attivo').checked = cfg.attivo;
-aggiornaStatus();
-function aggiornaStatus() {
-  const box = document.getElementById('statusBox');
-  const attivo = document.getElementById('attivo').checked;
-  const o = document.getElementById('ora').value;
-  const m = document.getElementById('minuto').value;
-  if (attivo) {
-    box.className = 'status on';
-    box.textContent = '✅ Attive - prossimo invio ' + String(o).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ' UTC';
-  } else {
-    box.className = 'status off';
-    box.textContent = '❌ Disattivate';
-  }
-}
-document.getElementById('attivo').addEventListener('change', aggiornaStatus);
-document.getElementById('ora').addEventListener('input', aggiornaStatus);
-document.getElementById('minuto').addEventListener('input', aggiornaStatus);
-function salva() {
-  const ora = parseInt(document.getElementById('ora').value);
-  const minuto = parseInt(document.getElementById('minuto').value);
-  const attivo = document.getElementById('attivo').checked;
-  if (isNaN(ora) || isNaN(minuto) || ora < 0 || ora > 23 || minuto < 0 || minuto > 59) {
-    tg.showAlert('⚠️ Orario non valido'); return;
-  }
-  tg.sendData(JSON.stringify({ azione: 'aggiorna_config', ora: ora, minuto: minuto, attivo: attivo }));
-}
-function test() { tg.sendData(JSON.stringify({ azione: 'test_notifica' })); }
-</script>
+    <div class="container">
+        <h2>🔔 Gestione Notifiche</h2>
+        <div class="info">
+            • Le notifiche controllano le scadenze nei prossimi 7 giorni<br>
+            • L'orario è in UTC (+1 inverno, +2 estate per l'Italia)<br>
+            • Le modifiche si applicano immediatamente
+        </div>
+        <div id="statusBox" class="status"></div>
+        <label>⏰ Orario di invio (UTC):</label>
+        <div class="time-row">
+            <input type="number" id="ora" min="0" max="23" placeholder="Ora">
+            <span>:</span>
+            <input type="number" id="minuto" min="0" max="59" placeholder="Min">
+        </div>
+        <div class="toggle-row">
+            <span>🔔 Notifiche attive:</span>
+            <label class="switch"><input type="checkbox" id="attivo"><span class="slider"></span></label>
+        </div>
+        <button class="btn-save" onclick="salva()">💾 Salva Configurazione</button>
+        <button class="btn-test" onclick="test()">🧪 Invia Notifica di Test</button>
+    </div>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        let cfg = { ora: 7, minuto: 0, attivo: true };
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const raw = params.get('config');
+            if (raw) cfg = JSON.parse(decodeURIComponent(raw));
+        } catch(e) { console.error('Config parse error', e); }
+        document.getElementById('ora').value = cfg.ora;
+        document.getElementById('minuto').value = cfg.minuto;
+        document.getElementById('attivo').checked = cfg.attivo;
+        aggiornaStatus();
+        function aggiornaStatus() {
+            const box = document.getElementById('statusBox');
+            const attivo = document.getElementById('attivo').checked;
+            const o = document.getElementById('ora').value;
+            const m = document.getElementById('minuto').value;
+            if (attivo) {
+                box.className = 'status on';
+                box.textContent = '✅ Attive - prossimo invio ' + String(o).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ' UTC';
+            } else {
+                box.className = 'status off';
+                box.textContent = '❌ Disattivate';
+            }
+        }
+        document.getElementById('attivo').addEventListener('change', aggiornaStatus);
+        document.getElementById('ora').addEventListener('input', aggiornaStatus);
+        document.getElementById('minuto').addEventListener('input', aggiornaStatus);
+        function salva() {
+            const ora = parseInt(document.getElementById('ora').value);
+            const minuto = parseInt(document.getElementById('minuto').value);
+            const attivo = document.getElementById('attivo').checked;
+            if (isNaN(ora) || isNaN(minuto) || ora < 0 || ora > 23 || minuto < 0 || minuto > 59) {
+                tg.showAlert('⚠️ Orario non valido (0-23 : 0-59)');
+                return;
+            }
+            tg.sendData(JSON.stringify({ azione: 'aggiorna_config', ora: ora, minuto: minuto, attivo: attivo }));
+        }
+        function test() {
+            tg.sendData(JSON.stringify({ azione: 'test_notifica' }));
+        }
+    </script>
 </body>
 </html>
