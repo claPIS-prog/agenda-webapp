@@ -1,266 +1,105 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestione Notifiche</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            padding: 20px; 
-            background: #f5f5f5;
-            margin: 0;
-        }
-        .container { 
-            max-width: 600px; 
-            margin: 0 auto; 
-            background: white; 
-            padding: 20px; 
-            border-radius: 10px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-        }
-        h2 { 
-            color: #333; 
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .info-box {
-            background: #e3f2fd;
-            border-left: 4px solid #2196f3;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 5px;
-        }
-        .info-box p {
-            margin: 5px 0;
-            color: #1565c0;
-        }
-        .form-group {
-            margin: 20px 0;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #333;
-        }
-        input[type="number"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-sizing: border-box;
-            font-size: 16px;
-        }
-        .time-inputs {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .time-inputs input {
-            flex: 1;
-        }
-        .time-inputs span {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-        }
-        .toggle-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 20px 0;
-        }
-        .toggle-label {
-            font-weight: bold;
-            color: #333;
-        }
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-        }
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-        input:checked + .slider {
-            background-color: #4caf50;
-        }
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-        button {
-            width: 100%;
-            background: #0088cc;
-            color: white;
-            border: none;
-            padding: 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            margin: 10px 0;
-            transition: background 0.3s;
-        }
-        button:hover {
-            background: #006699;
-        }
-        button.test {
-            background: #ff9800;
-        }
-        button.test:hover {
-            background: #f57c00;
-        }
-        .status {
-            text-align: center;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-            font-weight: bold;
-        }
-        .status.active {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-        .status.inactive {
-            background: #ffebee;
-            color: #c62828;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestione Notifiche</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+    body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+    .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    h2 { text-align: center; margin-top: 0; color: #333; }
+    .info { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 12px; border-radius: 5px; margin: 15px 0; font-size: 13px; color: #1565c0; }
+    label { display: block; font-weight: bold; margin: 15px 0 5px; color: #333; }
+    .time-row { display: flex; align-items: center; gap: 10px; }
+    .time-row input { width: 70px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; text-align: center; }
+    .time-row span { font-size: 22px; font-weight: bold; }
+    .toggle-row { display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 12px; border-radius: 5px; margin: 15px 0; }
+    .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background: #ccc; border-radius: 28px; transition: .3s; }
+    .slider:before { content: ""; position: absolute; height: 22px; width: 22px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
+    input:checked + .slider { background: #4caf50; }
+    input:checked + .slider:before { transform: translateX(22px); }
+    button { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    .btn-save { background: #0088cc; color: white; }
+    .btn-test { background: #ff9800; color: white; }
+    .status { text-align: center; padding: 10px; border-radius: 5px; font-weight: bold; margin-top: 10px; }
+    .status.on { background: #e8f5e9; color: #2e7d32; }
+    .status.off { background: #ffebee; color: #c62828; }
+</style>
 </head>
 <body>
     <div class="container">
         <h2>🔔 Gestione Notifiche</h2>
-        
-        <div class="info-box">
-            <p><strong>📋 Informazioni:</strong></p>
-            <p>• Le notifiche controllano le scadenze nei prossimi 7 giorni</p>
-            <p>• L'orario è in UTC (aggiungi +1 per l'Italia in inverno, +2 in estate)</p>
-            <p>• Le modifiche si applicano immediatamente</p>
+        <div class="info">
+            • Le notifiche controllano le scadenze nei prossimi 7 giorni<br>
+            • L'orario è in UTC (+1 inverno, +2 estate per l'Italia)<br>
+            • Le modifiche si applicano immediatamente
         </div>
-
         <div id="statusBox" class="status"></div>
-
-        <div class="form-group">
-            <label>⏰ Orario di invio notifiche (UTC):</label>
-            <div class="time-inputs">
-                <input type="number" id="ora" min="0" max="23" placeholder="Ora (0-23)">
-                <span>:</span>
-                <input type="number" id="minuto" min="0" max="59" placeholder="Minuti (0-59)">
-            </div>
+        <label>⏰ Orario di invio (UTC):</label>
+        <div class="time-row">
+            <input type="number" id="ora" min="0" max="23" placeholder="Ora">
+            <span>:</span>
+            <input type="number" id="minuto" min="0" max="59" placeholder="Min">
         </div>
-
-        <div class="toggle-container">
-            <span class="toggle-label">🔔 Notifiche attive:</span>
-            <label class="switch">
-                <input type="checkbox" id="attivo">
-                <span class="slider"></span>
-            </label>
+        <div class="toggle-row">
+            <span>🔔 Notifiche attive:</span>
+            <label class="switch"><input type="checkbox" id="attivo"><span class="slider"></span></label>
         </div>
-
-        <button onclick="salvaConfig()">💾 Salva Configurazione</button>
-        <button class="test" onclick="testNotifica()">🧪 Invia Notifica di Test</button>
+        <button class="btn-save" onclick="salva()">💾 Salva Configurazione</button>
+        <button class="btn-test" onclick="test()">🧪 Invia Notifica di Test</button>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // Legge la configurazione dall'URL
-        const params = new URLSearchParams(window.location.search);
-        const configParam = params.get('config');
-        
-        if (configParam) {
-            try {
-                const config = JSON.parse(configParam);
-                document.getElementById('ora').value = config.ora;
-                document.getElementById('minuto').value = config.minuto;
-                document.getElementById('attivo').checked = config.attivo;
-                aggiornaStatusBox(config.attivo);
-            } catch (e) {
-                console.error('Errore nel parsing della configurazione:', e);
-            }
-        }
+        let cfg = { ora: 7, minuto: 0, attivo: true };
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const raw = params.get('config');
+            if (raw) cfg = JSON.parse(decodeURIComponent(raw));
+        } catch(e) { console.error('Config parse error', e); }
 
-        function aggiornaStatusBox(attivo) {
-            const statusBox = document.getElementById('statusBox');
+        document.getElementById('ora').value = cfg.ora;
+        document.getElementById('minuto').value = cfg.minuto;
+        document.getElementById('attivo').checked = cfg.attivo;
+        aggiornaStatus();
+
+        function aggiornaStatus() {
+            const box = document.getElementById('statusBox');
+            const attivo = document.getElementById('attivo').checked;
+            const o = document.getElementById('ora').value;
+            const m = document.getElementById('minuto').value;
             if (attivo) {
-                const ora = document.getElementById('ora').value;
-                const minuto = document.getElementById('minuto').value;
-                statusBox.className = 'status active';
-                statusBox.innerHTML = `✅ Notifiche ATTIVE - Prossimo invio alle ${ora.toString().padStart(2, '0')}:${minuto.toString().padStart(2, '0')} UTC`;
+                box.className = 'status on';
+                box.textContent = `✅ Attive - prossimo invio ${String(o).padStart(2,'0')}:${String(m).padStart(2,'0')} UTC`;
             } else {
-                statusBox.className = 'status inactive';
-                statusBox.innerHTML = '❌ Notifiche DISATTIVATE';
+                box.className = 'status off';
+                box.textContent = '❌ Disattivate';
             }
         }
 
-        function salvaConfig() {
+        document.getElementById('attivo').addEventListener('change', aggiornaStatus);
+        document.getElementById('ora').addEventListener('input', aggiornaStatus);
+        document.getElementById('minuto').addEventListener('input', aggiornaStatus);
+
+        function salva() {
             const ora = parseInt(document.getElementById('ora').value);
             const minuto = parseInt(document.getElementById('minuto').value);
             const attivo = document.getElementById('attivo').checked;
-
-            if (isNaN(ora) || isNaN(minuto)) {
-                alert('❌ Inserisci un orario valido!');
+            if (isNaN(ora) || isNaN(minuto) || ora < 0 || ora > 23 || minuto < 0 || minuto > 59) {
+                tg.showAlert('⚠️ Orario non valido (0-23 : 0-59)');
                 return;
             }
-
-            if (ora < 0 || ora > 23 || minuto < 0 || minuto > 59) {
-                alert('❌ L\'orario deve essere compreso tra 00:00 e 23:59!');
-                return;
-            }
-
-            tg.sendData(JSON.stringify({
-                azione: 'aggiorna_config',
-                ora: ora,
-                minuto: minuto,
-                attivo: attivo
-            }));
-
-            aggiornaStatusBox(attivo);
+            tg.sendData(JSON.stringify({ azione: 'aggiorna_config', ora, minuto, attivo }));
         }
 
-        function testNotifica() {
-            if (confirm('🧪 Vuoi inviare immediatamente una notifica di test?')) {
-                tg.sendData(JSON.stringify({
-                    azione: 'test_notifica'
-                }));
-            }
+        function test() {
+            tg.sendData(JSON.stringify({ azione: 'test_notifica' }));
         }
-
-        // Aggiorna lo status box quando cambia il toggle
-        document.getElementById('attivo').addEventListener('change', function() {
-            aggiornaStatusBox(this.checked);
-        });
     </script>
 </body>
 </html>
