@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Metodi di Pagamento</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { color: #333; margin-bottom: 20px; }
+        input[type="text"] { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        button { background: #0088cc; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #006699; }
+        .item { background: #f9f9f9; padding: 10px; margin: 10px 0; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
+        .item-actions button { padding: 5px 10px; font-size: 12px; }
+        .delete { background: #dc3545; }
+        .delete:hover { background: #c82333; }
+        .edit { background: #ffc107; color: #333; }
+        .edit:hover { background: #e0a800; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>💳 Gestione Metodi di Pagamento</h2>
+        <input type="text" id="nuovoMetodo" placeholder="Nuovo metodo di pagamento...">
+        <button onclick="aggiungi()">Aggiungi</button>
+        <div id="lista"></div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        async function carica() {
+            const response = await fetch('/api/metodi_pagamento');
+            const metodi = await response.json();
+            const lista = document.getElementById('lista');
+            lista.innerHTML = metodi.length === 0 ? '<p>Nessun metodo di pagamento.</p>' : '';
+            metodi.forEach(m => {
+                lista.innerHTML += `
+                    <div class="item">
+                        <span>${m.nome}</span>
+                        <div class="item-actions">
+                            <button class="edit" onclick="modifica(${m.id}, '${m.nome}')">Modifica</button>
+                            <button class="delete" onclick="elimina(${m.id})">Elimina</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        async function aggiungi() {
+            const nome = document.getElementById('nuovoMetodo').value.trim();
+            if (!nome) return;
+            tg.sendData(JSON.stringify({azione: 'nuovo_metodo_pagamento', nome}));
+            document.getElementById('nuovoMetodo').value = '';
+            carica();
+        }
+
+        async function elimina(id) {
+            tg.sendData(JSON.stringify({azione: 'cancella_metodo_pagamento', id}));
+            carica();
+        }
+
+        async function modifica(id, nome) {
+            const nuovoNome = prompt('Modifica metodo di pagamento:', nome);
+            if (nuovoNome && nuovoNome.trim()) {
+                tg.sendData(JSON.stringify({azione: 'modifica_metodo_pagamento', id, nome: nuovoNome.trim()}));
+                carica();
+            }
+        }
+
+        carica();
+    </script>
+</body>
+</html>
