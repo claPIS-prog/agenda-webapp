@@ -35,6 +35,8 @@ const apkList = [
     "Paradise", "Send Files To TV v1.4.22b", "Private Server", "0Player 300626", "XCloud-1.0.15"
 ];
 
+const cadenzeList = ["TEST", "MENSILE", "BIMENSILE", "TRIMESTRALE", "SEMESTRALE", "ANNUALE"];
+
 async function caricaListe() {
     const ok = (r) => r.ok ? r.json() : [];
     try {
@@ -66,12 +68,16 @@ function optSelect(items, placeholder) {
     return '<option value="">' + placeholder + '</option>' + items.map(i => '<option value="' + i.nome + '">' + i.nome + '</option>').join('');
 }
 
+function optSelectStatic(items, placeholder) {
+    return '<option value="">' + placeholder + '</option>' + items.map(i => '<option value="' + i + '">' + i + '</option>').join('');
+}
+
 function mostraForm() {
     const oggi = new Date().toISOString().split('T')[0];
     document.getElementById('form').innerHTML = 
         '<label>Nominativo:</label><input type="text" id="nominativo" placeholder="Nome e cognome">' +
         '<div class="row"><div><label>User ID:</label><input type="text" id="user_id" placeholder="opzionale"></div><div><label>Password:</label><input type="text" id="password" placeholder="opzionale"></div></div>' +
-        '<div class="row"><div><label>Prezzo (€):</label><input type="number" id="prezzo" step="0.01" value="0"></div><div><label>Cadenza:</label><input type="text" id="cadenza" placeholder="es. mensile"></div></div>' +
+        '<div class="row"><div><label>Prezzo (€):</label><input type="number" id="prezzo" step="0.01" value="0"></div><div><label>Cadenza:</label><select id="cadenza">' + optSelectStatic(cadenzeList, '-- Seleziona --') + '</select></div></div>' +
         '<label>Tipo:</label><input type="text" id="tipo" placeholder="es. TV, Telefono">' +
         '<div class="section-title">Server / Reseller</div>' +
         '<label>Server:</label><select id="server">' + optSelect(servers, '-- Seleziona --') + '</select>' +
@@ -105,7 +111,7 @@ async function invia() {
         user_id: document.getElementById('user_id').value.trim(),
         password: document.getElementById('password').value.trim(),
         prezzo: parseFloat(document.getElementById('prezzo').value) || 0,
-        cadenza: document.getElementById('cadenza').value.trim(),
+        cadenza: document.getElementById('cadenza').value,
         tipo: document.getElementById('tipo').value.trim(),
         server: document.getElementById('server').value,
         reseller: document.getElementById('reseller').value,
