@@ -29,20 +29,22 @@ tg.expand();
 let dispositivi = [], sistemiOp = [], buffetts = [], metodiPag = [];
 
 async function caricaListe() {
+  const ok = (r) => r.ok ? r.json() : [];
   try {
     const [d, s, b, m] = await Promise.all([
-      fetch('/api/dispositivi').then(r => r.json()),
-      fetch('/api/sistemi_operativi').then(r => r.json()),
-      fetch('/api/buffetts').then(r => r.json()),
-      fetch('/api/metodi_pagamento').then(r => r.json())
+      fetch('/api/dispositivi').then(ok),
+      fetch('/api/sistemi_operativi').then(ok),
+      fetch('/api/buffetts').then(ok),
+      fetch('/api/metodi_pagamento').then(ok)
     ]);
-    dispositivi = d || [];
-    sistemiOp = s || [];
-    buffetts = b || [];
-    metodiPag = m || [];
+    dispositivi = Array.isArray(d) ? d : [];
+    sistemiOp = Array.isArray(s) ? s : [];
+    buffetts = Array.isArray(b) ? b : [];
+    metodiPag = Array.isArray(m) ? m : [];
     mostraForm();
   } catch (e) {
-    document.getElementById('form').innerHTML = '<div style="color:red;text-align:center;padding:20px;">Errore caricamento liste: ' + e.message + '</div>';
+    dispositivi = []; sistemiOp = []; buffetts = []; metodiPag = [];
+    mostraForm();
   }
 }
 
