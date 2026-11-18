@@ -1,26 +1,60 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lista Nominativi</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+h2 { text-align: center; margin-top: 0; color: #333; }
+.search { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; margin-bottom: 15px; }
+.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; }
+.item strong { color: #222; font-size: 15px; }
+.item small { color: #666; display: block; margin-top: 4px; }
+.empty { text-align: center; color: #888; padding: 30px; }
+.error { text-align: center; color: #c62828; padding: 30px; background: #ffebee; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h2>📋 Lista Nominativi</h2>
+<input type="text" class="search" id="search" placeholder="Cerca per nome o user_id...">
+<div id="lista"></div>
+</div>
 <script>
-  const tg = window.Telegram?.WebApp;
-  if (tg) { tg.ready(); tg.expand(); }
-  const API_BASE = ""; 
-
-  async function apiFetch(url, options = {}) {
-    const headers = {
-      ...options.headers,
-      "X-Telegram-Init-Data": tg?.initData || ""
-    };
-    return fetch(`${API_BASE}${url}`, { ...options, headers });
+const tg = window.Telegram.WebApp;
+tg.expand();
+let nominativi = [];
+try {
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get('nominativi');
+  if (raw) nominativi = JSON.parse(decodeURIComponent(raw));
+} catch(e) { console.error('Parse error', e); }
+const container = document.getElementById('lista');
+const search = document.getElementById('search');
+function render(filter = '') {
+  const filtered = nominativi.filter(n => 
+    n.nominativo.toLowerCase().includes(filter.toLowerCase()) || 
+    (n.user_id && n.user_id.toLowerCase().includes(filter.toLowerCase()))
+  );
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty">Nessun nominativo trovato.</div>';
+    return;
   }
-
-  async function caricaContatti() {
-    try {
-      listaDiv.innerHTML = "<div class='empty'>Caricamento...</div>";
-      const r = await apiFetch('/api/contatti');
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      contatti = await r.json();
-      render(contatti);
-    } catch (e) {
-      listaDiv.innerHTML = `<div class='empty'>Errore: ${e.message}</div>`;
-    }
-  }
-  // ... il resto del codice uguale
+  container.innerHTML = filtered.map(n => 
+    '<div class="item"><strong>' + n.nominativo + '</strong>' + 
+    (n.user_id ? '<small>ID: ' + n.user_id + '</small>' : '') + 
+    '</div>'
+  ).join('');
+}
+if (!Array.isArray(nominativi) || nominativi.length === 0) {
+  container.innerHTML = '<div class="error">Nessun dato disponibile. I dati vengono passati dal bot tramite URL.</div>';
+} else {
+  render();
+  search.addEventListener('input', (e) => render(e.target.value));
+}
 </script>
+</body>
+</html>
