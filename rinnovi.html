@@ -17,6 +17,9 @@ input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radiu
 button { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 15px; background: #4caf50; color: white; }
 button:active { background: #388e3c; }
 .empty { text-align: center; color: #888; padding: 30px; }
+.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 6px; z-index: 200; opacity: 0; transition: opacity 0.3s; }
+.toast.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -24,23 +27,34 @@ button:active { background: #388e3c; }
 <h2>🔄 Nuovo Rinnovo</h2>
 <div id="form"></div>
 </div>
+<div class="toast" id="toast"></div>
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
 let nominativi = [];
-try {
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get('nominativi');
-  if (raw) nominativi = JSON.parse(decodeURIComponent(raw));
-} catch(e) {}
-if (!Array.isArray(nominativi) || nominativi.length === 0) {
-  document.getElementById('form').innerHTML = '<div class="empty">Nessun nominativo disponibile.</div>';
-} else {
-  const options = nominativi.map(n => '<option value="' + n.id + '">' + n.nominativo + '</option>').join('');
-  document.getElementById('form').innerHTML = '<label>Seleziona Nominativo:</label><select id="nominativo_id">' + options + '</select><label>Tipo Rinnovo:</label><select id="tipo"><option value="rinnovo">Rinnovo</option><option value="nuovo">Nuovo</option><option value="cambio">Cambio</option></select><label>Data Operazione:</label><input type="date" id="data_operazione" value="' + new Date().toISOString().split('T')[0] + '"><div class="row"><div><label>Mesi:</label><input type="number" id="mesi" min="1" max="12" value="12"></div><div><label>Orario Scadenza:</label><input type="time" id="orario_scadenza" value="00:00"></div></div><div class="row"><div><label>Acconto (€):</label><input type="number" id="importo_acconto" step="0.01" value="0"></div><div><label>Saldo (€):</label><input type="number" id="importo_saldo" step="0.01" value="0"></div></div><label>Note:</label><input type="text" id="note" placeholder="opzionale"><div class="scadenza-preview" id="scadenzaPreview"></div><button onclick="invia()">Registra Rinnovo</button>';
-  ['data_operazione','mesi'].forEach(id => document.getElementById(id).addEventListener('input', calcolaScadenza));
-  calcolaScadenza();
+
+async function caricaNominativi() {
+  const form = document.getElementById('form');
+  try {
+    const res = await fetch('/api/nominativi');
+    if (!res.ok) {
+      form.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>';
+      return;
+    }
+    nominativi = await res.json();
+    if (!Array.isArray(nominativi) || nominativi.length === 0) {
+      form.innerHTML = '<div class="empty">Nessun nominativo disponibile.</div>';
+      return;
+    }
+    const options = nominativi.map(n => '<option value="' + n.id + '">' + n.nominativo + '</option>').join('');
+    form.innerHTML = '<label>Seleziona Nominativo:</label><select id="nominativo_id">' + options + '</select><label>Tipo Rinnovo:</label><select id="tipo"><option value="rinnovo">Rinnovo</option><option value="nuovo">Nuovo</option><option value="cambio">Cambio</option></select><label>Data Operazione:</label><input type="date" id="data_operazione" value="' + new Date().toISOString().split('T')[0] + '"><div class="row"><div><label>Mesi:</label><input type="number" id="mesi" min="1" max="12" value="12"></div><div><label>Orario Scadenza:</label><input type="time" id="orario_scadenza" value="00:00"></div></div><div class="row"><div><label>Acconto (€):</label><input type="number" id="importo_acconto" step="0.01" value="0"></div><div><label>Saldo (€):</label><input type="number" id="importo_saldo" step="0.01" value="0"></div></div><label>Note:</label><input type="text" id="note" placeholder="opzionale"><div class="scadenza-preview" id="scadenzaPreview"></div><button onclick="invia()">Registra Rinnovo</button>';
+    ['data_operazione','mesi'].forEach(id => document.getElementById(id).addEventListener('input', calcolaScadenza));
+    calcolaScadenza();
+  } catch (e) {
+    form.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
+  }
 }
+
 function calcolaScadenza() {
   const d = document.getElementById('data_operazione').value;
   const m = parseInt(document.getElementById('mesi').value) || 0;
@@ -52,7 +66,8 @@ function calcolaScadenza() {
   document.getElementById('scadenzaPreview').textContent = 'Scadenza: ' + s + ' ore ' + o;
   document.getElementById('scadenzaPreview').dataset.scadenza = s;
 }
-function invia() {
+
+async function invia() {
   const data = {
     azione: 'nuovo_rinnovo',
     nominativo_id: parseInt(document.getElementById('nominativo_id').value),
@@ -65,10 +80,35 @@ function invia() {
     importo_saldo: parseFloat(document.getElementById('importo_saldo').value) || 0,
     note: document.getElementById('note').value
   };
-  if (!data.nominativo_id) { tg.showAlert('⚠️ Seleziona un nominativo'); return; }
-  if (!data.data_operazione) { tg.showAlert('⚠️ Inserisci la data'); return; }
-  tg.sendData(JSON.stringify(data));
+  if (!data.nominativo_id) {
+    mostraToast('⚠️ Seleziona un nominativo');
+    return;
+  }
+  if (!data.data_operazione) {
+    mostraToast('⚠️ Inserisci la data');
+    return;
+  }
+  try {
+    const res = await fetch('/api/rinnovo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dati: data })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    mostraToast('✅ Rinnovo registrato!');
+    setTimeout(() => tg.close(), 1500);
+  } catch (e) {
+    mostraToast('❌ Errore: ' + e.message);
+  }
 }
+
+function mostraToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+caricaNominativi();
 </script>
 </body>
-</html>
