@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Storico Rinnovi</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+h2 { text-align: center; margin-top: 0; color: #333; }
+.search { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; margin-bottom: 15px; }
+.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #4caf50; }
+.item strong { color: #222; font-size: 15px; }
+.item small { color: #666; display: block; margin-top: 4px; }
+.item .tipo { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 8px; }
+.tipo-rinnovo { background: #e3f2fd; color: #1565c0; }
+.tipo-nuovo { background: #e8f5e9; color: #2e7d32; }
+.tipo-cambio { background: #fff3e0; color: #e65100; }
+.item .scadenza { color: #c62828; font-weight: bold; }
+.item .pagamenti { color: #2e7d32; font-weight: bold; }
+.empty { text-align: center; color: #888; padding: 30px; }
+.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h2>🔄 Storico Rinnovi</h2>
+<input type="text" class="search" id="search" placeholder="Cerca per nominativo...">
+<div id="lista"><div class="empty">Caricamento...</div></div>
+</div>
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+let rinnovi = [];
+
+async function carica() {
+  const box = document.getElementById('lista');
+  try {
+    const res = await fetch('/api/elenco_rinnovi');
+    if (!res.ok) {
+      box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>';
+      return;
+    }
+    rinnovi = await res.json();
+    render();
+  } catch (e) {
+    box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
+  }
+}
+
+function render(filter) {
+  filter = (filter || '').toLowerCase();
+  const f = rinnovi.filter(r => r.nominativo.toLowerCase().includes(filter));
+  if (f.length === 0) {
+    document.getElementById('lista').innerHTML = '<div class="empty">Nessun rinnovo trovato.</div>';
+    return;
+  }
+  document.getElementById('lista').innerHTML = f.map(r => {
+    const tipoClass = 'tipo-' + (r.tipo || 'rinnovo');
+    const tipoLabel = (r.tipo || 'rinnovo').charAt(0).toUpperCase() + (r.tipo || 'rinnovo').slice(1);
+    const pagamenti = [];
+    if (r.importo_acconto > 0) pagamenti.push('Acconto: €' + r.importo_acconto);
+    if (r.importo_saldo > 0) pagamenti.push('Saldo: €' + r.importo_saldo);
+    return '<div class="item">' +
+      '<strong>' + r.nominativo + '</strong>' +
+      '<span class="tipo ' + tipoClass + '">' + tipoLabel + '</span>' +
+      '<small>Operazione: ' + (r.data_operazione || '-') + '</small>' +
+      '<small>Scadenza: <span class="scadenza">' + (r.scadenza || '-') + ' ore ' + (r.orario_scadenza || '00:00') + '</span></small>' +
+      (pagamenti.length > 0 ? '<small class="pagamenti">' + pagamenti.join(' | ') + '</small>' : '') +
+      (r.note ? '<small>Note: ' + r.note + '</small>' : '') +
+      '</div>';
+  }).join('');
+}
+
+document.getElementById('search').addEventListener('input', e => render(e.target.value));
+carica();
+</script>
+</body>
+</html>
