@@ -279,12 +279,12 @@ def api_sistemi_operativi():
     finally:
         conn.close()
 
-@app.get("/api/buffett")
-def api_buffett():
+@app.get("/api/buffetts")
+def api_buffetts():
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nome FROM buffett ORDER BY nome")
+            cur.execute("SELECT id, nome FROM buffetts ORDER BY nome")
             return cur.fetchall()
     finally:
         conn.close()
