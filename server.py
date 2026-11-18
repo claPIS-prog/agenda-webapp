@@ -299,6 +299,17 @@ def api_metodi_pagamento():
     finally:
         conn.close()
 
+TABELLE_COLONNE = {
+    'dispositivi': 'nome',
+    'sistemi_operativi': 'nome',
+    'buffett': 'nome',
+    'buffetts': 'nome',
+    'metodi_pagamento': 'nome',
+    'resellers': 'nominativo',
+    'servers': 'nominativo',
+    'procuratori': 'nominativo',
+}
+
 class ListaPayload(BaseModel):
     nome: str
     tabella: str
@@ -308,7 +319,8 @@ def api_lista_nuovo(payload: ListaPayload):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute(f"INSERT INTO {payload.tabella} (nome) VALUES (%s)", (payload.nome,))
+            col = TABELLE_COLONNE.get(payload.tabella, 'nome')
+            cur.execute(f"INSERT INTO {payload.tabella} ({col}) VALUES (%s)", (payload.nome,))
         conn.commit()
     finally:
         conn.close()
@@ -319,7 +331,8 @@ def api_lista_modifica(id: int, nome: str, tabella: str):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute(f"UPDATE {tabella} SET nome = %s WHERE id = %s", (nome, id))
+            col = TABELLE_COLONNE.get(tabella, 'nome')
+            cur.execute(f"UPDATE {tabella} SET {col} = %s WHERE id = %s", (nome, id))
         conn.commit()
     finally:
         conn.close()
