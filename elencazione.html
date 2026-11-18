@@ -14,47 +14,52 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 .item strong { color: #222; font-size: 15px; }
 .item small { color: #666; display: block; margin-top: 4px; }
 .empty { text-align: center; color: #888; padding: 30px; }
-.error { text-align: center; color: #c62828; padding: 30px; background: #ffebee; border-radius: 6px; }
+.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
 </style>
 </head>
 <body>
 <div class="container">
 <h2>📋 Lista Nominativi</h2>
-<input type="text" class="search" id="search" placeholder="Cerca per nome o user_id...">
-<div id="lista"></div>
+<input type="text" class="search" id="search" placeholder="Cerca per nome...">
+<div id="lista"><div class="empty">Caricamento...</div></div>
 </div>
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
-let nominativi = [];
-try {
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get('nominativi');
-  if (raw) nominativi = JSON.parse(decodeURIComponent(raw));
-} catch(e) { console.error('Parse error', e); }
-const container = document.getElementById('lista');
-const search = document.getElementById('search');
-function render(filter = '') {
-  const filtered = nominativi.filter(n => 
-    n.nominativo.toLowerCase().includes(filter.toLowerCase()) || 
-    (n.user_id && n.user_id.toLowerCase().includes(filter.toLowerCase()))
-  );
-  if (filtered.length === 0) {
-    container.innerHTML = '<div class="empty">Nessun nominativo trovato.</div>';
+let contatti = [];
+
+async function carica() {
+  const box = document.getElementById('lista');
+  try {
+    const res = await fetch('/api/contatti', {
+      headers: { 'X-Telegram-Init-Data': tg.initData }
+    });
+    if (!res.ok) {
+      box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>';
+      return;
+    }
+    contatti = await res.json();
+    render();
+  } catch (e) {
+    box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
+  }
+}
+
+function render(filter) {
+  filter = (filter || '').toLowerCase();
+  const f = contatti.filter(c => c.nominativo.toLowerCase().includes(filter));
+  if (f.length === 0) {
+    document.getElementById('lista').innerHTML = '<div class="empty">Nessun nominativo.</div>';
     return;
   }
-  container.innerHTML = filtered.map(n => 
-    '<div class="item"><strong>' + n.nominativo + '</strong>' + 
-    (n.user_id ? '<small>ID: ' + n.user_id + '</small>' : '') + 
-    '</div>'
+  document.getElementById('lista').innerHTML = f.map(c =>
+    '<div class="item"><strong>' + c.nominativo + '</strong>' +
+    '<small>€ ' + (c.prezzo || 0) + ' - ' + (c.cadenza || '') + '</small></div>'
   ).join('');
 }
-if (!Array.isArray(nominativi) || nominativi.length === 0) {
-  container.innerHTML = '<div class="error">Nessun dato disponibile. I dati vengono passati dal bot tramite URL.</div>';
-} else {
-  render();
-  search.addEventListener('input', (e) => render(e.target.value));
-}
+
+document.getElementById('search').addEventListener('input', e => render(e.target.value));
+carica();
 </script>
 </body>
 </html>
