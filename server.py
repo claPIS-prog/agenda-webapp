@@ -43,7 +43,7 @@ def init_db():
     try:
         with conn.cursor() as cur:
             cur.execute("CREATE TABLE IF NOT EXISTS nominativi (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, prezzo REAL DEFAULT 0, cadenza TEXT, tipo TEXT, dispositivo TEXT, sistema_operativo TEXT, buffett TEXT, metodo_pagamento TEXT)")
-            cur.execute("CREATE TABLE IF NOT EXISTS rinnovi (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), tipo TEXT, data_operazione TEXT, mesi INTEGER, scadenza TEXT, importo_acconto REAL DEFAULT 0, importo_saldo REAL DEFAULT 0, data_acconto TEXT, data_saldo TEXT, note TEXT, creato_il TEXT)")
+            cur.execute("CREATE TABLE IF NOT EXISTS rinnovi (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), tipo TEXT, data_operazione TEXT, mesi INTEGER, scadenza TEXT, orario_scadenza TEXT, importo_acconto REAL DEFAULT 0, importo_saldo REAL DEFAULT 0, data_acconto TEXT, data_saldo TEXT, note TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS servers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS resellers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS procuratori (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
@@ -54,6 +54,11 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS metodi_pagamento (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS config_notifiche (id INTEGER PRIMARY KEY CHECK (id = 1), ora INTEGER DEFAULT 7, minuto INTEGER DEFAULT 0, attivo INTEGER DEFAULT 1)")
             cur.execute("INSERT INTO config_notifiche (id, ora, minuto, attivo) VALUES (1, 7, 0, 1) ON CONFLICT (id) DO NOTHING")
+            cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS dispositivo TEXT")
+            cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS sistema_operativo TEXT")
+            cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS buffett TEXT")
+            cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS metodo_pagamento TEXT")
+            cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS orario_scadenza TEXT")
             conn.commit()
     finally:
         conn.close()
@@ -62,8 +67,6 @@ init_db()
 
 def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-
-# --- API PROTETTE ---
 
 @app.get("/api/contatti")
 def api_contatti(request: Request):
@@ -95,7 +98,7 @@ def api_scadenze(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT r.scadenza, n.nominativo FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id")
+            cur.execute("SELECT r.scadenza, r.orario_scadenza, n.nominativo FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id")
             rows = cur.fetchall()
             scadenze_list = []
             for r in rows:
@@ -103,11 +106,28 @@ def api_scadenze(request: Request):
                     scad = datetime.strptime(r["scadenza"], "%d/%m/%Y")
                     if oggi <= scad <= tra30:
                         giorni = (scad - oggi).days
-                        scadenze_list.append({"nominativo": r["nominativo"], "scadenza": r["scadenza"], "giorni": giorni})
+                        scadenze_list.append({"nominativo": r["nominativo"], "scadenza": r["scadenza"], "orario_scadenza": r.get("orario_scadenza", ""), "giorni": giorni})
                 except:
                     continue
             scadenze_list.sort(key=lambda x: x["giorni"])
             return scadenze_list
+    finally:
+        conn.close()
+
+@app.get("/api/elenco_rinnovi")
+def api_elenco_rinnovi(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT r.id, r.nominativo_id, r.tipo, r.data_operazione, r.mesi,
+                r.scadenza, r.orario_scadenza, r.importo_acconto, r.importo_saldo,
+                r.data_acconto, r.data_saldo, r.note, r.creato_il,
+                n.nominativo
+                FROM rinnovi r
+                JOIN nominativi n ON n.id = r.nominativo_id
+                ORDER BY r.scadenza DESC""")
+            return cur.fetchall()
     finally:
         conn.close()
 
@@ -216,8 +236,6 @@ def api_azione_generica(payload: AzionePayload, request: Request):
         conn.close()
     return {"ok": True}
 
-# --- API PER LE LISTE (SENZA CONTROLLO initData) ---
-
 @app.get("/api/dispositivi")
 def api_dispositivi():
     conn = db_conn()
@@ -295,8 +313,6 @@ def api_lista_cancella(id: int, tabella: str):
         conn.close()
     return {"ok": True}
 
-# --- API PER GLI AMICI (SENZA CONTROLLO initData) ---
-
 @app.get("/api/amici")
 def api_amici():
     conn = db_conn()
@@ -336,8 +352,6 @@ def api_rimuovi_amico(amico_id: int):
         conn.close()
     return {"ok": True}
 
-# --- API PER CONFIG NOTIFICHE ---
-
 @app.get("/api/config_notifiche")
 def api_config_notifiche():
     conn = db_conn()
@@ -367,8 +381,6 @@ def api_config_notifiche_update(payload: ConfigNotifichePayload):
     finally:
         conn.close()
     return {"ok": True}
-
-# --- SERVE FILE STATICI ---
 
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
