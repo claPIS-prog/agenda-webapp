@@ -52,15 +52,12 @@ def init_db():
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor() as cur:
-            # Tabelle esistenti
             cur.execute("""CREATE TABLE IF NOT EXISTS nominativi (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, prezzo REAL DEFAULT 0, cadenza TEXT, tipo TEXT, dispositivo TEXT, sistema_operativo TEXT, buffett TEXT, metodo_pagamento TEXT);""")
             cur.execute("""CREATE TABLE IF NOT EXISTS rinnovi (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), tipo TEXT, data_operazione TEXT, mesi INTEGER, scadenza TEXT, importo_acconto REAL DEFAULT 0, importo_saldo REAL DEFAULT 0, data_acconto TEXT, data_saldo TEXT, note TEXT, creato_il TEXT);""")
             cur.execute("CREATE TABLE IF NOT EXISTS servers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
             cur.execute("CREATE TABLE IF NOT EXISTS resellers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
             cur.execute("CREATE TABLE IF NOT EXISTS procuratori (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
             cur.execute("""CREATE TABLE IF NOT EXISTS autorizzati (id SERIAL PRIMARY KEY, telegram_id BIGINT UNIQUE NOT NULL, password TEXT NOT NULL, nome TEXT);""")
-            
-            # NUOVE TABELLE PER LE LISTE
             cur.execute("CREATE TABLE IF NOT EXISTS dispositivi (id SERIAL PRIMARY KEY, nome TEXT NOT NULL);")
             cur.execute("CREATE TABLE IF NOT EXISTS sistemi_operativi (id SERIAL PRIMARY KEY, nome TEXT NOT NULL);")
             cur.execute("CREATE TABLE IF NOT EXISTS buffetts (id SERIAL PRIMARY KEY, nome TEXT NOT NULL);")
@@ -97,7 +94,126 @@ def api_nominativi(request: Request):
     finally:
         conn.close()
 
-# --- API PER LE LISTE ---
+@app.get("/api/scadenze")
+def api_scadenze(request: Request):
+    get_current_user(request)
+    oggi = datetime.now()
+    tra30 = oggi + timedelta(days=30)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT r.scadenza, n.nominativo FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id")
+            rows = cur.fetchall()
+            scadenze_list = []
+            for r in rows:
+                try:
+                    scad = datetime.strptime(r["scadenza"], "%d/%m/%Y")
+                    if oggi <= scad <= tra30:
+                        giorni = (scad - oggi).days
+                        scadenze_list.append({"nominativo": r["nominativo"], "scadenza": r["scadenza"], "giorni": giorni})
+                except:
+                    continue
+            scadenze_list.sort(key=lambda x: x["giorni"])
+            return scadenze_list
+    finally:
+        conn.close()
+
+class RinnovoPayload(BaseModel):
+    dati: dict
+
+@app.post("/api/rinnovo")
+def api_rinnovo(payload: RinnovoPayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO rinnovi (nominativo_id, tipo, data_operazione, mesi, scadenza, importo_acconto, importo_saldo, data_acconto, data_saldo, note, creato_il) 
+                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", 
+                           (int(dati.get("nominativo_id")), dati.get("tipo", "rinnovo"), dati.get("data_operazione"), int(dati.get("mesi")), dati.get("scadenza"), float(dati.get("importo_acconto", 0)), float(dati.get("importo_saldo", 0)), "", "", "", datetime.now().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.get("/api/resellers")
+def api_resellers(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM resellers ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/procuratori")
+def api_procuratori(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM procuratori ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/servers")
+def api_servers(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM servers ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+class AzionePayload(BaseModel):
+    dati: dict
+
+@app.post("/api/azione")
+def api_azione(payload: AzionePayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    azione = dati.get("azione", "")
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            if azione == "cancella":
+                cur.execute("DELETE FROM nominativi WHERE id = %s", (dati.get("id"),))
+            elif azione == "nuovo":
+                cur.execute("""INSERT INTO nominativi (nominativo, prezzo, cadenza, tipo, dispositivo, sistema_operativo, buffett, metodo_pagamento) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""", 
+                (dati.get("nominativo", ""), float(dati.get("prezzo", 0)), dati.get("cadenza", ""), dati.get("tipo", ""), dati.get("dispositivo", ""), dati.get("sistema_operativo", ""), dati.get("buffett", ""), dati.get("metodo_pagamento", "")))
+            elif azione == "modifica":
+                cur.execute("""UPDATE nominativi SET nominativo=%s, prezzo=%s, cadenza=%s, tipo=%s, dispositivo=%s, sistema_operativo=%s, buffett=%s, metodo_pagamento=%s WHERE id=%s""", 
+                (dati.get("nominativo"), float(dati.get("prezzo", 0)), dati.get("cadenza"), dati.get("tipo"), dati.get("dispositivo"), dati.get("sistema_operativo"), dati.get("buffett"), dati.get("metodo_pagamento"), dati.get("id")))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.post("/api/azione_generica")
+def api_azione_generica(payload: AzionePayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    azione = dati.get("azione", "")
+    tabella = dati.get("tabella", "")
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            if azione == "cancella_generica":
+                cur.execute(f"DELETE FROM {tabella} WHERE id = %s", (dati.get("id"),))
+            elif azione == "modifica_generica":
+                cur.execute(f"UPDATE {tabella} SET nominativo = %s WHERE id = %s", (dati.get("nominativo"), dati.get("id")))
+            elif azione == "nuovo_generico":
+                cur.execute(f"INSERT INTO {tabella} (nominativo) VALUES (%s)", (dati.get("nominativo"),))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# --- API PER LE LISTE (SENZA CONTROLLO initData) ---
 @app.get("/api/dispositivi")
 def api_dispositivi():
     conn = db_conn()
@@ -175,32 +291,6 @@ def api_lista_cancella(id: int, tabella: str):
         conn.close()
     return {"ok": True}
 
-# --- API AZIONI NOMINATIVI ---
-class AzionePayload(BaseModel):
-    dati: dict
-
-@app.post("/api/azione")
-def api_azione(payload: AzionePayload, request: Request):
-    get_current_user(request)
-    dati = payload.dati
-    azione = dati.get("azione", "")
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            if azione == "cancella":
-                cur.execute("DELETE FROM nominativi WHERE id = %s", (dati.get("id"),))
-            elif azione == "nuovo":
-                cur.execute("""INSERT INTO nominativi (nominativo, user_id, password, cellulare, whatsapp, server, reseller, procuratore, prezzo, cadenza, tipo, dispositivo, sistema_operativo, buffett, metodo_pagamento, data_iscrizione, creato_il) 
-                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", 
-                (dati.get("nominativo", ""), dati.get("user_id", ""), dati.get("password", ""), dati.get("cellulare", ""), dati.get("whatsapp", ""), dati.get("server", ""), dati.get("reseller", ""), dati.get("procuratore", ""), float(dati.get("prezzo", 0)), dati.get("cadenza", ""), dati.get("tipo", ""), dati.get("dispositivo", ""), dati.get("sistema_operativo", ""), dati.get("buffett", ""), dati.get("metodo_pagamento", ""), datetime.now().strftime("%d/%m/%Y"), datetime.now().isoformat()))
-            elif azione == "modifica":
-                cur.execute("""UPDATE nominativi SET nominativo=%s, user_id=%s, password=%s, cellulare=%s, whatsapp=%s, server=%s, reseller=%s, procuratore=%s, prezzo=%s, cadenza=%s, tipo=%s, dispositivo=%s, sistema_operativo=%s, buffett=%s, metodo_pagamento=%s WHERE id=%s""", 
-                (dati.get("nominativo"), dati.get("user_id"), dati.get("password"), dati.get("cellulare"), dati.get("whatsapp"), dati.get("server"), dati.get("reseller"), dati.get("procuratore"), float(dati.get("prezzo", 0)), dati.get("cadenza"), dati.get("tipo"), dati.get("dispositivo"), dati.get("sistema_operativo"), dati.get("buffett"), dati.get("metodo_pagamento"), dati.get("id")))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
-
 # --- API PER GLI AMICI (SENZA CONTROLLO initData) ---
 @app.get("/api/amici")
 def api_amici():
@@ -241,7 +331,6 @@ def api_rimuovi_amico(amico_id: int):
         conn.close()
     return {"ok": True}
 
-# --- SERVE I FILE STATICI ---
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 if __name__ == "__main__":
