@@ -9,6 +9,8 @@
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
 h2 { text-align: center; margin-top: 0; color: #333; }
+.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
+.counter-wrapper { text-align: center; }
 .search { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; margin-bottom: 15px; }
 .item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; display: flex; justify-content: space-between; align-items: center; }
 .item-info { flex: 1; }
@@ -39,6 +41,7 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 <body>
 <div class="container">
 <h2>📋 Lista Nominativi</h2>
+<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
 <input type="text" class="search" id="search" placeholder="Cerca per nome...">
 <div id="lista"><div class="empty">Caricamento...</div></div>
 </div>
@@ -86,15 +89,21 @@ async function carica() {
       return;
     }
     contatti = await res.json();
+    aggiornaContatore(contatti.length);
     render();
   } catch (e) {
     box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
   }
 }
 
+function aggiornaContatore(totale) {
+  document.getElementById('counter').textContent = 'Totale: ' + totale;
+}
+
 function render(filter) {
   filter = (filter || '').toLowerCase();
   const f = contatti.filter(c => c.nominativo.toLowerCase().includes(filter));
+  aggiornaContatore(contatti.length);
   if (f.length === 0) {
     document.getElementById('lista').innerHTML = '<div class="empty">Nessun nominativo.</div>';
     return;
