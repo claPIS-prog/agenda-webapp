@@ -251,9 +251,11 @@ def api_azione_generica(payload: AzionePayload, request: Request):
             if azione == "cancella_generica":
                 cur.execute(f"DELETE FROM {tabella} WHERE id = %s", (dati.get("id"),))
             elif azione == "modifica_generica":
-                cur.execute(f"UPDATE {tabella} SET nome = %s WHERE id = %s", (dati.get("nome"), dati.get("id")))
+                col = TABELLE_COLONNE.get(tabella, 'nome')
+                cur.execute(f"UPDATE {tabella} SET {col} = %s WHERE id = %s", (dati.get("nome"), dati.get("id")))
             elif azione == "nuovo_generico":
-                cur.execute(f"INSERT INTO {tabella} (nome) VALUES (%s)", (dati.get("nome"),))
+                col = TABELLE_COLONNE.get(tabella, 'nome')
+                cur.execute(f"INSERT INTO {tabella} ({col}) VALUES (%s)", (dati.get("nome"),))
         conn.commit()
     finally:
         conn.close()
@@ -279,12 +281,22 @@ def api_sistemi_operativi():
     finally:
         conn.close()
 
+@app.get("/api/buffett")
+def api_buffett():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nome FROM buffett ORDER BY nome")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
 @app.get("/api/buffetts")
 def api_buffetts():
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nome FROM buffetts ORDER BY nome")
+            cur.execute("SELECT id, nome FROM buffett ORDER BY nome")
             return cur.fetchall()
     finally:
         conn.close()
