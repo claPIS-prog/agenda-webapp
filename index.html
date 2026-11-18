@@ -22,13 +22,19 @@ textarea { resize: vertical; min-height: 80px; }
 <body>
 <div class="container">
 <h2>📝 Nuovo Nominativo</h2>
-<div id="form"></div>
+<div id="form"><div style="text-align:center;color:#888;padding:30px;">Caricamento...</div></div>
 </div>
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-let dispositivi = [], sistemiOp = [], buffetts = [], metodiPag = [], procuratori = [], servers = [], resellers = [];
+let dispositivi = [];
+let sistemiOp = [];
+let buffetts = [];
+let metodiPag = [];
+let procuratori = [];
+let servers = [];
+let resellers = [];
 
 const apkList = [
     "ivuplay (PRIVAT)", "Cricfy V6.7", "SportzX [Mobile] v2.1", "StartApp",
@@ -38,76 +44,95 @@ const apkList = [
 const cadenzeList = ["TEST", "MENSILE", "BIMENSILE", "TRIMESTRALE", "SEMESTRALE", "ANNUALE"];
 
 async function caricaListe() {
-    const ok = (r) => r.ok ? r.json() : [];
-    try {
-        const [d, s, b, m, p, sv, re] = await Promise.all([
-            fetch('/api/dispositivi').then(ok),
-            fetch('/api/sistemi_operativi').then(ok),
-            fetch('/api/buffetts').then(ok),
-            fetch('/api/metodi_pagamento').then(ok),
-            fetch('/api/procuratori').then(ok),
-            fetch('/api/servers').then(ok),
-            fetch('/api/resellers').then(ok)
-        ]);
-        dispositivi = Array.isArray(d) ? d : [];
-        sistemiOp = Array.isArray(s) ? s : [];
-        buffetts = Array.isArray(b) ? b : [];
-        metodiPag = Array.isArray(m) ? m : [];
-        procuratori = Array.isArray(p) ? p : [];
-        servers = Array.isArray(sv) ? sv : [];
-        resellers = Array.isArray(re) ? re : [];
-        mostraForm();
-    } catch (e) {
-        dispositivi = []; sistemiOp = []; buffetts = []; metodiPag = [];
-        procuratori = []; servers = []; resellers = [];
-        mostraForm();
-    }
+    const ok = async (url) => {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? data : [];
+        } catch (e) {
+            return [];
+        }
+    };
+    
+    dispositivi = await ok('/api/dispositivi');
+    sistemiOp = await ok('/api/sistemi_operativi');
+    buffetts = await ok('/api/buffett');
+    metodiPag = await ok('/api/metodi_pagamento');
+    procuratori = await ok('/api/procuratori');
+    servers = await ok('/api/servers');
+    resellers = await ok('/api/resellers');
+    
+    mostraForm();
 }
 
-f   function optSelect(items, placeholder) {
-       return '<option value="">' + placeholder + '</option>' + items.map(i => {
-           const val = i.nome || i.nominativo || '';
-           return '<option value="' + val + '">' + val + '</option>';
-       }).join('');
-   }
+function optSelect(items, placeholder, campo) {
+    let html = '<option value="">' + placeholder + '</option>';
+    for (let i = 0; i < items.length; i++) {
+        const val = items[i][campo] || '';
+        html += '<option value="' + val + '">' + val + '</option>';
+    }
+    return html;
+}
 
 function optSelectStatic(items, placeholder) {
-    return '<option value="">' + placeholder + '</option>' + items.map(i => '<option value="' + i + '">' + i + '</option>').join('');
+    let html = '<option value="">' + placeholder + '</option>';
+    for (let i = 0; i < items.length; i++) {
+        html += '<option value="' + items[i] + '">' + items[i] + '</option>';
+    }
+    return html;
 }
 
 function mostraForm() {
     const oggi = new Date().toISOString().split('T')[0];
-    document.getElementById('form').innerHTML = 
-        '<label>Nominativo:</label><input type="text" id="nominativo" placeholder="Nome e cognome">' +
-        '<div class="row"><div><label>User ID:</label><input type="text" id="user_id" placeholder="opzionale"></div><div><label>Password:</label><input type="text" id="password" placeholder="opzionale"></div></div>' +
-        '<div class="row"><div><label>Prezzo (€):</label><input type="number" id="prezzo" step="0.01" value="0"></div><div><label>Cadenza:</label><select id="cadenza">' + optSelectStatic(cadenzeList, '-- Seleziona --') + '</select></div></div>' +
-        '<label>Tipo:</label><input type="text" id="tipo" placeholder="es. TV, Telefono">' +
-        '<div class="section-title">Server / Reseller</div>' +
-        '<label>Server:</label><select id="server">' + optSelect(servers, '-- Seleziona --') + '</select>' +
-        '<label>Reseller:</label><select id="reseller">' + optSelect(resellers, '-- Seleziona --') + '</select>' +
-        '<div class="section-title">Dettagli tecnici</div>' +
-        '<label>Dispositivo:</label><select id="dispositivo">' + optSelect(dispositivi, '-- Seleziona --') + '</select>' +
-        '<label>Sistema Operativo:</label><select id="sistema_operativo">' + optSelect(sistemiOp, '-- Seleziona --') + '</select>' +
-        '<label>Buffett:</label><select id="buffett">' + optSelect(buffetts, '-- Seleziona --') + '</select>' +
-        '<label>Metodo Pagamento:</label><select id="metodo_pagamento">' + optSelect(metodiPag, '-- Seleziona --') + '</select>' +
-        '<div class="section-title">Contatti e riferimenti</div>' +
-        '<label>Num Cellulare:</label><input type="tel" id="cellulare" placeholder="opzionale">' +
-        '<label>Procuratore:</label><select id="procuratore">' + optSelect(procuratori, '-- Seleziona --') + '</select>' +
-        '<label>APK Utilizzata:</label><select id="apk_utilizzata">' + 
-            '<option value="">-- Seleziona --</option>' + 
-            apkList.map(a => '<option value="' + a + '">' + a + '</option>').join('') + 
-        '</select>' +
-        '<div class="row"><div><label>Uso VPN:</label><select id="uso_vpn"><option value="0">No</option><option value="1">Sì</option></select></div><div><label>Quale VPN:</label><input type="text" id="quale_vpn" placeholder="se Sì"></div></div>' +
-        '<label>Città:</label><input type="text" id="citta" placeholder="opzionale">' +
-        '<div class="section-title">Date e note</div>' +
-        '<div class="row"><div><label>Data Iscrizione:</label><input type="date" id="data_iscrizione" value="' + oggi + '"></div><div><label>Data Fine:</label><input type="date" id="data_fine"></div></div>' +
-        '<label>Informazioni:</label><textarea id="informazioni" placeholder="note aggiuntive..."></textarea>' +
-        '<button class="btn" onclick="invia()">Salva Nominativo</button>';
+    
+    let html = '';
+    html += '<label>Nominativo:</label><input type="text" id="nominativo" placeholder="Nome e cognome">';
+    html += '<div class="row"><div><label>User ID:</label><input type="text" id="user_id" placeholder="opzionale"></div>';
+    html += '<div><label>Password:</label><input type="text" id="password" placeholder="opzionale"></div></div>';
+    html += '<div class="row"><div><label>Prezzo (€):</label><input type="number" id="prezzo" step="0.01" value="0"></div>';
+    html += '<div><label>Cadenza:</label><select id="cadenza">' + optSelectStatic(cadenzeList, '-- Seleziona --') + '</select></div></div>';
+    html += '<label>Tipo:</label><input type="text" id="tipo" placeholder="es. TV, Telefono">';
+    
+    html += '<div class="section-title">Server / Reseller</div>';
+    html += '<label>Server:</label><select id="server">' + optSelect(servers, '-- Seleziona --', 'nominativo') + '</select>';
+    html += '<label>Reseller:</label><select id="reseller">' + optSelect(resellers, '-- Seleziona --', 'nominativo') + '</select>';
+    
+    html += '<div class="section-title">Dettagli tecnici</div>';
+    html += '<label>Dispositivo:</label><select id="dispositivo">' + optSelect(dispositivi, '-- Seleziona --', 'nome') + '</select>';
+    html += '<label>Sistema Operativo:</label><select id="sistema_operativo">' + optSelect(sistemiOp, '-- Seleziona --', 'nome') + '</select>';
+    html += '<label>Buffett:</label><select id="buffett">' + optSelect(buffetts, '-- Seleziona --', 'nome') + '</select>';
+    html += '<label>Metodo Pagamento:</label><select id="metodo_pagamento">' + optSelect(metodiPag, '-- Seleziona --', 'nome') + '</select>';
+    
+    html += '<div class="section-title">Contatti e riferimenti</div>';
+    html += '<label>Num Cellulare:</label><input type="tel" id="cellulare" placeholder="opzionale">';
+    html += '<label>Procuratore:</label><select id="procuratore">' + optSelect(procuratori, '-- Seleziona --', 'nominativo') + '</select>';
+    html += '<label>APK Utilizzata:</label><select id="apk_utilizzata">';
+    html += '<option value="">-- Seleziona --</option>';
+    for (let i = 0; i < apkList.length; i++) {
+        html += '<option value="' + apkList[i] + '">' + apkList[i] + '</option>';
+    }
+    html += '</select>';
+    html += '<div class="row"><div><label>Uso VPN:</label><select id="uso_vpn"><option value="0">No</option><option value="1">Sì</option></select></div>';
+    html += '<div><label>Quale VPN:</label><input type="text" id="quale_vpn" placeholder="se Sì"></div></div>';
+    html += '<label>Città:</label><input type="text" id="citta" placeholder="opzionale">';
+    
+    html += '<div class="section-title">Date e note</div>';
+    html += '<div class="row"><div><label>Data Iscrizione:</label><input type="date" id="data_iscrizione" value="' + oggi + '"></div>';
+    html += '<div><label>Data Fine:</label><input type="date" id="data_fine"></div></div>';
+    html += '<label>Informazioni:</label><textarea id="informazioni" placeholder="note aggiuntive..."></textarea>';
+    html += '<button class="btn" onclick="invia()">Salva Nominativo</button>';
+    
+    document.getElementById('form').innerHTML = html;
 }
 
 async function invia() {
     const nominativo = document.getElementById('nominativo').value.trim();
-    if (!nominativo) { tg.showAlert('⚠️ Il nominativo è obbligatorio'); return; }
+    if (!nominativo) {
+        tg.showAlert('⚠️ Il nominativo è obbligatorio');
+        return;
+    }
+    
     const dati = {
         azione: 'nuovo',
         nominativo: nominativo,
@@ -132,6 +157,7 @@ async function invia() {
         data_fine: document.getElementById('data_fine').value,
         informazioni: document.getElementById('informazioni').value.trim()
     };
+    
     try {
         const res = await fetch('/api/azione', {
             method: 'POST',
