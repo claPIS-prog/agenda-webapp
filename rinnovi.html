@@ -16,6 +16,8 @@ input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radiu
 .btn { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 15px; background: #4caf50; color: white; }
 .btn:active { background: #388e3c; }
 .empty { text-align: center; color: #888; padding: 30px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
+.toast.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -23,6 +25,7 @@ input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radiu
 <h2>🔄 Nuovo Rinnovo</h2>
 <div id="form"><div class="empty">Caricamento...</div></div>
 </div>
+<div class="toast" id="toast"></div>
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
@@ -69,8 +72,15 @@ function calcolaScadenza() {
   document.getElementById('scadenza').value = s;
 }
 
+function mostraToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => { t.classList.remove('show'); }, 2500);
+}
+
 async function invia() {
-  const data = {
+  const dati = {
     azione: 'nuovo_rinnovo',
     nominativo_id: parseInt(document.getElementById('nominativo_id').value),
     tipo: document.getElementById('tipo').value,
@@ -82,20 +92,20 @@ async function invia() {
     importo_saldo: parseFloat(document.getElementById('importo_saldo').value) || 0,
     note: document.getElementById('note').value
   };
-  if (!data.nominativo_id) { tg.showAlert('⚠️ Seleziona un nominativo'); return; }
-  if (!data.data_operazione) { tg.showAlert('⚠️ Inserisci la data'); return; }
-  if (!data.scadenza) { tg.showAlert('⚠️ Inserisci la data di scadenza'); return; }
+  if (!dati.nominativo_id) { mostraToast('⚠️ Seleziona un nominativo'); return; }
+  if (!dati.data_operazione) { mostraToast('⚠️ Inserisci la data'); return; }
+  if (!dati.scadenza) { mostraToast('⚠️ Inserisci la data di scadenza'); return; }
   try {
     const res = await fetch('/api/rinnovo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dati: data })
+      body: JSON.stringify({ dati: dati })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    tg.showAlert('✅ Rinnovo registrato!');
-    tg.close();
+    mostraToast('✅ Rinnovo registrato!');
+    setTimeout(() => tg.close(), 1500);
   } catch (e) {
-    tg.showAlert('❌ Errore: ' + e.message);
+    mostraToast('❌ Errore: ' + e.message);
   }
 }
 
