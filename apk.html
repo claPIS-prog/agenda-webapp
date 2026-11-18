@@ -8,11 +8,10 @@
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 h2 { text-align: center; color: #333; margin-bottom: 20px; }
-.card { background: white; border-radius: 10px; padding: 15px; margin: 10px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-.card h3 { margin: 0 0 10px 0; font-size: 16px; color: #222; }
-.btn { display: block; background: #0088cc; color: white; text-align: center; padding: 12px; border-radius: 6px; text-decoration: none; font-weight: bold; }
+.card { background: white; border-radius: 10px; padding: 15px; margin: 10px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); display: flex; justify-content: space-between; align-items: center; }
+.card h3 { margin: 0; font-size: 15px; color: #222; flex: 1; padding-right: 10px; }
+.btn { background: #0088cc; color: white; text-align: center; padding: 8px 15px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; white-space: nowrap; }
 .btn:active { background: #006699; }
-.empty { text-align: center; color: #888; padding: 30px; }
 </style>
 </head>
 <body>
@@ -21,16 +20,24 @@ h2 { text-align: center; color: #333; margin-bottom: 20px; }
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
-const params = new URLSearchParams(window.location.search);
-const raw = params.get('files');
-let files = [];
-try { files = raw ? JSON.parse(decodeURIComponent(raw)) : []; } catch(e) { files = []; }
+
+// Lista APK (aggiorna qui se cambi i link in futuro)
+const files = [
+    {"nome": "ivuplay (PRIVAT)", "url": "https://ufile.io/ikswiasm"},
+    {"nome": "Cricfy V6.7", "url": "https://ufile.io/egr9ndt0"},
+    {"nome": "SportzX [Mobile] v2.1", "url": "https://ufile.io/k23eilvw"},
+    {"nome": "StartApp", "url": "https://ufile.io/nw9fzy4r"},
+    {"nome": "Paradise", "url": "https://ufile.io/qzxer2mx"},
+    {"nome": "Send Files To TV v1.4.22b", "url": "https://ufile.io/mwrl6yrx"},
+    {"nome": "Private Server", "url": "https://ufile.io/mdlli2aj"},
+    {"nome": "0Player 300626", "url": "https://ufile.io/d1q7qgcs"},
+    {"nome": "XCloud-1.0.15", "url": "https://ufile.io/w4xg0mbd"}
+];
+
 const container = document.getElementById('lista');
-if (!Array.isArray(files) || files.length === 0) {
-  container.innerHTML = '<div class="empty">Nessun file disponibile.</div>';
-} else {
-  container.innerHTML = files.map(f => '<div class="card"><h3>' + f.nome + '</h3><a class="btn" href="' + f.url + '" target="_blank">Scarica</a></div>').join('');
-}
+container.innerHTML = files.map(f =>
+    '<div class="card"><h3>' + f.nome + '</h3><a class="btn" href="' + f.url + '" target="_blank">Scarica</a></div>'
+).join('');
 </script>
 </body>
 </html>
