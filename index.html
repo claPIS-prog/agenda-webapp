@@ -64,9 +64,12 @@ async function caricaListe() {
     }
 }
 
-function optSelect(items, placeholder) {
-    return '<option value="">' + placeholder + '</option>' + items.map(i => '<option value="' + i.nome + '">' + i.nome + '</option>').join('');
-}
+f   function optSelect(items, placeholder) {
+       return '<option value="">' + placeholder + '</option>' + items.map(i => {
+           const val = i.nome || i.nominativo || '';
+           return '<option value="' + val + '">' + val + '</option>';
+       }).join('');
+   }
 
 function optSelectStatic(items, placeholder) {
     return '<option value="">' + placeholder + '</option>' + items.map(i => '<option value="' + i + '">' + i + '</option>').join('');
