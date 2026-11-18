@@ -1,7 +1,5 @@
-# server.py
 import os
 from datetime import datetime, timedelta
-
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, HTTPException, Request
@@ -13,16 +11,14 @@ import uvicorn
 from dotenv import load_dotenv
 
 load_dotenv()
-
 DATABASE_URL = os.getenv("DATABASE_URL")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 AUTHORIZED_IDS = {int(x) for x in os.getenv("AUTHORIZED_IDS", "").split(",") if x}
 
 if not DATABASE_URL or not BOT_TOKEN:
-    raise SystemExit("❌ DATABASE_URL o BOT_TOKEN mancanti.")
+    raise SystemExit("DATABASE_URL o BOT_TOKEN mancanti.")
 
 app = FastAPI()
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -52,16 +48,30 @@ def init_db():
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor() as cur:
-            cur.execute("""CREATE TABLE IF NOT EXISTS nominativi (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, prezzo REAL DEFAULT 0, cadenza TEXT, tipo TEXT, dispositivo TEXT, sistema_operativo TEXT, buffett TEXT, metodo_pagamento TEXT);""")
-            cur.execute("""CREATE TABLE IF NOT EXISTS rinnovi (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), tipo TEXT, data_operazione TEXT, mesi INTEGER, scadenza TEXT, importo_acconto REAL DEFAULT 0, importo_saldo REAL DEFAULT 0, data_acconto TEXT, data_saldo TEXT, note TEXT, creato_il TEXT);""")
-            cur.execute("CREATE TABLE IF NOT EXISTS servers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
-            cur.execute("CREATE TABLE IF NOT EXISTS resellers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
-            cur.execute("CREATE TABLE IF NOT EXISTS procuratori (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL);")
-            cur.execute("""CREATE TABLE IF NOT EXISTS autorizzati (id SERIAL PRIMARY KEY, telegram_id BIGINT UNIQUE NOT NULL, password TEXT NOT NULL, nome TEXT);""")
-            cur.execute("CREATE TABLE IF NOT EXISTS dispositivi (id SERIAL PRIMARY KEY, nome TEXT NOT NULL);")
-            cur.execute("CREATE TABLE IF NOT EXISTS sistemi_operativi (id SERIAL PRIMARY KEY, nome TEXT NOT NULL);")
-            cur.execute("CREATE TABLE IF NOT EXISTS buffetts (id SERIAL PRIMARY KEY, nome TEXT NOT NULL);")
-            cur.execute("CREATE TABLE IF NOT EXISTS metodi_pagamento (id SERIAL PRIMARY KEY, nome TEXT NOT NULL);")
+            cur.execute("""CREATE TABLE IF NOT EXISTS nominativi (
+                id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, user_id TEXT, password TEXT,
+                cellulare TEXT, whatsapp TEXT, server TEXT, reseller TEXT, procuratore TEXT,
+                uso_vpn INTEGER DEFAULT 0, quale_vpn TEXT, residenza TEXT, applicazioni TEXT,
+                dispositivi TEXT, pacchetto TEXT, fornitore TEXT, tipo_pagamento TEXT,
+                prezzo REAL DEFAULT 0, cadenza TEXT, tipo_linea TEXT, data_iscrizione TEXT,
+                creato_il TEXT, tipo TEXT, sistema_operativo TEXT, buffett TEXT, metodo_pagamento TEXT)""")
+            cur.execute("""CREATE TABLE IF NOT EXISTS rinnovi (
+                id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id),
+                tipo TEXT, data_operazione TEXT, mesi INTEGER, scadenza TEXT, orario_scadenza TEXT,
+                importo_acconto REAL DEFAULT 0, importo_saldo REAL DEFAULT 0,
+                data_acconto TEXT, data_saldo TEXT, note TEXT, creato_il TEXT)""")
+            cur.execute("CREATE TABLE IF NOT EXISTS servers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
+            cur.execute("CREATE TABLE IF NOT EXISTS resellers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
+            cur.execute("CREATE TABLE IF NOT EXISTS procuratori (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
+            cur.execute("""CREATE TABLE IF NOT EXISTS autorizzati (
+                id SERIAL PRIMARY KEY, telegram_id BIGINT UNIQUE NOT NULL, password TEXT NOT NULL, nome TEXT)""")
+            cur.execute("CREATE TABLE IF NOT EXISTS dispositivi (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
+            cur.execute("CREATE TABLE IF NOT EXISTS sistemi_operativi (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
+            cur.execute("CREATE TABLE IF NOT EXISTS buffett (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
+            cur.execute("CREATE TABLE IF NOT EXISTS metodi_pagamento (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
+            cur.execute("""CREATE TABLE IF NOT EXISTS config_notifiche (
+                id INTEGER PRIMARY KEY CHECK (id = 1), ora INTEGER DEFAULT 7, minuto INTEGER DEFAULT 0, attivo INTEGER DEFAULT 1)""")
+            cur.execute("INSERT OR IGNORE INTO config_notifiche (id, ora, minuto, attivo) VALUES (1, 7, 0, 1)")
         conn.commit()
     finally:
         conn.close()
@@ -72,6 +82,7 @@ def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
 # --- API PROTETTE ---
+
 @app.get("/api/contatti")
 def api_contatti(request: Request):
     get_current_user(request)
@@ -128,9 +139,14 @@ def api_rinnovo(payload: RinnovoPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""INSERT INTO rinnovi (nominativo_id, tipo, data_operazione, mesi, scadenza, importo_acconto, importo_saldo, data_acconto, data_saldo, note, creato_il) 
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", 
-                           (int(dati.get("nominativo_id")), dati.get("tipo", "rinnovo"), dati.get("data_operazione"), int(dati.get("mesi")), dati.get("scadenza"), float(dati.get("importo_acconto", 0)), float(dati.get("importo_saldo", 0)), "", "", "", datetime.now().isoformat()))
+            cur.execute("""INSERT INTO rinnovi (nominativo_id, tipo, data_operazione, mesi, scadenza, orario_scadenza, importo_acconto, importo_saldo, data_acconto, data_saldo, note, creato_il)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (int(dati.get("nominativo_id")), dati.get("tipo", "rinnovo"), dati.get("data_operazione"),
+                 int(dati.get("mesi")), dati.get("scadenza"), dati.get("orario_scadenza", ""),
+                 float(dati.get("importo_acconto", 0)), float(dati.get("importo_saldo", 0)),
+                 datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_acconto", 0)) > 0 else "",
+                 datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_saldo", 0)) > 0 else "",
+                 dati.get("note", ""), datetime.now().isoformat()))
         conn.commit()
     finally:
         conn.close()
@@ -183,11 +199,16 @@ def api_azione(payload: AzionePayload, request: Request):
             if azione == "cancella":
                 cur.execute("DELETE FROM nominativi WHERE id = %s", (dati.get("id"),))
             elif azione == "nuovo":
-                cur.execute("""INSERT INTO nominativi (nominativo, prezzo, cadenza, tipo, dispositivo, sistema_operativo, buffett, metodo_pagamento) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""", 
-                (dati.get("nominativo", ""), float(dati.get("prezzo", 0)), dati.get("cadenza", ""), dati.get("tipo", ""), dati.get("dispositivo", ""), dati.get("sistema_operativo", ""), dati.get("buffett", ""), dati.get("metodo_pagamento", "")))
+                cur.execute("""INSERT INTO nominativi (nominativo, prezzo, cadenza, tipo, dispositivo, sistema_operativo, buffett, metodo_pagamento)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (dati.get("nominativo", ""), float(dati.get("prezzo", 0)), dati.get("cadenza", ""),
+                     dati.get("tipo", ""), dati.get("dispositivo", ""), dati.get("sistema_operativo", ""),
+                     dati.get("buffett", ""), dati.get("metodo_pagamento", "")))
             elif azione == "modifica":
-                cur.execute("""UPDATE nominativi SET nominativo=%s, prezzo=%s, cadenza=%s, tipo=%s, dispositivo=%s, sistema_operativo=%s, buffett=%s, metodo_pagamento=%s WHERE id=%s""", 
-                (dati.get("nominativo"), float(dati.get("prezzo", 0)), dati.get("cadenza"), dati.get("tipo"), dati.get("dispositivo"), dati.get("sistema_operativo"), dati.get("buffett"), dati.get("metodo_pagamento"), dati.get("id")))
+                cur.execute("""UPDATE nominativi SET nominativo=%s, prezzo=%s, cadenza=%s, tipo=%s, dispositivo=%s, sistema_operativo=%s, buffett=%s, metodo_pagamento=%s WHERE id=%s""",
+                    (dati.get("nominativo"), float(dati.get("prezzo", 0)), dati.get("cadenza"),
+                     dati.get("tipo"), dati.get("dispositivo"), dati.get("sistema_operativo"),
+                     dati.get("buffett"), dati.get("metodo_pagamento"), dati.get("id")))
         conn.commit()
     finally:
         conn.close()
@@ -205,15 +226,16 @@ def api_azione_generica(payload: AzionePayload, request: Request):
             if azione == "cancella_generica":
                 cur.execute(f"DELETE FROM {tabella} WHERE id = %s", (dati.get("id"),))
             elif azione == "modifica_generica":
-                cur.execute(f"UPDATE {tabella} SET nominativo = %s WHERE id = %s", (dati.get("nominativo"), dati.get("id")))
+                cur.execute(f"UPDATE {tabella} SET nome = %s WHERE id = %s", (dati.get("nome"), dati.get("id")))
             elif azione == "nuovo_generico":
-                cur.execute(f"INSERT INTO {tabella} (nominativo) VALUES (%s)", (dati.get("nominativo"),))
+                cur.execute(f"INSERT INTO {tabella} (nome) VALUES (%s)", (dati.get("nome"),))
         conn.commit()
     finally:
         conn.close()
     return {"ok": True}
 
 # --- API PER LE LISTE (SENZA CONTROLLO initData) ---
+
 @app.get("/api/dispositivi")
 def api_dispositivi():
     conn = db_conn()
@@ -234,12 +256,12 @@ def api_sistemi_operativi():
     finally:
         conn.close()
 
-@app.get("/api/buffetts")
-def api_buffetts():
+@app.get("/api/buffett")
+def api_buffett():
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nome FROM buffetts ORDER BY nome")
+            cur.execute("SELECT id, nome FROM buffett ORDER BY nome")
             return cur.fetchall()
     finally:
         conn.close()
@@ -292,6 +314,7 @@ def api_lista_cancella(id: int, tabella: str):
     return {"ok": True}
 
 # --- API PER GLI AMICI (SENZA CONTROLLO initData) ---
+
 @app.get("/api/amici")
 def api_amici():
     conn = db_conn()
@@ -312,9 +335,9 @@ def api_aggiungi_amico(payload: AmicoPayload):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""INSERT INTO autorizzati (telegram_id, password, nome) VALUES (%s, %s, %s) 
-                           ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome""",
-                        (payload.telegram_id, payload.password, payload.nome))
+            cur.execute("""INSERT INTO autorizzati (telegram_id, password, nome) VALUES (%s, %s, %s)
+                ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome""",
+                (payload.telegram_id, payload.password, payload.nome))
         conn.commit()
     finally:
         conn.close()
@@ -330,6 +353,40 @@ def api_rimuovi_amico(amico_id: int):
     finally:
         conn.close()
     return {"ok": True}
+
+# --- API PER CONFIG NOTIFICHE ---
+
+@app.get("/api/config_notifiche")
+def api_config_notifiche():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT ora, minuto, attivo FROM config_notifiche WHERE id = 1")
+            row = cur.fetchone()
+            if row:
+                return {"ora": row["ora"], "minuto": row["minuto"], "attivo": bool(row["attivo"])}
+            return {"ora": 7, "minuto": 0, "attivo": True}
+    finally:
+        conn.close()
+
+class ConfigNotifichePayload(BaseModel):
+    ora: int
+    minuto: int
+    attivo: bool
+
+@app.post("/api/config_notifiche")
+def api_config_notifiche_update(payload: ConfigNotifichePayload):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE config_notifiche SET ora = %s, minuto = %s, attivo = %s WHERE id = 1",
+                        (payload.ora, payload.minuto, 1 if payload.attivo else 0))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# --- SERVE FILE STATICI ---
 
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
