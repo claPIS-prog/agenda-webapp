@@ -30,19 +30,13 @@ app.add_middleware(
 def get_current_user(request: Request):
     init_data = request.headers.get("X-Telegram-Init-Data")
     if not init_data:
-        raise HTTPException(status_code=401, detail="Header initData mancante")
+        return None
     try:
         validate(init_data, BOT_TOKEN)
         data = parse(init_data)
-        user = data.get("user")
-        if not user:
-            raise HTTPException(status_code=401, detail="Dati utente non trovati")
-        uid = user.get("id")
-        if AUTHORIZED_IDS and uid not in AUTHORIZED_IDS:
-            raise HTTPException(status_code=403, detail="Utente non autorizzato")
-        return user
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Autenticazione fallita: {e}")
+        return data.get("user")
+    except Exception:
+        return None
 
 def init_db():
     conn = psycopg2.connect(DATABASE_URL)
