@@ -21,20 +21,29 @@ input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radiu
 <body>
 <div class="container">
 <h2>🔄 Nuovo Rinnovo</h2>
-<div id="form"></div>
+<div id="form"><div class="empty">Caricamento...</div></div>
 </div>
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
 let nominativi = [];
-try {
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get('nominativi');
-  if (raw) nominativi = JSON.parse(decodeURIComponent(raw));
-} catch(e) {}
-if (!Array.isArray(nominativi) || nominativi.length === 0) {
-  document.getElementById('form').innerHTML = '<div class="empty">Nessun nominativo disponibile.</div>';
-} else {
+
+async function caricaNominativi() {
+  try {
+    const res = await fetch('/api/nominativi');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    nominativi = await res.json();
+    mostraForm();
+  } catch (e) {
+    document.getElementById('form').innerHTML = '<div class="empty">Errore: ' + e.message + '</div>';
+  }
+}
+
+function mostraForm() {
+  if (!Array.isArray(nominativi) || nominativi.length === 0) {
+    document.getElementById('form').innerHTML = '<div class="empty">Nessun nominativo disponibile.</div>';
+    return;
+  }
   const options = nominativi.map(n => '<option value="' + n.id + '">' + n.nominativo + '</option>').join('');
   document.getElementById('form').innerHTML = 
     '<label>Seleziona Nominativo:</label><select id="nominativo_id">' + options + '</select>' +
@@ -49,6 +58,7 @@ if (!Array.isArray(nominativi) || nominativi.length === 0) {
   document.getElementById('mesi').addEventListener('input', calcolaScadenza);
   calcolaScadenza();
 }
+
 function calcolaScadenza() {
   const d = document.getElementById('data_operazione').value;
   const m = parseInt(document.getElementById('mesi').value) || 0;
@@ -58,7 +68,8 @@ function calcolaScadenza() {
   const s = newDate.toISOString().split('T')[0];
   document.getElementById('scadenza').value = s;
 }
-function invia() {
+
+async function invia() {
   const data = {
     azione: 'nuovo_rinnovo',
     nominativo_id: parseInt(document.getElementById('nominativo_id').value),
@@ -74,8 +85,21 @@ function invia() {
   if (!data.nominativo_id) { tg.showAlert('⚠️ Seleziona un nominativo'); return; }
   if (!data.data_operazione) { tg.showAlert('⚠️ Inserisci la data'); return; }
   if (!data.scadenza) { tg.showAlert('⚠️ Inserisci la data di scadenza'); return; }
-  tg.sendData(JSON.stringify(data));
+  try {
+    const res = await fetch('/api/rinnovo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dati: data })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    tg.showAlert('✅ Rinnovo registrato!');
+    tg.close();
+  } catch (e) {
+    tg.showAlert('❌ Errore: ' + e.message);
+  }
 }
+
+caricaNominativi();
 </script>
 </body>
 </html>
