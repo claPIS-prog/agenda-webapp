@@ -201,16 +201,39 @@ def api_azione(payload: AzionePayload, request: Request):
             if azione == "cancella":
                 cur.execute("DELETE FROM nominativi WHERE id = %s", (dati.get("id"),))
             elif azione == "nuovo":
-                cur.execute("""INSERT INTO nominativi (nominativo, prezzo, cadenza, tipo, dispositivo, sistema_operativo, buffett, metodo_pagamento)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (dati.get("nominativo", ""), float(dati.get("prezzo", 0)), dati.get("cadenza", ""),
-                     dati.get("tipo", ""), dati.get("dispositivo", ""), dati.get("sistema_operativo", ""),
-                     dati.get("buffett", ""), dati.get("metodo_pagamento", "")))
+                cur.execute("""INSERT INTO nominativi 
+                    (nominativo, user_id, password, prezzo, cadenza, tipo, server, reseller, 
+                     dispositivo, sistema_operativo, buffett, metodo_pagamento, 
+                     cellulare, procuratore, apk_utilizzata, uso_vpn, quale_vpn, citta, 
+                     data_iscrizione, data_fine, informazioni)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (dati.get("nominativo",""), dati.get("user_id",""), dati.get("password",""),
+                     float(dati.get("prezzo",0)), dati.get("cadenza",""), dati.get("tipo",""),
+                     dati.get("server",""), dati.get("reseller",""),
+                     dati.get("dispositivo",""), dati.get("sistema_operativo",""),
+                     dati.get("buffett",""), dati.get("metodo_pagamento",""),
+                     dati.get("cellulare",""), dati.get("procuratore",""),
+                     dati.get("apk_utilizzata",""), int(dati.get("uso_vpn",0)),
+                     dati.get("quale_vpn",""), dati.get("citta",""),
+                     dati.get("data_iscrizione",""), dati.get("data_fine",""),
+                     dati.get("informazioni","")))
             elif azione == "modifica":
-                cur.execute("""UPDATE nominativi SET nominativo=%s, prezzo=%s, cadenza=%s, tipo=%s, dispositivo=%s, sistema_operativo=%s, buffett=%s, metodo_pagamento=%s WHERE id=%s""",
-                    (dati.get("nominativo"), float(dati.get("prezzo", 0)), dati.get("cadenza"),
-                     dati.get("tipo"), dati.get("dispositivo"), dati.get("sistema_operativo"),
-                     dati.get("buffett"), dati.get("metodo_pagamento"), dati.get("id")))
+                cur.execute("""UPDATE nominativi SET 
+                    nominativo=%s, user_id=%s, password=%s, prezzo=%s, cadenza=%s, tipo=%s,
+                    server=%s, reseller=%s, dispositivo=%s, sistema_operativo=%s,
+                    buffett=%s, metodo_pagamento=%s, cellulare=%s, procuratore=%s,
+                    apk_utilizzata=%s, uso_vpn=%s, quale_vpn=%s, citta=%s,
+                    data_iscrizione=%s, data_fine=%s, informazioni=%s WHERE id=%s""",
+                    (dati.get("nominativo"), dati.get("user_id"), dati.get("password"),
+                     float(dati.get("prezzo",0)), dati.get("cadenza"), dati.get("tipo"),
+                     dati.get("server"), dati.get("reseller"),
+                     dati.get("dispositivo"), dati.get("sistema_operativo"),
+                     dati.get("buffett"), dati.get("metodo_pagamento"),
+                     dati.get("cellulare"), dati.get("procuratore"),
+                     dati.get("apk_utilizzata"), int(dati.get("uso_vpn",0)),
+                     dati.get("quale_vpn"), dati.get("citta"),
+                     dati.get("data_iscrizione"), dati.get("data_fine"),
+                     dati.get("informazioni"), dati.get("id")))
         conn.commit()
     finally:
         conn.close()
