@@ -174,6 +174,19 @@ def api_rinnovo(payload: RinnovoPayload, request: Request):
         conn.close()
     return {"ok": True}
 
+@app.delete("/api/rinnovo/{id}")
+def api_rinnovo_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM saldo_rinnovi WHERE rinnovo_id = %s", (id,))
+            cur.execute("DELETE FROM rinnovi WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
 @app.get("/api/resellers")
 def api_resellers(request: Request):
     get_current_user(request)
