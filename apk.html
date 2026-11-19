@@ -3,41 +3,121 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Download APK</title>
+<title>Gestione APK</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-h2 { text-align: center; color: #333; margin-bottom: 20px; }
-.card { background: white; border-radius: 10px; padding: 15px; margin: 10px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.08); display: flex; justify-content: space-between; align-items: center; }
-.card h3 { margin: 0; font-size: 15px; color: #222; flex: 1; padding-right: 10px; }
-.btn { background: #0088cc; color: white; text-align: center; padding: 8px 15px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; white-space: nowrap; }
-.btn:active { background: #006699; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+h2 { text-align: center; margin-top: 0; color: #333; }
+.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
+.counter-wrapper { text-align: center; }
+.input-row { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+.input-row input { flex: 1; min-width: 120px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+.btn-add { padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+.btn-add:active { background: #388e3c; }
+.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; }
+.item strong { color: #222; font-size: 15px; display: block; margin-bottom: 4px; }
+.item small { color: #666; display: block; font-size: 13px; margin: 2px 0; word-break: break-all; }
+.item-actions { display: flex; gap: 6px; margin-top: 8px; }
+.btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; flex: 1; text-align: center; text-decoration: none; display: inline-block; }
+.btn-link { background: #0088cc; color: white; }
+.btn-link:active { background: #006699; }
+.btn-del { background: #f44336; color: white; }
+.btn-del:active { background: #d32f2f; }
+.empty { text-align: center; color: #888; padding: 30px; }
+.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 6px; z-index: 200; opacity: 0; transition: opacity 0.3s; }
+.toast.show { opacity: 1; }
 </style>
 </head>
 <body>
-<h2>📥 Download APK</h2>
-<div id="lista"></div>
+<div class="container">
+<h2>📦 Gestione APK</h2>
+<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
+<div class="input-row">
+<input type="text" id="nome_file" placeholder="Nome file (es. app_v1.apk)">
+<input type="text" id="link" placeholder="Link download">
+<input type="text" id="file_token" placeholder="Token/File ID (per cancellazione)">
+<button class="btn-add" onclick="aggiungi()">➕ Aggiungi</button>
+</div>
+<div id="lista"><div class="empty">Caricamento...</div></div>
+</div>
+<div class="toast" id="toast"></div>
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
+const tg = window.Telegram.WebApp; tg.expand();
+let items = [];
 
-// Lista APK (aggiorna qui se cambi i link in futuro)
-const files = [
-    {"nome": "ivuplay (PRIVAT)", "url": "https://ufile.io/ikswiasm"},
-    {"nome": "Cricfy V6.7", "url": "https://ufile.io/egr9ndt0"},
-    {"nome": "SportzX [Mobile] v2.1", "url": "https://ufile.io/k23eilvw"},
-    {"nome": "StartApp", "url": "https://ufile.io/nw9fzy4r"},
-    {"nome": "Paradise", "url": "https://ufile.io/qzxer2mx"},
-    {"nome": "Send Files To TV v1.4.22b", "url": "https://ufile.io/mwrl6yrx"},
-    {"nome": "Private Server", "url": "https://ufile.io/mdlli2aj"},
-    {"nome": "0Player 300626", "url": "https://ufile.io/d1q7qgcs"},
-    {"nome": "XCloud-1.0.15", "url": "https://ufile.io/w4xg0mbd"}
-];
+async function carica() {
+  try {
+    const res = await fetch('/api/apk');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    items = await res.json();
+    render();
+  } catch (e) {
+    document.getElementById('lista').innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
+  }
+}
 
-const container = document.getElementById('lista');
-container.innerHTML = files.map(f =>
-    '<div class="card"><h3>' + f.nome + '</h3><a class="btn" href="' + f.url + '" target="_blank">Scarica</a></div>'
-).join('');
+function render() {
+  aggiornaContatore(items.length);
+  if (items.length === 0) {
+    document.getElementById('lista').innerHTML = '<div class="empty">Nessun APK salvato.</div>';
+    return;
+  }
+  document.getElementById('lista').innerHTML = items.map(i => {
+    const data = new Date(i.creato_il).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return '<div class="item"><strong>' + (i.nome_file || 'Senza nome') + '</strong>' +
+      '<small>Link: <a href="' + (i.link || '#') + '" target="_blank" style="color:#0088cc;">' + (i.link || '-') + '</a></small>' +
+      '<small>Data: ' + data + '</small>' +
+      '<div class="item-actions">' +
+      '<a href="' + (i.link || '#') + '" target="_blank" class="btn btn-link">📥 Apri/Scarica</a>' +
+      '<button class="btn btn-del" onclick="cancella(' + i.id + ')">🗑️ Cancella (Remoto)</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+function aggiornaContatore(totale) { document.getElementById('counter').textContent = 'Totale: ' + totale; }
+
+async function aggiungi() {
+  const nome = document.getElementById('nome_file').value.trim();
+  const link = document.getElementById('link').value.trim();
+  const token = document.getElementById('file_token').value.trim();
+  
+  if (!nome || !link) { mostraToast('⚠️ Nome e Link sono obbligatori'); return; }
+  
+  try {
+    const res = await fetch('/api/apk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dati: { nome_file: nome, link: link, file_token: token } })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    document.getElementById('nome_file').value = '';
+    document.getElementById('link').value = '';
+    document.getElementById('file_token').value = '';
+    mostraToast('✅ APK aggiunto');
+    await carica();
+  } catch (e) { mostraToast('❌ Errore: ' + e.message); }
+}
+
+async function cancella(id) {
+  const i = items.find(x => x.id === id); if (!i) return;
+  if (!confirm('Cancellare "' + i.nome_file + '"?\n\nQuesto tenterà di eliminarlo anche da Ufile.io (se le credenziali sono configurate).')) return;
+  
+  mostraToast('⏳ Cancellazione in corso...');
+  try {
+    const res = await fetch(`/api/apk/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    mostraToast('🗑️ Cancellato con successo');
+    await carica();
+  } catch (e) { mostraToast('❌ Errore: ' + e.message); }
+}
+
+function mostraToast(msg) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+carica();
 </script>
 </body>
 </html>
