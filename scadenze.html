@@ -1,60 +1,138 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scadenze</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
-    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f9f9f9); }
-    .name { font-weight: bold; font-size: 1.1em; margin-bottom: 4px; }
-    .info { color: #666; font-size: 0.9em; margin-bottom: 2px; }
-    .empty { text-align: center; color: #999; margin-top: 40px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scadenze</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+h2 { text-align: center; margin-top: 0; color: #333; }
+.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
+.counter-wrapper { text-align: center; }
+.search { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; margin-bottom: 15px; }
+.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #c62828; }
+.item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.item-head strong { color: #222; font-size: 15px; }
+.badge { background: #ffebee; color: #c62828; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
+.item small { color: #555; display: block; font-size: 13px; margin: 2px 0; }
+.item .scad { color: #c62828; font-weight: bold; font-size: 14px; }
+.item-actions { display: flex; gap: 6px; margin-top: 8px; }
+.btn { padding: 8px 12px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; flex: 1; }
+.btn-rinnovo { background: #4caf50; color: white; }
+.btn-rinnovo:active { background: #388e3c; }
+.btn-pdf { background: #ff9800; color: white; }
+.btn-pdf:active { background: #f57c00; }
+.empty { text-align: center; color: #888; padding: 30px; }
+.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
+.toast.show { opacity: 1; }
+</style>
 </head>
 <body>
-  <h1>⏰ Scadenze</h1>
-  <div id="lista"></div>
+<div class="container">
+<h2>⏰ Scadenze</h2>
+<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
+<input type="text" class="search" id="search" placeholder="Cerca per nominativo...">
+<div id="lista"><div class="empty">Caricamento...</div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+let scadenze = [];
 
-  <script>
-    const tg = window.Telegram?.WebApp;
-    if (tg) { tg.ready(); tg.expand(); }
+async function carica() {
+  const box = document.getElementById('lista');
+  try {
+    const res = await fetch('/api/scadenze');
+    if (!res.ok) { box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>'; return; }
+    scadenze = await res.json();
+    aggiornaContatore(scadenze.length);
+    render();
+  } catch (e) {
+    box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
+  }
+}
 
-    const API_BASE = ""; 
-    const listaDiv = document.getElementById("lista");
+function aggiornaContatore(totale) {
+  document.getElementById('counter').textContent = 'Totale: ' + totale;
+}
 
-    async function caricaScadenze() {
-      try {
-        listaDiv.innerHTML = "<div class='empty'>Caricamento...</div>";
-        const r = await fetch(`${API_BASE}/api/scadenze`);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const scadenze = await r.json();
-        render(scadenze);
-      } catch (e) {
-        listaDiv.innerHTML = `<div class='empty'>Errore: ${e.message}</div>`;
-      }
-    }
+function render(filter) {
+  filter = (filter || '').toLowerCase();
+  const f = scadenze.filter(s => (s.nominativo || '').toLowerCase().includes(filter));
+  if (f.length === 0) {
+    document.getElementById('lista').innerHTML = '<div class="empty">Nessuna scadenza scaduta.</div>';
+    return;
+  }
+  document.getElementById('lista').innerHTML = f.map(s => {
+    const giorni = Math.abs(s.giorni || 0);
+    const testoGiorni = giorni === 1 ? 'giorno' : 'giorni';
+    return '<div class="item">' +
+      '<div class="item-head"><strong>' + (s.nominativo || '') + '</strong>' +
+      '<span class="badge">SCADUTA</span></div>' +
+      '<small class="scad">Scaduta il: ' + (s.scadenza || '-') + (s.orario_scadenza ? ' ore ' + s.orario_scadenza : '') + '</small>' +
+      '<small>Da ' + giorni + ' ' + testoGiorni + '</small>' +
+      '<div class="item-actions">' +
+      '<button class="btn btn-rinnovo" onclick="apriRinnovo(' + s.nominativo_id + ')">🔄 Rinnovo</button>' +
+      '<button class="btn btn-pdf" onclick="generaPDF(' + s.id + ')">📄 PDF</button>' +
+      '</div></div>';
+  }).join('');
+}
 
-    function render(lista) {
-      listaDiv.innerHTML = "";
-      if (lista.length === 0) {
-        listaDiv.innerHTML = "<div class='empty'>Nessuna scadenza nei prossimi 30 giorni.</div>";
-        return;
-      }
-      lista.forEach(s => {
-        const div = document.createElement("div");
-        div.className = "card";
-        div.innerHTML = `
-          <div class="name">${s.nominativo}</div>
-          <div class="info">📅 Scadenza: ${s.scadenza}</div>
-          <div class="info">⏳ Mancano: ${s.giorni} giorni</div>
-        `;
-        listaDiv.appendChild(div);
-      });
-    }
+function mostraToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => { t.classList.remove('show'); }, 2500);
+}
 
-    caricaScadenze();
-  </script>
+function apriRinnovo(nominativoId) {
+  window.location.href = '/rinnovi.html?nominativo_id=' + nominativoId;
+}
+
+function generaPDF(id) {
+  const s = scadenze.find(x => x.id === id);
+  if (!s) return;
+  
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  
+  doc.setFontSize(16);
+  doc.setTextColor(0, 136, 204);
+  doc.text('AgendaGest - Avviso Scadenza', 105, 20, { align: 'center' });
+  
+  doc.setDrawColor(0, 136, 204);
+  doc.line(10, 25, 200, 25);
+  
+  doc.setFontSize(14);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Nominativo: ' + (s.nominativo || ''), 14, 40);
+  doc.text('Scadenza: ' + (s.scadenza || '-') + (s.orario_scadenza ? ' ore ' + s.orario_scadenza : ''), 14, 50);
+  
+  doc.setFontSize(12);
+  doc.setTextColor(198, 40, 40);
+  doc.text('STATO: SCADUTA', 14, 65);
+  
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  const messaggio = 'Ciao la tua linea è scaduta il ' + (s.scadenza || '') + '. Resto in attesa di informazioni. Grazie';
+  const splitMsg = doc.splitTextToSize(messaggio, 180);
+  doc.text(splitMsg, 14, 80);
+  
+  doc.setFontSize(10);
+  doc.setTextColor(128, 128, 128);
+  doc.text('Generato il: ' + new Date().toLocaleString('it-IT'), 105, 285, { align: 'center' });
+  
+  doc.save('Scadenza_' + (s.nominativo || 'sconosciuto') + '_' + (s.scadenza || 'data') + '.pdf');
+  mostraToast('📄 PDF generato!');
+}
+
+document.getElementById('search').addEventListener('input', e => render(e.target.value));
+carica();
+</script>
 </body>
 </html>
