@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nuovo Rinnovo</title>
+<title>Rinnovo</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
@@ -11,10 +11,16 @@ body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margi
 h2 { text-align: center; margin-top: 0; color: #333; }
 label { display: block; font-weight: bold; margin: 12px 0 4px; color: #333; font-size: 14px; }
 input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; }
+input[readonly] { background: #f0f0f0; color: #666; }
 .row { display: flex; gap: 10px; }
 .row > div { flex: 1; }
 .btn { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 15px; background: #4caf50; color: white; }
 .btn:active { background: #388e3c; }
+.btn-secondary { background: #0088cc; }
+.btn-secondary:active { background: #006699; }
+.btn-row { display: flex; gap: 10px; margin-top: 15px; }
+.btn-row button { flex: 1; }
+.section-title { font-size: 13px; color: #0088cc; font-weight: bold; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
 .empty { text-align: center; color: #888; padding: 30px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
 .toast.show { opacity: 1; }
@@ -22,7 +28,7 @@ input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radiu
 </head>
 <body>
 <div class="container">
-<h2>🔄 Nuovo Rinnovo</h2>
+<h2>🔄 Rinnovo</h2>
 <div id="form"><div class="empty">Caricamento...</div></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -47,29 +53,42 @@ function mostraForm() {
     document.getElementById('form').innerHTML = '<div class="empty">Nessun nominativo disponibile.</div>';
     return;
   }
+  const oggi = new Date().toISOString().split('T')[0];
   const options = nominativi.map(n => '<option value="' + n.id + '">' + n.nominativo + '</option>').join('');
+  
   document.getElementById('form').innerHTML = 
     '<label>Seleziona Nominativo:</label><select id="nominativo_id">' + options + '</select>' +
+    '<div class="section-title">Dettagli Rinnovo</div>' +
     '<label>Tipo Rinnovo:</label><select id="tipo"><option value="rinnovo">Rinnovo</option><option value="nuovo">Nuovo</option><option value="cambio">Cambio</option></select>' +
-    '<label>Data Operazione:</label><input type="date" id="data_operazione" value="' + new Date().toISOString().split('T')[0] + '">' +
-    '<div class="row"><div><label>Mesi:</label><input type="number" id="mesi" min="1" max="12" value="12"></div><div><label>Orario Scadenza:</label><input type="time" id="orario_scadenza" value="00:00"></div></div>' +
+    '<label>Data Operazione:</label><input type="date" id="data_operazione" value="' + oggi + '">' +
     '<label>Data Scadenza:</label><input type="date" id="scadenza">' +
+    '<label>Orario Scadenza:</label><input type="time" id="orario_scadenza" value="00:00">' +
+    '<div class="section-title">Importi</div>' +
     '<div class="row"><div><label>Acconto (€):</label><input type="number" id="importo_acconto" step="0.01" value="0"></div><div><label>Saldo (€):</label><input type="number" id="importo_saldo" step="0.01" value="0"></div></div>' +
+    '<div class="section-title">Crediti</div>' +
+    '<div class="row"><div><label>Num Credito Richiesto:</label><input type="number" id="num_credito_rich" min="0" value="0"></div><div><label>Num Credito Dato:</label><input type="number" id="num_credito_dato" min="0" value="0"></div></div>' +
+    '<label>Num Credito Dare:</label><input type="number" id="num_credito_dare" readonly value="0">' +
+    '<div class="row"><div><label>Data Credito Rinnovo Rich:</label><input type="date" id="data_credito_rinnovo_rich"></div><div><label>Data Credito Rinnovo Dato:</label><input type="date" id="data_credito_rinnovo_dato"></div></div>' +
+    '<div class="row"><div><label>Val Singolo NC Rich (€):</label><input type="number" id="val_singolo_nc_rich" step="0.01" value="0"></div><div><label>Val NC Rich (€):</label><input type="number" id="val_nc_rich" readonly value="0"></div></div>' +
     '<label>Note:</label><input type="text" id="note" placeholder="opzionale">' +
-    '<button class="btn" onclick="invia()">Registra Rinnovo</button>';
-  document.getElementById('data_operazione').addEventListener('input', calcolaScadenza);
-  document.getElementById('mesi').addEventListener('input', calcolaScadenza);
-  calcolaScadenza();
+    '<div class="btn-row"><button class="btn" onclick="invia()">💾 Salva Rinnovo</button><button class="btn btn-secondary" onclick="vaiSaldo()">📊 Saldo Rinnovo</button></div>';
+  
+  document.getElementById('num_credito_rich').addEventListener('input', calcolaDare);
+  document.getElementById('num_credito_dato').addEventListener('input', calcolaDare);
+  document.getElementById('num_credito_rich').addEventListener('input', calcolaValNCRich);
+  document.getElementById('val_singolo_nc_rich').addEventListener('input', calcolaValNCRich);
 }
 
-function calcolaScadenza() {
-  const d = document.getElementById('data_operazione').value;
-  const m = parseInt(document.getElementById('mesi').value) || 0;
-  if (!d || m < 1) return;
-  const dt = new Date(d);
-  const newDate = new Date(dt.getFullYear(), dt.getMonth() + m, dt.getDate());
-  const s = newDate.toISOString().split('T')[0];
-  document.getElementById('scadenza').value = s;
+function calcolaDare() {
+  const rich = parseInt(document.getElementById('num_credito_rich').value) || 0;
+  const dato = parseInt(document.getElementById('num_credito_dato').value) || 0;
+  document.getElementById('num_credito_dare').value = rich - dato;
+}
+
+function calcolaValNCRich() {
+  const rich = parseInt(document.getElementById('num_credito_rich').value) || 0;
+  const singolo = parseFloat(document.getElementById('val_singolo_nc_rich').value) || 0;
+  document.getElementById('val_nc_rich').value = (rich * singolo).toFixed(2);
 }
 
 function mostraToast(msg) {
@@ -85,11 +104,15 @@ async function invia() {
     nominativo_id: parseInt(document.getElementById('nominativo_id').value),
     tipo: document.getElementById('tipo').value,
     data_operazione: document.getElementById('data_operazione').value,
-    mesi: parseInt(document.getElementById('mesi').value),
     scadenza: document.getElementById('scadenza').value,
     orario_scadenza: document.getElementById('orario_scadenza').value,
     importo_acconto: parseFloat(document.getElementById('importo_acconto').value) || 0,
     importo_saldo: parseFloat(document.getElementById('importo_saldo').value) || 0,
+    num_credito_rich: parseInt(document.getElementById('num_credito_rich').value) || 0,
+    num_credito_dato: parseInt(document.getElementById('num_credito_dato').value) || 0,
+    data_credito_rinnovo_rich: document.getElementById('data_credito_rinnovo_rich').value,
+    data_credito_rinnovo_dato: document.getElementById('data_credito_rinnovo_dato').value,
+    val_singolo_nc_rich: parseFloat(document.getElementById('val_singolo_nc_rich').value) || 0,
     note: document.getElementById('note').value
   };
   if (!dati.nominativo_id) { mostraToast('⚠️ Seleziona un nominativo'); return; }
@@ -107,6 +130,11 @@ async function invia() {
   } catch (e) {
     mostraToast('❌ Errore: ' + e.message);
   }
+}
+
+function vaiSaldo() {
+  tg.openTelegramLink('https://t.me/AgendaGest_bot?start=saldo');
+  setTimeout(() => tg.close(), 500);
 }
 
 caricaNominativi();

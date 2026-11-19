@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saldo Rinnovi</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+h2 { text-align: center; margin-top: 0; color: #333; }
+.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
+.counter-wrapper { text-align: center; }
+.input-row { display: flex; gap: 10px; margin-bottom: 15px; }
+.input-row select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 15px; }
+.btn-add { padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+.btn-add:active { background: #388e3c; }
+.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; display: flex; justify-content: space-between; align-items: center; }
+.item-info { flex: 1; }
+.item strong { color: #222; font-size: 15px; }
+.item small { color: #666; display: block; margin-top: 4px; }
+.item-actions { display: flex; gap: 6px; }
+.btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; }
+.btn-edit { background: #ff9800; color: white; }
+.btn-del { background: #f44336; color: white; }
+.empty { text-align: center; color: #888; padding: 30px; }
+.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: white; border-radius: 10px; padding: 20px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+.modal h3 { margin-top: 0; }
+.modal label { display: block; font-weight: bold; margin: 10px 0 4px; font-size: 13px; color: #555; }
+.modal input, .modal select, .modal textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+.modal input[readonly] { background: #f0f0f0; color: #666; }
+.modal textarea { resize: vertical; min-height: 60px; }
+.modal .row { display: flex; gap: 10px; }
+.modal .row > div { flex: 1; }
+.modal-actions { display: flex; gap: 10px; margin-top: 15px; }
+.modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+.btn-save { background: #4caf50; color: white; }
+.btn-cancel { background: #9e9e9e; color: white; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 6px; z-index: 200; opacity: 0; transition: opacity 0.3s; }
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+<h2>📊 Saldo Rinnovi</h2>
+<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
+<div class="input-row">
+<select id="nuovo_rinnovo"><option value="">-- Seleziona Rinnovo --</option></select>
+<button class="btn-add" onclick="aggiungi()">Aggiungi</button>
+</div>
+<div id="lista"><div class="empty">Caricamento...</div></div>
+</div>
+
+<div class="modal-overlay" id="modal">
+<div class="modal">
+<h3>✏️ Modifica Saldo Rinnovo</h3>
+<label>Nominativo</label>
+<input type="text" id="m_nominativo" readonly>
+<div class="row">
+<div><label>Num Credito Rich</label><input type="number" id="m_num_credito_rich" readonly></div>
+<div><label>Num Credito Dato</label><input type="number" id="m_num_credito_dato" readonly></div>
+</div>
+<div class="row">
+<div><label>Data Credito Rich</label><input type="date" id="m_data_credito_rich" readonly></div>
+<div><label>Data Credito Dato</label><input type="date" id="m_data_credito_dato" readonly></div>
+</div>
+<label>Val NC Rich (€)</label>
+<input type="number" id="m_val_nc_rich" readonly step="0.01">
+<label>Num Credito Saldo</label>
+<input type="number" id="m_num_credito_saldo" min="0" value="0">
+<label>Data Credito Rinnovo Saldo</label>
+<input type="date" id="m_data_credito_saldo">
+<div class="row">
+<div><label>Val NC Dato (€)</label><input type="number" id="m_val_nc_dato" readonly step="0.01"></div>
+<div><label>Val NC Saldo (€)</label><input type="number" id="m_val_nc_saldo" readonly step="0.01"></div>
+</div>
+<label>Informazioni & Note</label>
+<textarea id="m_informazioni_note" placeholder="note aggiuntive..."></textarea>
+<div class="modal-actions">
+<button class="btn-cancel" onclick="chiudiModal()">Annulla</button>
+<button class="btn-save" onclick="salvaModifica()">Salva</button>
+</div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+let saldi = [];
+let rinnovi = [];
+let idModifica = null;
+
+async function carica() {
+  const box = document.getElementById('lista');
+  try {
+    const [resSaldi, resRinnovi] = await Promise.all([
+      fetch('/api/saldo_rinnovi'),
+      fetch('/api/rinnovi_per_saldo')
+    ]);
+    if (!resSaldi.ok || !resRinnovi.ok) throw new Error('Errore server');
+    saldi = await resSaldi.json();
+    rinnovi = await resRinnovi.json();
+    popolaSelect();
+    render();
+  } catch (e) {
+    box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
+  }
+}
+
+function popolaSelect() {
+  const sel = document.getElementById('nuovo_rinnovo');
+  sel.innerHTML = '<option value="">-- Seleziona Rinnovo --</option>' + 
+    rinnovi.map(r => '<option value="' + r.id + '">' + r.nominativo + ' (NC Rich: ' + r.num_credito_rich + ')</option>').join('');
+}
+
+function render() {
+  aggiornaContatore(saldi.length);
+  if (saldi.length === 0) {
+    document.getElementById('lista').innerHTML = '<div class="empty">Nessun saldo registrato.</div>';
+    return;
+  }
+  document.getElementById('lista').innerHTML = saldi.map(s =>
+    '<div class="item"><div class="item-info"><strong>' + s.nominativo + '</strong>' +
+    '<small>NC Rich: ' + s.num_credito_rich + ' | NC Dato: ' + s.num_credito_dato + ' | NC Saldo: ' + s.num_credito_saldo + '</small>' +
+    '<small>Val NC Rich: €' + (s.val_nc_rich || 0).toFixed(2) + ' | Val NC Dato: €' + (s.val_nc_dato || 0).toFixed(2) + ' | Val NC Saldo: €' + (s.val_nc_saldo || 0).toFixed(2) + '</small>' +
+    '<small>Data Saldo: ' + (s.data_credito_rinnovo_saldo || '-') + '</small>' +
+    (s.informazioni_note ? '<small>Note: ' + s.informazioni_note + '</small>' : '') +
+    '</div><div class="item-actions">' +
+    '<button class="btn btn-edit" onclick="apriModifica(' + s.id + ')">✏️</button>' +
+    '<button class="btn btn-del" onclick="cancella(' + s.id + ')">🗑️</button>' +
+    '</div></div>'
+  ).join('');
+}
+
+function aggiornaContatore(totale) {
+  document.getElementById('counter').textContent = 'Totale: ' + totale;
+}
+
+async function aggiungi() {
+  const rinnovoId = parseInt(document.getElementById('nuovo_rinnovo').value);
+  if (!rinnovoId) { tg.showAlert('⚠️ Seleziona un rinnovo'); return; }
+  const r = rinnovi.find(x => x.id === rinnovoId);
+  if (!r) return;
+  
+  const dati = {
+    azione: 'nuovo_saldo',
+    rinnovo_id: rinnovoId,
+    num_credito_saldo: 0,
+    data_credito_rinnovo_saldo: '',
+    informazioni_note: ''
+  };
+  try {
+    const res = await fetch('/api/saldo_rinnovo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dati: dati })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    mostraToast('✅ Saldo creato');
+    await carica();
+  } catch (e) {
+    mostraToast('❌ Errore: ' + e.message);
+  }
+}
+
+function apriModifica(id) {
+  const s = saldi.find(x => x.id === id);
+  if (!s) return;
+  idModifica = id;
+  document.getElementById('m_nominativo').value = s.nominativo || '';
+  document.getElementById('m_num_credito_rich').value = s.num_credito_rich || 0;
+  document.getElementById('m_num_credito_dato').value = s.num_credito_dato || 0;
+  document.getElementById('m_data_credito_rich').value = s.data_credito_rinnovo_rich || '';
+  document.getElementById('m_data_credito_dato').value = s.data_credito_rinnovo_dato || '';
+  document.getElementById('m_val_nc_rich').value = s.val_nc_rich || 0;
+  document.getElementById('m_num_credito_saldo').value = s.num_credito_saldo || 0;
+  document.getElementById('m_data_credito_saldo').value = s.data_credito_rinnovo_saldo || '';
+  document.getElementById('m_val_nc_dato').value = s.val_nc_dato || 0;
+  document.getElementById('m_val_nc_saldo').value = s.val_nc_saldo || 0;
+  document.getElementById('m_informazioni_note').value = s.informazioni_note || '';
+  document.getElementById('modal').classList.add('active');
+  calcolaValori();
+}
+
+function chiudiModal() {
+  document.getElementById('modal').classList.remove('active');
+  idModifica = null;
+}
+
+function calcolaValori() {
+  const numDato = parseInt(document.getElementById('m_num_credito_dato').value) || 0;
+  const numSaldo = parseInt(document.getElementById('m_num_credito_saldo').value) || 0;
+  const valNCRich = parseFloat(document.getElementById('m_val_nc_rich').value) || 0;
+  const numRich = parseInt(document.getElementById('m_num_credito_rich').value) || 1;
+  const valSingolo = numRich > 0 ? valNCRich / numRich : 0;
+  document.getElementById('m_val_nc_dato').value = (numDato * valSingolo).toFixed(2);
+  document.getElementById('m_val_nc_saldo').value = (numSaldo * valSingolo).toFixed(2);
+}
+
+async function salvaModifica() {
+  if (!idModifica) return;
+  const s = saldi.find(x => x.id === idModifica);
+  if (!s) return;
+  const dati = {
+    azione: 'modifica_saldo',
+    id: idModifica,
+    rinnovo_id: s.rinnovo_id,
+    num_credito_saldo: parseInt(document.getElementById('m_num_credito_saldo').value) || 0,
+    data_credito_rinnovo_saldo: document.getElementById('m_data_credito_saldo').value,
+    informazioni_note: document.getElementById('m_informazioni_note').value.trim()
+  };
+  try {
+    const res = await fetch('/api/saldo_rinnovo_modifica', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dati: dati })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    chiudiModal();
+    mostraToast('✅ Modificato');
+    await carica();
+  } catch (e) {
+    mostraToast('❌ Errore: ' + e.message);
+  }
+}
+
+async function cancella(id) {
+  const s = saldi.find(x => x.id === id);
+  if (!s) return;
+  if (!confirm('Cancellare il saldo di "' + s.nominativo + '"?')) return;
+  try {
+    const res = await fetch('/api/saldo_rinnovo/' + id, { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    mostraToast('🗑️ Cancellato');
+    await carica();
+  } catch (e) {
+    mostraToast('❌ Errore: ' + e.message);
+  }
+}
+
+function mostraToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+document.getElementById('m_num_credito_saldo').addEventListener('input', calcolaValori);
+
+carica();
+</script>
+</body>
+</html>
