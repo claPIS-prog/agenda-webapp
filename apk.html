@@ -19,6 +19,8 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 .item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; }
 .item strong { color: #222; font-size: 15px; display: block; margin-bottom: 4px; }
 .item small { color: #666; display: block; font-size: 13px; margin: 2px 0; word-break: break-all; }
+.item .scaduta { color: #c62828; font-weight: bold; }
+.item .valida { color: #2e7d32; font-weight: bold; }
 .item-actions { display: flex; gap: 6px; margin-top: 8px; }
 .btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; flex: 1; text-align: center; text-decoration: none; display: inline-block; }
 .btn-link { background: #0088cc; color: white; }
@@ -42,6 +44,7 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 </select>
 <input type="text" id="link" readonly placeholder="Link automatico (da Credenziali)">
 <input type="text" id="file_token" placeholder="Token/File ID (per cancellazione remota)">
+<input type="date" id="scadenza" placeholder="Scadenza Upload APK">
 <button class="btn-add" onclick="aggiungi()">➕ Aggiungi</button>
 </div>
 <div id="lista"><div class="empty">Caricamento...</div></div>
@@ -84,12 +87,21 @@ function render() {
     document.getElementById('lista').innerHTML = '<div class="empty">Nessun APK salvato.</div>';
     return;
   }
+  const oggi = new Date().toISOString().split('T')[0];
   document.getElementById('lista').innerHTML = items.map(i => {
     const data = new Date(i.creato_il).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const serv = i.credenziale_nominativo ? ` (${i.credenziale_nominativo})` : '';
+    let scadenzaHtml = '<small>Data Upload: ' + data + '</small>';
+    if (i.scadenza) {
+      const classe = i.scadenza < oggi ? 'scaduta' : 'valida';
+      const icona = i.scadenza < oggi ? '⚠️' : '✅';
+      scadenzaHtml += `<small class="${classe}">${icona} Scadenza Upload: ${i.scadenza}</small>`;
+    } else {
+      scadenzaHtml += '<small>⚠️ Scadenza non impostata</small>';
+    }
     return '<div class="item"><strong>' + (i.nome_file || 'Senza nome') + serv + '</strong>' +
       '<small>Link: <a href="' + (i.link || '#') + '" target="_blank" style="color:#0088cc;">' + (i.link || '-') + '</a></small>' +
-      '<small>Data: ' + data + '</small>' +
+      scadenzaHtml +
       '<div class="item-actions">' +
       '<a href="' + (i.link || '#') + '" target="_blank" class="btn btn-link">📥 Apri/Scarica</a>' +
       '<button class="btn btn-del" onclick="cancella(' + i.id + ')">🗑️ Cancella (Remoto)</button>' +
@@ -105,6 +117,7 @@ async function aggiungi() {
   const credenzialeNome = sel.options[sel.selectedIndex].getAttribute('data-nome') || '';
   const link = document.getElementById('link').value.trim();
   const token = document.getElementById('file_token').value.trim();
+  const scadenza = document.getElementById('scadenza').value;
   
   if (!nome || !link) { mostraToast('⚠️ Nome e Servizio sono obbligatori'); return; }
   
@@ -116,7 +129,8 @@ async function aggiungi() {
         nome_file: nome, 
         credenziale_nominativo: credenzialeNome,
         link: link, 
-        file_token: token 
+        file_token: token,
+        scadenza: scadenza
       }})
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -124,6 +138,7 @@ async function aggiungi() {
     sel.selectedIndex = 0;
     document.getElementById('link').value = '';
     document.getElementById('file_token').value = '';
+    document.getElementById('scadenza').value = '';
     mostraToast('✅ APK aggiunto');
     await carica();
   } catch (e) { mostraToast('❌ Errore: ' + e.message); }

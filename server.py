@@ -58,7 +58,7 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS saldo_rinnovi (id SERIAL PRIMARY KEY, rinnovo_id INTEGER NOT NULL REFERENCES rinnovi(id), num_credito_saldo INTEGER DEFAULT 0, data_credito_rinnovo_saldo TEXT, val_nc_dato REAL DEFAULT 0, val_nc_saldo REAL DEFAULT 0, informazioni_note TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS note (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), messaggio TEXT NOT NULL, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS credenziali (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, percorso TEXT, user_id TEXT, password TEXT, informazioni TEXT)")
-            cur.execute("CREATE TABLE IF NOT EXISTS apk (id SERIAL PRIMARY KEY, nome_file TEXT NOT NULL, credenziale_nominativo TEXT, link TEXT, file_token TEXT, creato_il TEXT)")
+            cur.execute("CREATE TABLE IF NOT EXISTS apk (id SERIAL PRIMARY KEY, nome_file TEXT NOT NULL, credenziale_nominativo TEXT, link TEXT, file_token TEXT, scadenza TEXT, creato_il TEXT)")
             
             cur.execute("INSERT INTO config_notifiche (id, ora, minuto, attivo) VALUES (1, 7, 0, 1) ON CONFLICT (id) DO NOTHING")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS dispositivo TEXT")
@@ -75,6 +75,7 @@ def init_db():
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS val_nc_rich REAL DEFAULT 0")
             cur.execute("ALTER TABLE apk ADD COLUMN IF NOT EXISTS credenziale_nominativo TEXT")
             cur.execute("ALTER TABLE apk ADD COLUMN IF NOT EXISTS file_token TEXT")
+            cur.execute("ALTER TABLE apk ADD COLUMN IF NOT EXISTS scadenza TEXT")
             conn.commit()
     finally:
         conn.close()
@@ -642,7 +643,7 @@ def api_credenziali_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
-# --- API APK AGGIORNATA ---
+# --- API APK AGGIORNATA CON SCADENZA ---
 
 @app.get("/api/apk")
 def api_apk(request: Request):
@@ -650,7 +651,7 @@ def api_apk(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nome_file, credenziale_nominativo, link, file_token, creato_il FROM apk ORDER BY creato_il DESC")
+            cur.execute("SELECT id, nome_file, credenziale_nominativo, link, file_token, scadenza, creato_il FROM apk ORDER BY creato_il DESC")
             return cur.fetchall()
     finally:
         conn.close()
@@ -665,10 +666,10 @@ def api_apk_nuovo(payload: ApkPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""INSERT INTO apk (nome_file, credenziale_nominativo, link, file_token, creato_il)
-                VALUES (%s, %s, %s, %s, %s)""",
+            cur.execute("""INSERT INTO apk (nome_file, credenziale_nominativo, link, file_token, scadenza, creato_il)
+                VALUES (%s, %s, %s, %s, %s, %s)""",
                 (dati.get("nome_file", ""), dati.get("credenziale_nominativo", ""), dati.get("link", ""), 
-                 dati.get("file_token", ""), datetime.now().isoformat()))
+                 dati.get("file_token", ""), dati.get("scadenza", ""), datetime.now().isoformat()))
         conn.commit()
     finally:
         conn.close()
@@ -685,7 +686,6 @@ def api_apk_cancella(id: int, request: Request):
             if not apk:
                 raise HTTPException(status_code=404, detail="APK non trovato")
             
-            # 1. Prova a cancellare dal server remoto usando le credenziali abbinate
             if apk['credenziale_nominativo'] and apk['file_token']:
                 try:
                     cur.execute("SELECT percorso, user_id, password FROM credenziali WHERE nominativo = %s", (apk['credenziale_nominativo'],))
@@ -706,7 +706,6 @@ def api_apk_cancella(id: int, request: Request):
                 except Exception as e:
                     print(f"Errore configurazione cancellazione remota: {e}")
 
-            # 2. Cancella dal database locale
             cur.execute("DELETE FROM apk WHERE id = %s", (id,))
         conn.commit()
     finally:
