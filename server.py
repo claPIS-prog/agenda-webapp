@@ -157,7 +157,6 @@ def api_rinnovo(payload: RinnovoPayload, request: Request):
             val_singolo = float(dati.get("val_singolo_nc_rich", 0))
             val_nc_rich = num_rich * val_singolo
             num_dare = num_rich - num_dato
-            
             cur.execute("""INSERT INTO rinnovi (nominativo_id, tipo, data_operazione, mesi, scadenza, orario_scadenza, importo_acconto, importo_saldo, data_acconto, data_saldo, note, creato_il, num_credito_rich, num_credito_dato, num_credito_dare, data_credito_rinnovo_rich, data_credito_rinnovo_dato, val_singolo_nc_rich, val_nc_rich)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (int(dati.get("nominativo_id")), dati.get("tipo", "rinnovo"), dati.get("data_operazione"),
@@ -451,8 +450,6 @@ def api_config_notifiche_update(payload: ConfigNotifichePayload):
         conn.close()
     return {"ok": True}
 
-# --- NUOVI ENDPOINT PER SALDO RINNOVI ---
-
 @app.get("/api/saldo_rinnovi")
 def api_saldo_rinnovi(request: Request):
     get_current_user(request)
@@ -506,7 +503,6 @@ def api_saldo_rinnovo_nuovo(payload: RinnovoPayload, request: Request):
             num_saldo = int(dati.get("num_credito_saldo", 0))
             val_nc_dato = num_dato * val_singolo
             val_nc_saldo = num_saldo * val_singolo
-            
             cur.execute("""INSERT INTO saldo_rinnovi (rinnovo_id, num_credito_saldo, data_credito_rinnovo_saldo, val_nc_dato, val_nc_saldo, informazioni_note, creato_il)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                 (rinnovo_id, num_saldo, dati.get("data_credito_rinnovo_saldo", ""),
@@ -534,7 +530,6 @@ def api_saldo_rinnovo_modifica(payload: RinnovoPayload, request: Request):
             num_saldo = int(dati.get("num_credito_saldo", 0))
             val_nc_dato = num_dato * val_singolo
             val_nc_saldo = num_saldo * val_singolo
-            
             cur.execute("""UPDATE saldo_rinnovi SET num_credito_saldo=%s, data_credito_rinnovo_saldo=%s, val_nc_dato=%s, val_nc_saldo=%s, informazioni_note=%s WHERE id=%s""",
                 (num_saldo, dati.get("data_credito_rinnovo_saldo", ""),
                  val_nc_dato, val_nc_saldo, dati.get("informazioni_note", ""),
