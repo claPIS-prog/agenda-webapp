@@ -53,12 +53,20 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS buffett (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS metodi_pagamento (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS config_notifiche (id INTEGER PRIMARY KEY CHECK (id = 1), ora INTEGER DEFAULT 7, minuto INTEGER DEFAULT 0, attivo INTEGER DEFAULT 1)")
+            cur.execute("CREATE TABLE IF NOT EXISTS saldo_rinnovi (id SERIAL PRIMARY KEY, rinnovo_id INTEGER NOT NULL REFERENCES rinnovi(id), num_credito_saldo INTEGER DEFAULT 0, data_credito_rinnovo_saldo TEXT, val_nc_dato REAL DEFAULT 0, val_nc_saldo REAL DEFAULT 0, informazioni_note TEXT, creato_il TEXT)")
             cur.execute("INSERT INTO config_notifiche (id, ora, minuto, attivo) VALUES (1, 7, 0, 1) ON CONFLICT (id) DO NOTHING")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS dispositivo TEXT")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS sistema_operativo TEXT")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS buffett TEXT")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS metodo_pagamento TEXT")
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS orario_scadenza TEXT")
+            cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS num_credito_rich INTEGER DEFAULT 0")
+            cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS num_credito_dato INTEGER DEFAULT 0")
+            cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS num_credito_dare INTEGER DEFAULT 0")
+            cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS data_credito_rinnovo_rich TEXT")
+            cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS data_credito_rinnovo_dato TEXT")
+            cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS val_singolo_nc_rich REAL DEFAULT 0")
+            cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS val_nc_rich REAL DEFAULT 0")
             conn.commit()
     finally:
         conn.close()
@@ -123,6 +131,9 @@ def api_elenco_rinnovi(request: Request):
             cur.execute("""SELECT r.id, r.nominativo_id, r.tipo, r.data_operazione, r.mesi,
                 r.scadenza, r.orario_scadenza, r.importo_acconto, r.importo_saldo,
                 r.data_acconto, r.data_saldo, r.note, r.creato_il,
+                r.num_credito_rich, r.num_credito_dato, r.num_credito_dare,
+                r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato,
+                r.val_singolo_nc_rich, r.val_nc_rich,
                 n.nominativo
                 FROM rinnovi r
                 JOIN nominativi n ON n.id = r.nominativo_id
@@ -141,14 +152,24 @@ def api_rinnovo(payload: RinnovoPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""INSERT INTO rinnovi (nominativo_id, tipo, data_operazione, mesi, scadenza, orario_scadenza, importo_acconto, importo_saldo, data_acconto, data_saldo, note, creato_il)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            num_rich = int(dati.get("num_credito_rich", 0))
+            num_dato = int(dati.get("num_credito_dato", 0))
+            val_singolo = float(dati.get("val_singolo_nc_rich", 0))
+            val_nc_rich = num_rich * val_singolo
+            num_dare = num_rich - num_dato
+            
+            cur.execute("""INSERT INTO rinnovi (nominativo_id, tipo, data_operazione, mesi, scadenza, orario_scadenza, importo_acconto, importo_saldo, data_acconto, data_saldo, note, creato_il, num_credito_rich, num_credito_dato, num_credito_dare, data_credito_rinnovo_rich, data_credito_rinnovo_dato, val_singolo_nc_rich, val_nc_rich)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (int(dati.get("nominativo_id")), dati.get("tipo", "rinnovo"), dati.get("data_operazione"),
-                 int(dati.get("mesi")), dati.get("scadenza"), dati.get("orario_scadenza", ""),
+                 num_rich, dati.get("scadenza"), dati.get("orario_scadenza", ""),
                  float(dati.get("importo_acconto", 0)), float(dati.get("importo_saldo", 0)),
                  datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_acconto", 0)) > 0 else "",
                  datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_saldo", 0)) > 0 else "",
-                 dati.get("note", ""), datetime.now().isoformat()))
+                 dati.get("note", ""), datetime.now().isoformat(),
+                 num_rich, num_dato, num_dare,
+                 dati.get("data_credito_rinnovo_rich", ""),
+                 dati.get("data_credito_rinnovo_dato", ""),
+                 val_singolo, val_nc_rich))
         conn.commit()
     finally:
         conn.close()
@@ -425,6 +446,111 @@ def api_config_notifiche_update(payload: ConfigNotifichePayload):
         with conn.cursor() as cur:
             cur.execute("UPDATE config_notifiche SET ora = %s, minuto = %s, attivo = %s WHERE id = 1",
                         (payload.ora, payload.minuto, 1 if payload.attivo else 0))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# --- NUOVI ENDPOINT PER SALDO RINNOVI ---
+
+@app.get("/api/saldo_rinnovi")
+def api_saldo_rinnovi(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT s.id, s.rinnovo_id, s.num_credito_saldo, s.data_credito_rinnovo_saldo,
+                s.val_nc_dato, s.val_nc_saldo, s.informazioni_note, s.creato_il,
+                r.num_credito_rich, r.num_credito_dato, r.data_credito_rinnovo_rich,
+                r.data_credito_rinnovo_dato, r.val_nc_rich, r.val_singolo_nc_rich,
+                n.nominativo
+                FROM saldo_rinnovi s
+                JOIN rinnovi r ON r.id = s.rinnovo_id
+                JOIN nominativi n ON n.id = r.nominativo_id
+                ORDER BY s.creato_il DESC""")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/rinnovi_per_saldo")
+def api_rinnovi_per_saldo(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT r.id, r.num_credito_rich, r.num_credito_dato, r.num_credito_dare,
+                r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato,
+                r.val_nc_rich, r.val_singolo_nc_rich,
+                n.nominativo
+                FROM rinnovi r
+                JOIN nominativi n ON n.id = r.nominativo_id
+                ORDER BY n.nominativo""")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.post("/api/saldo_rinnovo")
+def api_saldo_rinnovo_nuovo(payload: RinnovoPayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            rinnovo_id = int(dati.get("rinnovo_id"))
+            cur.execute("SELECT num_credito_dato, val_singolo_nc_rich FROM rinnovi WHERE id = %s", (rinnovo_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Rinnovo non trovato")
+            num_dato = row["num_credito_dato"]
+            val_singolo = row["val_singolo_nc_rich"] or 0
+            num_saldo = int(dati.get("num_credito_saldo", 0))
+            val_nc_dato = num_dato * val_singolo
+            val_nc_saldo = num_saldo * val_singolo
+            
+            cur.execute("""INSERT INTO saldo_rinnovi (rinnovo_id, num_credito_saldo, data_credito_rinnovo_saldo, val_nc_dato, val_nc_saldo, informazioni_note, creato_il)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                (rinnovo_id, num_saldo, dati.get("data_credito_rinnovo_saldo", ""),
+                 val_nc_dato, val_nc_saldo, dati.get("informazioni_note", ""),
+                 datetime.now().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.post("/api/saldo_rinnovo_modifica")
+def api_saldo_rinnovo_modifica(payload: RinnovoPayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            rinnovo_id = int(dati.get("rinnovo_id"))
+            cur.execute("SELECT num_credito_dato, val_singolo_nc_rich FROM rinnovi WHERE id = %s", (rinnovo_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Rinnovo non trovato")
+            num_dato = row["num_credito_dato"]
+            val_singolo = row["val_singolo_nc_rich"] or 0
+            num_saldo = int(dati.get("num_credito_saldo", 0))
+            val_nc_dato = num_dato * val_singolo
+            val_nc_saldo = num_saldo * val_singolo
+            
+            cur.execute("""UPDATE saldo_rinnovi SET num_credito_saldo=%s, data_credito_rinnovo_saldo=%s, val_nc_dato=%s, val_nc_saldo=%s, informazioni_note=%s WHERE id=%s""",
+                (num_saldo, dati.get("data_credito_rinnovo_saldo", ""),
+                 val_nc_dato, val_nc_saldo, dati.get("informazioni_note", ""),
+                 int(dati.get("id"))))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/saldo_rinnovo/{id}")
+def api_saldo_rinnovo_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM saldo_rinnovi WHERE id = %s", (id,))
         conn.commit()
     finally:
         conn.close()
