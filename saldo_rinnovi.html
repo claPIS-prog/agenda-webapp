@@ -141,6 +141,10 @@ function aggiornaContatore(totale) {
   document.getElementById('counter').textContent = 'Totale: ' + totale;
 }
 
+function getOggi() {
+  return new Date().toISOString().split('T')[0];
+}
+
 async function aggiungi() {
   const rinnovoId = parseInt(document.getElementById('nuovo_rinnovo').value);
   if (!rinnovoId) { tg.showAlert('⚠️ Seleziona un rinnovo'); return; }
@@ -151,7 +155,7 @@ async function aggiungi() {
     azione: 'nuovo_saldo',
     rinnovo_id: rinnovoId,
     num_credito_saldo: 0,
-    data_credito_rinnovo_saldo: '',
+    data_credito_rinnovo_saldo: getOggi(),
     informazioni_note: ''
   };
   try {
@@ -179,7 +183,7 @@ function apriModifica(id) {
   document.getElementById('m_data_credito_dato').value = s.data_credito_rinnovo_dato || '';
   document.getElementById('m_val_nc_rich').value = s.val_nc_rich || 0;
   document.getElementById('m_num_credito_saldo').value = s.num_credito_saldo || 0;
-  document.getElementById('m_data_credito_saldo').value = s.data_credito_rinnovo_saldo || '';
+  document.getElementById('m_data_credito_saldo').value = s.data_credito_rinnovo_saldo || getOggi();
   document.getElementById('m_val_nc_dato').value = s.val_nc_dato || 0;
   document.getElementById('m_val_nc_saldo').value = s.val_nc_saldo || 0;
   document.getElementById('m_informazioni_note').value = s.informazioni_note || '';
