@@ -58,7 +58,7 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS saldo_rinnovi (id SERIAL PRIMARY KEY, rinnovo_id INTEGER NOT NULL REFERENCES rinnovi(id), num_credito_saldo INTEGER DEFAULT 0, data_credito_rinnovo_saldo TEXT, val_nc_dato REAL DEFAULT 0, val_nc_saldo REAL DEFAULT 0, informazioni_note TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS note (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), messaggio TEXT NOT NULL, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS credenziali (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, percorso TEXT, user_id TEXT, password TEXT, informazioni TEXT)")
-            cur.execute("CREATE TABLE IF NOT EXISTS apk (id SERIAL PRIMARY KEY, nome_file TEXT NOT NULL, link TEXT NOT NULL, file_token TEXT, creato_il TEXT)")
+            cur.execute("CREATE TABLE IF NOT EXISTS apk (id SERIAL PRIMARY KEY, nome_file TEXT NOT NULL, credenziale_nominativo TEXT, link TEXT, file_token TEXT, creato_il TEXT)")
             
             cur.execute("INSERT INTO config_notifiche (id, ora, minuto, attivo) VALUES (1, 7, 0, 1) ON CONFLICT (id) DO NOTHING")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS dispositivo TEXT")
@@ -73,6 +73,7 @@ def init_db():
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS data_credito_rinnovo_dato TEXT")
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS val_singolo_nc_rich REAL DEFAULT 0")
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS val_nc_rich REAL DEFAULT 0")
+            cur.execute("ALTER TABLE apk ADD COLUMN IF NOT EXISTS credenziale_nominativo TEXT")
             cur.execute("ALTER TABLE apk ADD COLUMN IF NOT EXISTS file_token TEXT")
             conn.commit()
     finally:
@@ -82,9 +83,6 @@ init_db()
 
 def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-
-# --- API ESISTENTI (Contatti, Nominativi, Scadenze, Rinnovi, Liste, ecc.) ---
-# (Per brevità, mantengo la struttura identica ai file precedenti. Assicurati che tutte le API precedenti siano presenti come nel file che ti ho mandato l'ultima volta. Qui aggiungo solo le nuove per Credenziali e APK aggiornato).
 
 @app.get("/api/contatti")
 def api_contatti(request: Request):
@@ -197,9 +195,395 @@ def api_rinnovo_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
-# ... (Mantieni tutte le altre API esistenti per dispositivi, server, note, saldo_rinnovi, ecc. come nel file precedente) ...
-# Per risparmiare spazio, includo qui SOLO le nuove API per Credenziali e APK. 
-# ASSICURATI di avere anche le API: /api/resellers, /api/procuratori, /api/servers, /api/dispositivi, /api/sistemi_operativi, /api/buffett, /api/metodi_pagamento, /api/note, /api/saldo_rinnovi, ecc.
+@app.get("/api/resellers")
+def api_resellers(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM resellers ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/procuratori")
+def api_procuratori(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM procuratori ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/servers")
+def api_servers(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM servers ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+class AzionePayload(BaseModel):
+    dati: dict
+
+@app.post("/api/azione")
+def api_azione(payload: AzionePayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    azione = dati.get("azione", "")
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            if azione == "cancella":
+                cur.execute("DELETE FROM nominativi WHERE id = %s", (dati.get("id"),))
+            elif azione == "nuovo":
+                cur.execute("""INSERT INTO nominativi 
+                    (nominativo, user_id, password, prezzo, cadenza, tipo, server, reseller, 
+                     dispositivo, sistema_operativo, buffett, metodo_pagamento, 
+                     cellulare, procuratore, apk_utilizzata, uso_vpn, quale_vpn, citta, 
+                     data_iscrizione, data_fine, informazioni)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (dati.get("nominativo",""), dati.get("user_id",""), dati.get("password",""),
+                     float(dati.get("prezzo",0)), dati.get("cadenza",""), dati.get("tipo",""),
+                     dati.get("server",""), dati.get("reseller",""),
+                     dati.get("dispositivo",""), dati.get("sistema_operativo",""),
+                     dati.get("buffett",""), dati.get("metodo_pagamento",""),
+                     dati.get("cellulare",""), dati.get("procuratore",""),
+                     dati.get("apk_utilizzata",""), int(dati.get("uso_vpn",0)),
+                     dati.get("quale_vpn",""), dati.get("citta",""),
+                     dati.get("data_iscrizione",""), dati.get("data_fine",""),
+                     dati.get("informazioni","")))
+            elif azione == "modifica":
+                cur.execute("""UPDATE nominativi SET 
+                    nominativo=%s, user_id=%s, password=%s, prezzo=%s, cadenza=%s, tipo=%s,
+                    server=%s, reseller=%s, dispositivo=%s, sistema_operativo=%s,
+                    buffett=%s, metodo_pagamento=%s, cellulare=%s, procuratore=%s,
+                    apk_utilizzata=%s, uso_vpn=%s, quale_vpn=%s, citta=%s,
+                    data_iscrizione=%s, data_fine=%s, informazioni=%s WHERE id=%s""",
+                    (dati.get("nominativo"), dati.get("user_id"), dati.get("password"),
+                     float(dati.get("prezzo",0)), dati.get("cadenza"), dati.get("tipo"),
+                     dati.get("server"), dati.get("reseller"),
+                     dati.get("dispositivo"), dati.get("sistema_operativo"),
+                     dati.get("buffett"), dati.get("metodo_pagamento"),
+                     dati.get("cellulare"), dati.get("procuratore"),
+                     dati.get("apk_utilizzata"), int(dati.get("uso_vpn",0)),
+                     dati.get("quale_vpn"), dati.get("citta"),
+                     dati.get("data_iscrizione"), dati.get("data_fine"),
+                     dati.get("informazioni"), dati.get("id")))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.get("/api/dispositivi")
+def api_dispositivi():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nome FROM dispositivi ORDER BY nome")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/sistemi_operativi")
+def api_sistemi_operativi():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nome FROM sistemi_operativi ORDER BY nome")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/buffett")
+def api_buffett():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nome FROM buffett ORDER BY nome")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/metodi_pagamento")
+def api_metodi_pagamento():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nome FROM metodi_pagamento ORDER BY nome")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+TABELLE_COLONNE = {
+    'dispositivi': 'nome',
+    'sistemi_operativi': 'nome',
+    'buffett': 'nome',
+    'metodi_pagamento': 'nome',
+    'resellers': 'nominativo',
+    'servers': 'nominativo',
+    'procuratori': 'nominativo',
+}
+
+class ListaPayload(BaseModel):
+    nome: str
+    tabella: str
+
+@app.post("/api/lista/nuovo")
+def api_lista_nuovo(payload: ListaPayload):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            col = TABELLE_COLONNE.get(payload.tabella, 'nome')
+            cur.execute(f"INSERT INTO {payload.tabella} ({col}) VALUES (%s)", (payload.nome,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.post("/api/lista/modifica")
+def api_lista_modifica(id: int, nome: str, tabella: str):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            col = TABELLE_COLONNE.get(tabella, 'nome')
+            cur.execute(f"UPDATE {tabella} SET {col} = %s WHERE id = %s", (nome, id))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/lista/cancella/{id}")
+def api_lista_cancella(id: int, tabella: str):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"DELETE FROM {tabella} WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.get("/api/amici")
+def api_amici():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, telegram_id, nome FROM autorizzati ORDER BY id")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+class AmicoPayload(BaseModel):
+    telegram_id: int
+    password: str
+    nome: str
+
+@app.post("/api/aggiungi_amico")
+def api_aggiungi_amico(payload: AmicoPayload):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO autorizzati (telegram_id, password, nome) VALUES (%s, %s, %s)
+                ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome""",
+                (payload.telegram_id, payload.password, payload.nome))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/rimuovi_amico/{amico_id}")
+def api_rimuovi_amico(amico_id: int):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM autorizzati WHERE id = %s", (amico_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.get("/api/config_notifiche")
+def api_config_notifiche():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT ora, minuto, attivo FROM config_notifiche WHERE id = 1")
+            row = cur.fetchone()
+            if row:
+                return {"ora": row["ora"], "minuto": row["minuto"], "attivo": bool(row["attivo"])}
+            return {"ora": 7, "minuto": 0, "attivo": True}
+    finally:
+        conn.close()
+
+class ConfigNotifichePayload(BaseModel):
+    ora: int
+    minuto: int
+    attivo: bool
+
+@app.post("/api/config_notifiche")
+def api_config_notifiche_update(payload: ConfigNotifichePayload):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE config_notifiche SET ora = %s, minuto = %s, attivo = %s WHERE id = 1",
+                        (payload.ora, payload.minuto, 1 if payload.attivo else 0))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.get("/api/saldo_rinnovi")
+def api_saldo_rinnovi(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT s.id, s.rinnovo_id, s.num_credito_saldo, s.data_credito_rinnovo_saldo,
+                s.val_nc_dato, s.val_nc_saldo, s.informazioni_note, s.creato_il,
+                r.num_credito_rich, r.num_credito_dato, r.data_credito_rinnovo_rich,
+                r.data_credito_rinnovo_dato, r.val_nc_rich, r.val_singolo_nc_rich,
+                n.nominativo
+                FROM saldo_rinnovi s
+                JOIN rinnovi r ON r.id = s.rinnovo_id
+                JOIN nominativi n ON n.id = r.nominativo_id
+                ORDER BY s.creato_il DESC""")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/rinnovi_per_saldo")
+def api_rinnovi_per_saldo(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT r.id, r.num_credito_rich, r.num_credito_dato, r.num_credito_dare,
+                r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato,
+                r.val_nc_rich, r.val_singolo_nc_rich,
+                n.nominativo
+                FROM rinnovi r
+                JOIN nominativi n ON n.id = r.nominativo_id
+                ORDER BY n.nominativo""")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.post("/api/saldo_rinnovo")
+def api_saldo_rinnovo_nuovo(payload: RinnovoPayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            rinnovo_id = int(dati.get("rinnovo_id"))
+            cur.execute("SELECT num_credito_dato, val_singolo_nc_rich FROM rinnovi WHERE id = %s", (rinnovo_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Rinnovo non trovato")
+            num_dato = row["num_credito_dato"]
+            val_singolo = row["val_singolo_nc_rich"] or 0
+            num_saldo = int(dati.get("num_credito_saldo", 0))
+            val_nc_dato = num_dato * val_singolo
+            val_nc_saldo = num_saldo * val_singolo
+            cur.execute("""INSERT INTO saldo_rinnovi (rinnovo_id, num_credito_saldo, data_credito_rinnovo_saldo, val_nc_dato, val_nc_saldo, informazioni_note, creato_il)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                (rinnovo_id, num_saldo, dati.get("data_credito_rinnovo_saldo", ""),
+                 val_nc_dato, val_nc_saldo, dati.get("informazioni_note", ""),
+                 datetime.now().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.post("/api/saldo_rinnovo_modifica")
+def api_saldo_rinnovo_modifica(payload: RinnovoPayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            rinnovo_id = int(dati.get("rinnovo_id"))
+            cur.execute("SELECT num_credito_dato, val_singolo_nc_rich FROM rinnovi WHERE id = %s", (rinnovo_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Rinnovo non trovato")
+            num_dato = row["num_credito_dato"]
+            val_singolo = row["val_singolo_nc_rich"] or 0
+            num_saldo = int(dati.get("num_credito_saldo", 0))
+            val_nc_dato = num_dato * val_singolo
+            val_nc_saldo = num_saldo * val_singolo
+            cur.execute("""UPDATE saldo_rinnovi SET num_credito_saldo=%s, data_credito_rinnovo_saldo=%s, val_nc_dato=%s, val_nc_saldo=%s, informazioni_note=%s WHERE id=%s""",
+                (num_saldo, dati.get("data_credito_rinnovo_saldo", ""),
+                 val_nc_dato, val_nc_saldo, dati.get("informazioni_note", ""),
+                 int(dati.get("id"))))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/saldo_rinnovo/{id}")
+def api_saldo_rinnovo_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM saldo_rinnovi WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.get("/api/note")
+def api_note(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT n.id, n.nominativo_id, n.messaggio, n.creato_il,
+                nom.nominativo
+                FROM note n
+                JOIN nominativi nom ON nom.id = n.nominativo_id
+                ORDER BY n.creato_il DESC""")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+class NotaPayload(BaseModel):
+    dati: dict
+
+@app.post("/api/note")
+def api_note_nuovo(payload: NotaPayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO note (nominativo_id, messaggio, creato_il)
+                VALUES (%s, %s, %s)""",
+                (int(dati.get("nominativo_id")), dati.get("messaggio", ""),
+                 datetime.now().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/note/{id}")
+def api_note_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM note WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
 
 @app.get("/api/credenziali")
 def api_credenziali(request: Request):
@@ -266,7 +650,7 @@ def api_apk(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nome_file, link, file_token, creato_il FROM apk ORDER BY creato_il DESC")
+            cur.execute("SELECT id, nome_file, credenziale_nominativo, link, file_token, creato_il FROM apk ORDER BY creato_il DESC")
             return cur.fetchall()
     finally:
         conn.close()
@@ -281,10 +665,10 @@ def api_apk_nuovo(payload: ApkPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""INSERT INTO apk (nome_file, link, file_token, creato_il)
-                VALUES (%s, %s, %s, %s)""",
-                (dati.get("nome_file", ""), dati.get("link", ""), dati.get("file_token", ""),
-                 datetime.now().isoformat()))
+            cur.execute("""INSERT INTO apk (nome_file, credenziale_nominativo, link, file_token, creato_il)
+                VALUES (%s, %s, %s, %s, %s)""",
+                (dati.get("nome_file", ""), dati.get("credenziale_nominativo", ""), dati.get("link", ""), 
+                 dati.get("file_token", ""), datetime.now().isoformat()))
         conn.commit()
     finally:
         conn.close()
@@ -296,31 +680,29 @@ def api_apk_cancella(id: int, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT nome_file, link, file_token FROM apk WHERE id = %s", (id,))
+            cur.execute("SELECT nome_file, link, file_token, credenziale_nominativo FROM apk WHERE id = %s", (id,))
             apk = cur.fetchone()
             if not apk:
                 raise HTTPException(status_code=404, detail="APK non trovato")
             
-            # 1. Prova a cancellare dal server remoto (Ufile.io)
-            cur.execute("SELECT percorso, user_id, password FROM credenziali ORDER BY id LIMIT 1")
-            creds = cur.fetchone()
-            
-            if creds and creds['percorso'] and apk['file_token']:
+            # 1. Prova a cancellare dal server remoto usando le credenziali abbinate
+            if apk['credenziale_nominativo'] and apk['file_token']:
                 try:
-                    # Payload generico per l'API di cancellazione. 
-                    # L'utente deve impostare 'percorso' come l'URL esatto dell'API di delete di Ufile (es. https://api.ufile.io/v2/delete)
-                    req_data = json.dumps({
-                        "token": apk['file_token'],
-                        "user": creds['user_id'],
-                        "password": creds['password']
-                    }).encode('utf-8')
-                    
-                    req = urllib.request.Request(creds['percorso'], data=req_data, method='POST')
-                    req.add_header('Content-Type', 'application/json')
-                    try:
-                        urllib.request.urlopen(req, timeout=5)
-                    except Exception as e:
-                        print(f"Avviso cancellazione remota Ufile: {e}") # Procediamo comunque con la cancellazione locale
+                    cur.execute("SELECT percorso, user_id, password FROM credenziali WHERE nominativo = %s", (apk['credenziale_nominativo'],))
+                    creds = cur.fetchone()
+                    if creds and creds['percorso']:
+                        req_data = json.dumps({
+                            "token": apk['file_token'],
+                            "user": creds['user_id'],
+                            "password": creds['password']
+                        }).encode('utf-8')
+                        
+                        req = urllib.request.Request(creds['percorso'], data=req_data, method='POST')
+                        req.add_header('Content-Type', 'application/json')
+                        try:
+                            urllib.request.urlopen(req, timeout=5)
+                        except Exception as e:
+                            print(f"Avviso cancellazione remota: {e}")
                 except Exception as e:
                     print(f"Errore configurazione cancellazione remota: {e}")
 

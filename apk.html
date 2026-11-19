@@ -11,9 +11,10 @@ body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margi
 h2 { text-align: center; margin-top: 0; color: #333; }
 .counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
 .counter-wrapper { text-align: center; }
-.input-row { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
-.input-row input { flex: 1; min-width: 120px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
-.btn-add { padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+.input-row { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+.input-row input, .input-row select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; box-sizing: border-box; }
+.input-row input[readonly] { background: #f0f0f0; color: #666; }
+.btn-add { width: 100%; padding: 12px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
 .btn-add:active { background: #388e3c; }
 .item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; }
 .item strong { color: #222; font-size: 15px; display: block; margin-bottom: 4px; }
@@ -36,8 +37,11 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 <div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
 <div class="input-row">
 <input type="text" id="nome_file" placeholder="Nome file (es. app_v1.apk)">
-<input type="text" id="link" placeholder="Link download">
-<input type="text" id="file_token" placeholder="Token/File ID (per cancellazione)">
+<select id="credenziale_select">
+  <option value="">-- Seleziona Servizio (da Credenziali) --</option>
+</select>
+<input type="text" id="link" readonly placeholder="Link automatico (da Credenziali)">
+<input type="text" id="file_token" placeholder="Token/File ID (per cancellazione remota)">
 <button class="btn-add" onclick="aggiungi()">➕ Aggiungi</button>
 </div>
 <div id="lista"><div class="empty">Caricamento...</div></div>
@@ -46,17 +50,33 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 <script>
 const tg = window.Telegram.WebApp; tg.expand();
 let items = [];
+let credenziali = [];
 
 async function carica() {
   try {
-    const res = await fetch('/api/apk');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    items = await res.json();
+    const [resApk, resCred] = await Promise.all([
+      fetch('/api/apk'),
+      fetch('/api/credenziali')
+    ]);
+    if (!resApk.ok || !resCred.ok) throw new Error('Errore server');
+    items = await resApk.json();
+    credenziali = await resCred.json();
+    
+    const sel = document.getElementById('credenziale_select');
+    sel.innerHTML = '<option value="">-- Seleziona Servizio (da Credenziali) --</option>' + 
+      credenziali.map(c => `<option value="${c.id}" data-percorso="${c.percorso || ''}" data-nome="${c.nominativo || ''}">${c.nominativo}</option>`).join('');
+      
     render();
   } catch (e) {
     document.getElementById('lista').innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
   }
 }
+
+document.getElementById('credenziale_select').addEventListener('change', function() {
+  const opt = this.options[this.selectedIndex];
+  const percorso = opt.getAttribute('data-percorso') || '';
+  document.getElementById('link').value = percorso;
+});
 
 function render() {
   aggiornaContatore(items.length);
@@ -66,7 +86,8 @@ function render() {
   }
   document.getElementById('lista').innerHTML = items.map(i => {
     const data = new Date(i.creato_il).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    return '<div class="item"><strong>' + (i.nome_file || 'Senza nome') + '</strong>' +
+    const serv = i.credenziale_nominativo ? ` (${i.credenziale_nominativo})` : '';
+    return '<div class="item"><strong>' + (i.nome_file || 'Senza nome') + serv + '</strong>' +
       '<small>Link: <a href="' + (i.link || '#') + '" target="_blank" style="color:#0088cc;">' + (i.link || '-') + '</a></small>' +
       '<small>Data: ' + data + '</small>' +
       '<div class="item-actions">' +
@@ -80,19 +101,27 @@ function aggiornaContatore(totale) { document.getElementById('counter').textCont
 
 async function aggiungi() {
   const nome = document.getElementById('nome_file').value.trim();
+  const sel = document.getElementById('credenziale_select');
+  const credenzialeNome = sel.options[sel.selectedIndex].getAttribute('data-nome') || '';
   const link = document.getElementById('link').value.trim();
   const token = document.getElementById('file_token').value.trim();
   
-  if (!nome || !link) { mostraToast('⚠️ Nome e Link sono obbligatori'); return; }
+  if (!nome || !link) { mostraToast('⚠️ Nome e Servizio sono obbligatori'); return; }
   
   try {
     const res = await fetch('/api/apk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dati: { nome_file: nome, link: link, file_token: token } })
+      body: JSON.stringify({ dati: { 
+        nome_file: nome, 
+        credenziale_nominativo: credenzialeNome,
+        link: link, 
+        file_token: token 
+      }})
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     document.getElementById('nome_file').value = '';
+    sel.selectedIndex = 0;
     document.getElementById('link').value = '';
     document.getElementById('file_token').value = '';
     mostraToast('✅ APK aggiunto');
@@ -102,7 +131,7 @@ async function aggiungi() {
 
 async function cancella(id) {
   const i = items.find(x => x.id === id); if (!i) return;
-  if (!confirm('Cancellare "' + i.nome_file + '"?\n\nQuesto tenterà di eliminarlo anche da Ufile.io (se le credenziali sono configurate).')) return;
+  if (!confirm('Cancellare "' + i.nome_file + '"?\n\nQuesto tenterà di eliminarlo anche dal servizio remoto (se le credenziali sono configurate).')) return;
   
   mostraToast('⏳ Cancellazione in corso...');
   try {
