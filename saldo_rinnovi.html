@@ -56,7 +56,7 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 
 <div class="modal-overlay" id="modal">
 <div class="modal">
-<h3>✏️ Modifica Saldo Rinnovo</h3>
+<h3 id="modal_titolo">✏️ Modifica Saldo Rinnovo</h3>
 <label>Nominativo</label>
 <input type="text" id="m_nominativo" readonly>
 <div class="row">
@@ -94,6 +94,7 @@ tg.expand();
 let saldi = [];
 let rinnovi = [];
 let idModifica = null;
+let rinnovoIdNuovo = null;
 
 async function carica() {
   const box = document.getElementById('lista');
@@ -145,37 +146,41 @@ function getOggi() {
   return new Date().toISOString().split('T')[0];
 }
 
-async function aggiungi() {
+function aggiungi() {
   const rinnovoId = parseInt(document.getElementById('nuovo_rinnovo').value);
-  if (!rinnovoId) { tg.showAlert('⚠️ Seleziona un rinnovo'); return; }
+  if (!rinnovoId) { 
+    mostraToast('⚠️ Seleziona un rinnovo'); 
+    return; 
+  }
   const r = rinnovi.find(x => x.id === rinnovoId);
   if (!r) return;
   
-  const dati = {
-    azione: 'nuovo_saldo',
-    rinnovo_id: rinnovoId,
-    num_credito_saldo: 0,
-    data_credito_rinnovo_saldo: getOggi(),
-    informazioni_note: ''
-  };
-  try {
-    const res = await fetch('/api/saldo_rinnovo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dati: dati })
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    mostraToast('✅ Saldo creato');
-    await carica();
-  } catch (e) {
-    mostraToast('❌ Errore: ' + e.message);
-  }
+  // Apre direttamente il modal precompilato con i dati del rinnovo
+  rinnovoIdNuovo = rinnovoId;
+  idModifica = null;
+  
+  document.getElementById('modal_titolo').textContent = '➕ Nuovo Saldo Rinnovo';
+  document.getElementById('m_nominativo').value = r.nominativo || '';
+  document.getElementById('m_num_credito_rich').value = r.num_credito_rich || 0;
+  document.getElementById('m_num_credito_dato').value = r.num_credito_dato || 0;
+  document.getElementById('m_data_credito_rich').value = r.data_credito_rinnovo_rich || '';
+  document.getElementById('m_data_credito_dato').value = r.data_credito_rinnovo_dato || '';
+  document.getElementById('m_val_nc_rich').value = r.val_nc_rich || 0;
+  document.getElementById('m_num_credito_saldo').value = r.num_credito_dato || 0;
+  document.getElementById('m_data_credito_saldo').value = getOggi();
+  document.getElementById('m_informazioni_note').value = '';
+  
+  calcolaValori();
+  document.getElementById('modal').classList.add('active');
 }
 
 function apriModifica(id) {
   const s = saldi.find(x => x.id === id);
   if (!s) return;
   idModifica = id;
+  rinnovoIdNuovo = s.rinnovo_id;
+  
+  document.getElementById('modal_titolo').textContent = '✏️ Modifica Saldo Rinnovo';
   document.getElementById('m_nominativo').value = s.nominativo || '';
   document.getElementById('m_num_credito_rich').value = s.num_credito_rich || 0;
   document.getElementById('m_num_credito_dato').value = s.num_credito_dato || 0;
@@ -187,13 +192,15 @@ function apriModifica(id) {
   document.getElementById('m_val_nc_dato').value = s.val_nc_dato || 0;
   document.getElementById('m_val_nc_saldo').value = s.val_nc_saldo || 0;
   document.getElementById('m_informazioni_note').value = s.informazioni_note || '';
-  document.getElementById('modal').classList.add('active');
+  
   calcolaValori();
+  document.getElementById('modal').classList.add('active');
 }
 
 function chiudiModal() {
   document.getElementById('modal').classList.remove('active');
   idModifica = null;
+  rinnovoIdNuovo = null;
 }
 
 function calcolaValori() {
@@ -207,26 +214,38 @@ function calcolaValori() {
 }
 
 async function salvaModifica() {
-  if (!idModifica) return;
-  const s = saldi.find(x => x.id === idModifica);
-  if (!s) return;
+  const numSaldo = parseInt(document.getElementById('m_num_credito_saldo').value) || 0;
+  const dataSaldo = document.getElementById('m_data_credito_saldo').value;
+  const note = document.getElementById('m_informazioni_note').value.trim();
+  
+  if (!rinnovoIdNuovo) { 
+    mostraToast('⚠️ Nessun rinnovo selezionato'); 
+    return; 
+  }
+  if (!dataSaldo) { 
+    mostraToast('⚠️ Inserisci la data'); 
+    return; 
+  }
+  
   const dati = {
-    azione: 'modifica_saldo',
+    azione: idModifica ? 'modifica_saldo' : 'nuovo_saldo',
     id: idModifica,
-    rinnovo_id: s.rinnovo_id,
-    num_credito_saldo: parseInt(document.getElementById('m_num_credito_saldo').value) || 0,
-    data_credito_rinnovo_saldo: document.getElementById('m_data_credito_saldo').value,
-    informazioni_note: document.getElementById('m_informazioni_note').value.trim()
+    rinnovo_id: rinnovoIdNuovo,
+    num_credito_saldo: numSaldo,
+    data_credito_rinnovo_saldo: dataSaldo,
+    informazioni_note: note
   };
+  
   try {
-    const res = await fetch('/api/saldo_rinnovo_modifica', {
+    const url = idModifica ? '/api/saldo_rinnovo_modifica' : '/api/saldo_rinnovo';
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dati: dati })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     chiudiModal();
-    mostraToast('✅ Modificato');
+    mostraToast(idModifica ? '✅ Modificato' : '✅ Saldo creato');
     await carica();
   } catch (e) {
     mostraToast('❌ Errore: ' + e.message);
