@@ -109,21 +109,26 @@ def api_scadenze(request: Request):
             rows = cur.fetchall()
             scadenze_list = []
             for r in rows:
+                scad = None
+                # Prova prima formato DD/MM/YYYY, poi YYYY-MM-DD
                 try:
                     scad = datetime.strptime(r["scadenza"], "%d/%m/%Y").date()
-                    if scad < oggi:
-                        giorni_scaduti = (oggi - scad).days
-                        scadenze_list.append({
-                            "id": r["id"],
-                            "nominativo_id": r["nominativo_id"],
-                            "nominativo": r["nominativo"],
-                            "scadenza": r["scadenza"],
-                            "orario_scadenza": r.get("orario_scadenza", ""),
-                            "scaduta": True,
-                            "giorni": -giorni_scaduti
-                        })
                 except:
-                    continue
+                    try:
+                        scad = datetime.strptime(r["scadenza"], "%Y-%m-%d").date()
+                    except:
+                        continue
+                if scad and scad < oggi:
+                    giorni_scaduti = (oggi - scad).days
+                    scadenze_list.append({
+                        "id": r["id"],
+                        "nominativo_id": r["nominativo_id"],
+                        "nominativo": r["nominativo"],
+                        "scadenza": r["scadenza"],
+                        "orario_scadenza": r.get("orario_scadenza", ""),
+                        "scaduta": True,
+                        "giorni": -giorni_scaduti
+                    })
             return scadenze_list
     finally:
         conn.close()
