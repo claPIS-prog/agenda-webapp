@@ -101,23 +101,29 @@ def api_nominativi(request: Request):
 @app.get("/api/scadenze")
 def api_scadenze(request: Request):
     get_current_user(request)
-    oggi = datetime.now()
-    tra30 = oggi + timedelta(days=30)
+    oggi = datetime.now().date()
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT r.scadenza, r.orario_scadenza, n.nominativo FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id")
+            cur.execute("SELECT r.id, r.scadenza, r.orario_scadenza, r.nominativo_id, n.nominativo FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id ORDER BY r.scadenza ASC")
             rows = cur.fetchall()
             scadenze_list = []
             for r in rows:
                 try:
-                    scad = datetime.strptime(r["scadenza"], "%d/%m/%Y")
-                    if oggi <= scad <= tra30:
-                        giorni = (scad - oggi).days
-                        scadenze_list.append({"nominativo": r["nominativo"], "scadenza": r["scadenza"], "orario_scadenza": r.get("orario_scadenza", ""), "giorni": giorni})
+                    scad = datetime.strptime(r["scadenza"], "%d/%m/%Y").date()
+                    if scad < oggi:
+                        giorni_scaduti = (oggi - scad).days
+                        scadenze_list.append({
+                            "id": r["id"],
+                            "nominativo_id": r["nominativo_id"],
+                            "nominativo": r["nominativo"],
+                            "scadenza": r["scadenza"],
+                            "orario_scadenza": r.get("orario_scadenza", ""),
+                            "scaduta": True,
+                            "giorni": -giorni_scaduti
+                        })
                 except:
                     continue
-            scadenze_list.sort(key=lambda x: x["giorni"])
             return scadenze_list
     finally:
         conn.close()
@@ -137,7 +143,7 @@ def api_elenco_rinnovi(request: Request):
                 n.nominativo
                 FROM rinnovi r
                 JOIN nominativi n ON n.id = r.nominativo_id
-                ORDER BY r.scadenza DESC""")
+                ORDER BY r.creato_il DESC""")
             return cur.fetchall()
     finally:
         conn.close()
