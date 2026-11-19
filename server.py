@@ -1,6 +1,4 @@
 import os
-import json
-import urllib.request
 from datetime import datetime, timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -44,6 +42,7 @@ def init_db():
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor() as cur:
+            # Tabelle esistenti
             cur.execute("CREATE TABLE IF NOT EXISTS nominativi (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, prezzo REAL DEFAULT 0, cadenza TEXT, tipo TEXT, dispositivo TEXT, sistema_operativo TEXT, buffett TEXT, metodo_pagamento TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS rinnovi (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), tipo TEXT, data_operazione TEXT, mesi INTEGER, scadenza TEXT, orario_scadenza TEXT, importo_acconto REAL DEFAULT 0, importo_saldo REAL DEFAULT 0, data_acconto TEXT, data_saldo TEXT, note TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS servers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
@@ -71,11 +70,18 @@ def init_db():
                 creato_il TEXT
             )""")
             
+            # NUOVA TABELLA OPERATORI IT
+            cur.execute("CREATE TABLE IF NOT EXISTS operatori_it (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
+
             cur.execute("INSERT INTO config_notifiche (id, ora, minuto, attivo) VALUES (1, 7, 0, 1) ON CONFLICT (id) DO NOTHING")
+            
+            # Aggiornamento colonne tabelle esistenti
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS dispositivo TEXT")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS sistema_operativo TEXT")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS buffett TEXT")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS metodo_pagamento TEXT")
+            cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS operatore_it TEXT") # Nuova colonna per Nominativi
+            
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS orario_scadenza TEXT")
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS num_credito_rich INTEGER DEFAULT 0")
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS num_credito_dato INTEGER DEFAULT 0")
@@ -85,12 +91,12 @@ def init_db():
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS val_singolo_nc_rich REAL DEFAULT 0")
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS val_nc_rich REAL DEFAULT 0")
             
-            # Aggiunge i nuovi campi alla tabella credenziali se non esistono
             cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS nome_file TEXT")
             cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS link TEXT")
             cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS file_token TEXT")
             cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS scadenza TEXT")
             cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS creato_il TEXT")
+            
             conn.commit()
     finally:
         conn.close()
@@ -100,13 +106,14 @@ init_db()
 def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
+# --- API ESISTENTI (Mantenute integre) ---
 @app.get("/api/contatti")
 def api_contatti(request: Request):
     get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nominativo, prezzo, cadenza, tipo, dispositivo, sistema_operativo, buffett, metodo_pagamento FROM nominativi ORDER BY nominativo")
+            cur.execute("SELECT id, nominativo, prezzo, cadenza, tipo, dispositivo, sistema_operativo, buffett, metodo_pagamento, operatore_it FROM nominativi ORDER BY nominativo")
             return cur.fetchall()
     finally:
         conn.close()
@@ -260,15 +267,15 @@ def api_azione(payload: AzionePayload, request: Request):
             elif azione == "nuovo":
                 cur.execute("""INSERT INTO nominativi 
                     (nominativo, user_id, password, prezzo, cadenza, tipo, server, reseller, 
-                     dispositivo, sistema_operativo, buffett, metodo_pagamento, 
+                     dispositivo, sistema_operativo, buffett, metodo_pagamento, operatore_it,
                      cellulare, procuratore, apk_utilizzata, uso_vpn, quale_vpn, citta, 
                      data_iscrizione, data_fine, informazioni)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                     (dati.get("nominativo",""), dati.get("user_id",""), dati.get("password",""),
                      float(dati.get("prezzo",0)), dati.get("cadenza",""), dati.get("tipo",""),
                      dati.get("server",""), dati.get("reseller",""),
                      dati.get("dispositivo",""), dati.get("sistema_operativo",""),
-                     dati.get("buffett",""), dati.get("metodo_pagamento",""),
+                     dati.get("buffett",""), dati.get("metodo_pagamento",""), dati.get("operatore_it",""),
                      dati.get("cellulare",""), dati.get("procuratore",""),
                      dati.get("apk_utilizzata",""), int(dati.get("uso_vpn",0)),
                      dati.get("quale_vpn",""), dati.get("citta",""),
@@ -278,14 +285,14 @@ def api_azione(payload: AzionePayload, request: Request):
                 cur.execute("""UPDATE nominativi SET 
                     nominativo=%s, user_id=%s, password=%s, prezzo=%s, cadenza=%s, tipo=%s,
                     server=%s, reseller=%s, dispositivo=%s, sistema_operativo=%s,
-                    buffett=%s, metodo_pagamento=%s, cellulare=%s, procuratore=%s,
+                    buffett=%s, metodo_pagamento=%s, operatore_it=%s, cellulare=%s, procuratore=%s,
                     apk_utilizzata=%s, uso_vpn=%s, quale_vpn=%s, citta=%s,
                     data_iscrizione=%s, data_fine=%s, informazioni=%s WHERE id=%s""",
                     (dati.get("nominativo"), dati.get("user_id"), dati.get("password"),
                      float(dati.get("prezzo",0)), dati.get("cadenza"), dati.get("tipo"),
                      dati.get("server"), dati.get("reseller"),
                      dati.get("dispositivo"), dati.get("sistema_operativo"),
-                     dati.get("buffett"), dati.get("metodo_pagamento"),
+                     dati.get("buffett"), dati.get("metodo_pagamento"), dati.get("operatore_it"),
                      dati.get("cellulare"), dati.get("procuratore"),
                      dati.get("apk_utilizzata"), int(dati.get("uso_vpn",0)),
                      dati.get("quale_vpn"), dati.get("citta"),
@@ -344,6 +351,7 @@ TABELLE_COLONNE = {
     'resellers': 'nominativo',
     'servers': 'nominativo',
     'procuratori': 'nominativo',
+    'operatori_it': 'nome'
 }
 
 class ListaPayload(BaseModel):
@@ -601,8 +609,6 @@ def api_note_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
-# --- API CREDENZIALI UNIFICATE (ex APK + Credenziali) ---
-
 @app.get("/api/credenziali")
 def api_credenziali(request: Request):
     get_current_user(request)
@@ -664,7 +670,6 @@ def api_credenziali_cancella(id: int, request: Request):
             if not item:
                 raise HTTPException(status_code=404, detail="Record non trovato")
             
-            # Prova a cancellare dal server remoto
             if item['percorso'] and item['file_token']:
                 try:
                     cur.execute("SELECT user_id, password FROM credenziali WHERE id = %s", (id,))
@@ -685,6 +690,60 @@ def api_credenziali_cancella(id: int, request: Request):
                     print(f"Errore configurazione cancellazione remota: {e}")
 
             cur.execute("DELETE FROM credenziali WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# --- NUOVE API PER OPERATORI IT ---
+
+@app.get("/api/operatori_it")
+def api_operatori_it(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nome FROM operatori_it ORDER BY nome")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+class OperatorePayload(BaseModel):
+    dati: dict
+
+@app.post("/api/operatori_it")
+def api_operatori_it_nuovo(payload: OperatorePayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO operatori_it (nome) VALUES (%s)", (dati.get("nome", ""),))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.put("/api/operatori_it/{id}")
+def api_operatori_it_modifica(id: int, payload: OperatorePayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE operatori_it SET nome = %s WHERE id = %s", (dati.get("nome", ""), id))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/operatori_it/{id}")
+def api_operatori_it_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM operatori_it WHERE id = %s", (id,))
         conn.commit()
     finally:
         conn.close()
