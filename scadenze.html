@@ -19,12 +19,14 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 .badge { background: #ffebee; color: #c62828; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
 .item small { color: #555; display: block; font-size: 13px; margin: 2px 0; }
 .item .scad { color: #c62828; font-weight: bold; font-size: 14px; }
-.item-actions { display: flex; gap: 6px; margin-top: 8px; }
-.btn { padding: 8px 12px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; flex: 1; }
+.item-actions { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+.btn { padding: 6px 8px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; flex: 1; min-width: 0; }
 .btn-rinnovo { background: #4caf50; color: white; }
 .btn-rinnovo:active { background: #388e3c; }
 .btn-pdf { background: #ff9800; color: white; }
 .btn-pdf:active { background: #f57c00; }
+.btn-wa { background: #25d366; color: white; }
+.btn-wa:active { background: #128c7e; }
 .empty { text-align: center; color: #888; padding: 30px; }
 .error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
@@ -78,7 +80,8 @@ function render(filter) {
       '<small>Da ' + giorni + ' ' + testoGiorni + '</small>' +
       '<div class="item-actions">' +
       '<button class="btn btn-rinnovo" onclick="apriRinnovo(' + s.nominativo_id + ')">🔄 Rinnovo</button>' +
-      '<button class="btn btn-pdf" onclick="generaPDF(' + s.id + ')">📄 PDF</button>' +
+      '<button class="btn btn-pdf" onclick="generaPDF(' + s.id + ', false)">📄 PDF</button>' +
+      '<button class="btn btn-wa" onclick="generaPDF(' + s.id + ', true)">💬 WhatsApp</button>' +
       '</div></div>';
   }).join('');
 }
@@ -94,14 +97,11 @@ function apriRinnovo(nominativoId) {
   window.location.href = '/rinnovi.html?nominativo_id=' + nominativoId;
 }
 
-function generaPDF(id) {
-  const s = scadenze.find(x => x.id === id);
-  if (!s) return;
-  
+function creaPDF(s) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   
-  doc.setFontSize(16);
+  doc.setFontSize(18);
   doc.setTextColor(0, 136, 204);
   doc.text('AgendaGest - Avviso Scadenza', 105, 20, { align: 'center' });
   
@@ -127,8 +127,48 @@ function generaPDF(id) {
   doc.setTextColor(128, 128, 128);
   doc.text('Generato il: ' + new Date().toLocaleString('it-IT'), 105, 285, { align: 'center' });
   
-  doc.save('Scadenza_' + (s.nominativo || 'sconosciuto') + '_' + (s.scadenza || 'data') + '.pdf');
-  mostraToast('📄 PDF generato!');
+  return doc;
+}
+
+async function generaPDF(id, inviaWhatsApp) {
+  const s = scadenze.find(x => x.id === id);
+  if (!s) return;
+  
+  const doc = creaPDF(s);
+  const nomeFile = 'Scadenza_' + (s.nominativo || 'sconosciuto') + '_' + (s.scadenza || 'data') + '.pdf';
+  
+  if (inviaWhatsApp) {
+    const pdfBlob = doc.output('blob');
+    const pdfFile = new File([pdfBlob], nomeFile, { type: 'application/pdf' });
+    
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+      try {
+        await navigator.share({
+          files: [pdfFile],
+          title: 'Avviso Scadenza',
+          text: 'Ciao la tua linea è scaduta il ' + (s.scadenza || '') + '. Resto in attesa di informazioni. Grazie'
+        });
+        mostraToast('✅ Condiviso con successo!');
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') {
+          mostraToast('Condivisione annullata');
+          return;
+        }
+      }
+    }
+    
+    // Fallback: scarica il PDF e apre WhatsApp con messaggio
+    doc.save(nomeFile);
+    mostraToast('📄 PDF scaricato. Apri WhatsApp per inviarlo.');
+    setTimeout(() => {
+      const msg = encodeURIComponent('Ciao la tua linea è scaduta il ' + (s.scadenza || '') + '. Resto in attesa di informazioni. Grazie');
+      window.open('https://wa.me/?text=' + msg, '_blank');
+    }, 1000);
+  } else {
+    doc.save(nomeFile);
+    mostraToast('📄 PDF scaricato!');
+  }
 }
 
 document.getElementById('search').addEventListener('input', e => render(e.target.value));
