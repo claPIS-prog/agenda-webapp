@@ -1,98 +1,170 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invia Messaggio WhatsApp</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
-    .contact { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f4f4f5); cursor: pointer; }
-    .contact:hover { border-color: #25D366; }
-    .name { font-weight: bold; font-size: 1.1em; }
-    .phone { color: #666; font-size: 0.9em; }
-    .message-box { display: none; margin-top: 16px; padding: 16px; border: 1px solid #25D366; border-radius: 8px; background: #e8f5e9; }
-    textarea { width: 100%; height: 100px; padding: 8px; border-radius: 8px; border: 1px solid #ccc; font-family: inherit; margin-bottom: 8px; }
-    button { width: 100%; padding: 12px; background: #25D366; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; }
-    button:disabled { background: #a5d6a7; cursor: not-allowed; }
-    .back-btn { background: #666; margin-bottom: 16px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invia Messaggio</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+h2 { text-align: center; margin-top: 0; color: #333; }
+.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
+.counter-wrapper { text-align: center; }
+.input-row { display: flex; gap: 10px; margin-bottom: 15px; }
+.input-row select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 15px; }
+.btn-add { padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+.btn-add:active { background: #388e3c; }
+textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; font-family: inherit; resize: vertical; min-height: 80px; margin-bottom: 15px; }
+.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; }
+.item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.item-head strong { color: #222; font-size: 15px; }
+.item small { color: #666; display: block; font-size: 13px; margin: 4px 0; }
+.item .messaggio { color: #333; font-size: 14px; margin: 8px 0; padding: 8px; background: white; border-radius: 4px; border: 1px solid #e0e0e0; }
+.item-actions { display: flex; gap: 6px; margin-top: 8px; }
+.btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; }
+.btn-wa { background: #25d366; color: white; }
+.btn-wa:active { background: #128c7e; }
+.btn-del { background: #f44336; color: white; }
+.btn-del:active { background: #d32f2f; }
+.empty { text-align: center; color: #888; padding: 30px; }
+.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 6px; z-index: 200; opacity: 0; transition: opacity 0.3s; }
+.toast.show { opacity: 1; }
+</style>
 </head>
 <body>
-  <h1>💬 Invia Messaggio</h1>
+<div class="container">
+<h2>💬 Invia Messaggio</h2>
+<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
+<label style="font-weight: bold; margin-bottom: 8px; display: block;">Seleziona Nominativo:</label>
+<div class="input-row">
+<select id="nominativo_id"><option value="">-- Seleziona --</option></select>
+</div>
+<label style="font-weight: bold; margin-bottom: 8px; display: block;">Messaggio:</label>
+<textarea id="messaggio" placeholder="Scrivi il messaggio..."></textarea>
+<button class="btn-add" onclick="aggiungi()" style="width: 100%; padding: 12px;">➕ Aggiungi</button>
+<div id="lista" style="margin-top: 20px;"><div class="empty">Caricamento...</div></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+let note = [];
+let nominativi = [];
+
+async function carica() {
+  const box = document.getElementById('lista');
+  try {
+    const [resNote, resNom] = await Promise.all([
+      fetch('/api/note'),
+      fetch('/api/nominativi')
+    ]);
+    if (!resNote.ok || !resNom.ok) throw new Error('Errore server');
+    note = await resNote.json();
+    nominativi = await resNom.json();
+    popolaSelect();
+    render();
+  } catch (e) {
+    box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
+  }
+}
+
+function popolaSelect() {
+  const sel = document.getElementById('nominativo_id');
+  sel.innerHTML = '<option value="">-- Seleziona --</option>' + 
+    nominativi.map(n => '<option value="' + n.id + '">' + n.nominativo + '</option>').join('');
+}
+
+function render() {
+  aggiornaContatore(note.length);
+  if (note.length === 0) {
+    document.getElementById('lista').innerHTML = '<div class="empty">Nessun messaggio salvato.</div>';
+    return;
+  }
+  document.getElementById('lista').innerHTML = note.map(n => {
+    const data = new Date(n.creato_il).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return '<div class="item">' +
+      '<div class="item-head"><strong>' + (n.nominativo || '') + '</strong></div>' +
+      '<small>Data: ' + data + '</small>' +
+      '<div class="messaggio">' + (n.messaggio || '') + '</div>' +
+      '<div class="item-actions">' +
+      '<button class="btn btn-wa" onclick="inviaWhatsApp(' + n.id + ')">💬 WhatsApp</button>' +
+      '<button class="btn btn-del" onclick="cancella(' + n.id + ')">🗑️ Cancella</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+function aggiornaContatore(totale) {
+  document.getElementById('counter').textContent = 'Totale: ' + totale;
+}
+
+function mostraToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+async function aggiungi() {
+  const nominativoId = parseInt(document.getElementById('nominativo_id').value);
+  const messaggio = document.getElementById('messaggio').value.trim();
   
-  <div id="lista-contatti"></div>
+  if (!nominativoId) {
+    mostraToast('⚠️ Seleziona un nominativo');
+    return;
+  }
+  if (!messaggio) {
+    mostraToast('⚠️ Scrivi un messaggio');
+    return;
+  }
+  
+  const dati = {
+    nominativo_id: nominativoId,
+    messaggio: messaggio
+  };
+  
+  try {
+    const res = await fetch('/api/note', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dati: dati })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    document.getElementById('messaggio').value = '';
+    mostraToast('✅ Messaggio salvato');
+    await carica();
+  } catch (e) {
+    mostraToast('❌ Errore: ' + e.message);
+  }
+}
 
-  <div id="message-area" class="message-box">
-    <h3 id="selected-name"></h3>
-    <textarea id="message-text" placeholder="Scrivi qui il tuo messaggio..."></textarea>
-    <button id="send-btn" onclick="inviaMessaggio()">🟢 Apri WhatsApp e Invia</button>
-    <button class="back-btn" onclick="tornaAllaLista()">⬅ Torna alla lista</button>
-  </div>
+function inviaWhatsApp(id) {
+  const n = note.find(x => x.id === id);
+  if (!n) return;
+  
+  const testo = 'Ciao ' + (n.nominativo || '') + ',\n\n' + (n.messaggio || '');
+  const url = 'https://wa.me/?text=' + encodeURIComponent(testo);
+  window.open(url, '_blank');
+  mostraToast('💬 WhatsApp aperto');
+}
 
-  <script>
-    const tg = window.Telegram?.WebApp;
-    if (tg) { tg.ready(); tg.expand(); }
+async function cancella(id) {
+  const n = note.find(x => x.id === id);
+  if (!n) return;
+  if (!confirm('Cancellare il messaggio per "' + n.nominativo + '"?')) return;
+  
+  try {
+    const res = await fetch('/api/note/' + id, { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    mostraToast('🗑️ Cancellato');
+    await carica();
+  } catch (e) {
+    mostraToast('❌ Errore: ' + e.message);
+  }
+}
 
-    const params = new URLSearchParams(window.location.search);
-    let contatti = [];
-    try {
-      contatti = JSON.parse(params.get("contatti") || "[]");
-    } catch (e) { console.error(e); }
-
-    let contattoSelezionato = null;
-
-    const listaDiv = document.getElementById("lista-contatti");
-    const messageArea = document.getElementById("message-area");
-    const selectedName = document.getElementById("selected-name");
-    const messageText = document.getElementById("message-text");
-
-    if (contatti.length === 0) {
-      listaDiv.innerHTML = "<p>Nessun contatto salvato. Aggiungine uno dal modulo!</p>";
-    } else {
-      contatti.forEach(c => {
-        const div = document.createElement("div");
-        div.className = "contact";
-        div.innerHTML = `
-          <div class="name">${c.nominativo}</div>
-          <div class="phone">${c.whatsapp}</div>
-        `;
-        div.onclick = () => selezionaContatto(c);
-        listaDiv.appendChild(div);
-      });
-    }
-
-    function selezionaContatto(c) {
-      contattoSelezionato = c;
-      listaDiv.style.display = "none";
-      messageArea.style.display = "block";
-      selectedName.textContent = `Invia a: ${c.nominativo}`;
-      messageText.value = ""; // Svuota il campo
-      messageText.focus();
-    }
-
-    function tornaAllaLista() {
-      contattoSelezionato = null;
-      listaDiv.style.display = "block";
-      messageArea.style.display = "none";
-    }
-
-    function inviaMessaggio() {
-      if (!contattoSelezionato) return;
-      
-      const testo = messageText.value.trim();
-      if (!testo) {
-        alert("Scrivi un messaggio prima di inviare!");
-        return;
-      }
-
-      // Pulisce il numero (toglie spazi, +, trattini)
-      const numero = contattoSelezionato.whatsapp.replace(/\D/g, "");
-      const testoEncoded = encodeURIComponent(testo);
-      
-      // Apre WhatsApp
-      window.open(`https://wa.me/${numero}?text=${testoEncoded}`, "_blank");
-    }
-  </script>
+carica();
+</script>
 </body>
 </html>

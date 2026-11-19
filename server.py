@@ -54,6 +54,7 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS metodi_pagamento (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS config_notifiche (id INTEGER PRIMARY KEY CHECK (id = 1), ora INTEGER DEFAULT 7, minuto INTEGER DEFAULT 0, attivo INTEGER DEFAULT 1)")
             cur.execute("CREATE TABLE IF NOT EXISTS saldo_rinnovi (id SERIAL PRIMARY KEY, rinnovo_id INTEGER NOT NULL REFERENCES rinnovi(id), num_credito_saldo INTEGER DEFAULT 0, data_credito_rinnovo_saldo TEXT, val_nc_dato REAL DEFAULT 0, val_nc_saldo REAL DEFAULT 0, informazioni_note TEXT, creato_il TEXT)")
+            cur.execute("CREATE TABLE IF NOT EXISTS note (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), messaggio TEXT NOT NULL, creato_il TEXT)")
             cur.execute("INSERT INTO config_notifiche (id, ora, minuto, attivo) VALUES (1, 7, 0, 1) ON CONFLICT (id) DO NOTHING")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS dispositivo TEXT")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS sistema_operativo TEXT")
@@ -110,7 +111,6 @@ def api_scadenze(request: Request):
             scadenze_list = []
             for r in rows:
                 scad = None
-                # Prova prima formato DD/MM/YYYY, poi YYYY-MM-DD
                 try:
                     scad = datetime.strptime(r["scadenza"], "%d/%m/%Y").date()
                 except:
@@ -570,6 +570,54 @@ def api_saldo_rinnovo_cancella(id: int, request: Request):
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM saldo_rinnovi WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# --- API PER NOTE ---
+
+@app.get("/api/note")
+def api_note(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT n.id, n.nominativo_id, n.messaggio, n.creato_il,
+                nom.nominativo
+                FROM note n
+                JOIN nominativi nom ON nom.id = n.nominativo_id
+                ORDER BY n.creato_il DESC""")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+class NotaPayload(BaseModel):
+    dati: dict
+
+@app.post("/api/note")
+def api_note_nuovo(payload: NotaPayload, request: Request):
+    get_current_user(request)
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO note (nominativo_id, messaggio, creato_il)
+                VALUES (%s, %s, %s)""",
+                (int(dati.get("nominativo_id")), dati.get("messaggio", ""),
+                 datetime.now().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/note/{id}")
+def api_note_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM note WHERE id = %s", (id,))
         conn.commit()
     finally:
         conn.close()
