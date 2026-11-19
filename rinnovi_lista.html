@@ -21,14 +21,16 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 .item .scad { color: #c62828; font-weight: bold; }
 .item .saldo { color: #2e7d32; font-weight: bold; }
 .item .crediti { color: #6a1b9a; font-weight: bold; }
-.item-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
-.btn { padding: 6px 10px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; }
+.item-actions { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+.btn { padding: 6px 8px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; flex: 1; min-width: 0; }
 .btn-del { background: #f44336; color: white; }
 .btn-del:active { background: #d32f2f; }
 .btn-pdf { background: #ff9800; color: white; }
 .btn-pdf:active { background: #f57c00; }
 .btn-saldo { background: #0088cc; color: white; }
 .btn-saldo:active { background: #006699; }
+.btn-wa { background: #25d366; color: white; }
+.btn-wa:active { background: #128c7e; }
 .empty { text-align: center; color: #888; padding: 30px; }
 .error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
@@ -85,7 +87,8 @@ function render(filter) {
       '<small class="crediti">Crediti: Richiesti ' + rich + ' / Dati ' + dato + '</small>' +
       '<div class="item-actions">' +
       '<button class="btn btn-del" onclick="cancella(' + r.id + ')">🗑️ Cancella</button>' +
-      '<button class="btn btn-pdf" onclick="generaPDF(' + r.id + ')">📄 PDF</button>' +
+      '<button class="btn btn-pdf" onclick="generaPDF(' + r.id + ', false)">📄 PDF</button>' +
+      '<button class="btn btn-wa" onclick="generaPDF(' + r.id + ', true)">💬 WhatsApp</button>' +
       '<button class="btn btn-saldo" onclick="apriSaldo()">📊 Saldo</button>' +
       '</div></div>';
   }).join('');
@@ -116,14 +119,10 @@ function apriSaldo() {
   window.location.href = '/saldo_rinnovi.html';
 }
 
-function generaPDF(id) {
-  const r = rinnovi.find(x => x.id === id);
-  if (!r) return;
-  
+function creaPDF(r) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   
-  // Header
   doc.setFontSize(18);
   doc.setTextColor(0, 136, 204);
   doc.text('AgendaGest - Scheda Rinnovo', 105, 20, { align: 'center' });
@@ -131,26 +130,22 @@ function generaPDF(id) {
   doc.setDrawColor(0, 136, 204);
   doc.line(10, 25, 200, 25);
   
-  // Dati Nominativo
   doc.setFontSize(14);
   doc.setTextColor(0, 0, 0);
   doc.text('Nominativo: ' + (r.nominativo || ''), 14, 35);
   doc.text('Tipo: ' + (r.tipo || 'rinnovo'), 14, 43);
   doc.text('Data Operazione: ' + (r.data_operazione || '-'), 14, 51);
   
-  // Scadenza
   doc.setFontSize(12);
   doc.setTextColor(198, 40, 40);
   doc.text('Scadenza: ' + (r.scadenza || '-') + (r.orario_scadenza ? ' ore ' + r.orario_scadenza : ''), 14, 61);
   
-  // Importi
   doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
   doc.text('--- IMPORTI ---', 14, 73);
   doc.text('Acconto: EUR ' + (r.importo_acconto || 0).toFixed(2), 14, 81);
   doc.text('Saldo: EUR ' + (r.importo_saldo || 0).toFixed(2), 14, 89);
   
-  // Crediti
   doc.setTextColor(106, 27, 154);
   doc.text('--- CREDITI ---', 14, 101);
   doc.text('Num Credito Richiesto: ' + (r.num_credito_rich || 0), 14, 109);
@@ -161,20 +156,61 @@ function generaPDF(id) {
   doc.text('Val Singolo NC Rich: EUR ' + (r.val_singolo_nc_rich || 0).toFixed(2), 14, 149);
   doc.text('Val NC Rich: EUR ' + (r.val_nc_rich || 0).toFixed(2), 14, 157);
   
-  // Note
   doc.setTextColor(0, 0, 0);
   doc.text('--- NOTE ---', 14, 169);
   const note = r.note || 'Nessuna nota';
   const splitNote = doc.splitTextToSize(note, 180);
   doc.text(splitNote, 14, 177);
   
-  // Footer
   doc.setFontSize(10);
   doc.setTextColor(128, 128, 128);
   doc.text('Generato il: ' + new Date().toLocaleString('it-IT'), 105, 285, { align: 'center' });
   
-  doc.save('Rinnovo_' + (r.nominativo || 'sconosciuto') + '_' + (r.data_operazione || 'data') + '.pdf');
-  mostraToast('📄 PDF generato!');
+  return doc;
+}
+
+async function generaPDF(id, inviaWhatsApp) {
+  const r = rinnovi.find(x => x.id === id);
+  if (!r) return;
+  
+  const doc = creaPDF(r);
+  const nomeFile = 'Rinnovo_' + (r.nominativo || 'sconosciuto') + '_' + (r.data_operazione || 'data') + '.pdf';
+  
+  if (inviaWhatsApp) {
+    // Genera il PDF come Blob
+    const pdfBlob = doc.output('blob');
+    const pdfFile = new File([pdfBlob], nomeFile, { type: 'application/pdf' });
+    
+    // Prova la Web Share API (funziona su mobile con HTTPS)
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+      try {
+        await navigator.share({
+          files: [pdfFile],
+          title: 'Scheda Rinnovo',
+          text: 'Rinnovo di ' + (r.nominativo || '')
+        });
+        mostraToast('✅ Condiviso con successo!');
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') {
+          mostraToast('Condivisione annullata');
+          return;
+        }
+      }
+    }
+    
+    // Fallback: scarica il PDF e apre WhatsApp con messaggio
+    doc.save(nomeFile);
+    mostraToast('📄 PDF scaricato. Apri WhatsApp per inviarlo.');
+    setTimeout(() => {
+      const msg = encodeURIComponent('Scheda Rinnovo - ' + (r.nominativo || '') + ' - Scadenza: ' + (r.scadenza || '-'));
+      window.open('https://wa.me/?text=' + msg, '_blank');
+    }, 1000);
+  } else {
+    // Solo download
+    doc.save(nomeFile);
+    mostraToast('📄 PDF scaricato!');
+  }
 }
 
 document.getElementById('search').addEventListener('input', e => render(e.target.value));
