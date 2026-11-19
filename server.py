@@ -57,8 +57,19 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS config_notifiche (id INTEGER PRIMARY KEY CHECK (id = 1), ora INTEGER DEFAULT 7, minuto INTEGER DEFAULT 0, attivo INTEGER DEFAULT 1)")
             cur.execute("CREATE TABLE IF NOT EXISTS saldo_rinnovi (id SERIAL PRIMARY KEY, rinnovo_id INTEGER NOT NULL REFERENCES rinnovi(id), num_credito_saldo INTEGER DEFAULT 0, data_credito_rinnovo_saldo TEXT, val_nc_dato REAL DEFAULT 0, val_nc_saldo REAL DEFAULT 0, informazioni_note TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS note (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), messaggio TEXT NOT NULL, creato_il TEXT)")
-            cur.execute("CREATE TABLE IF NOT EXISTS credenziali (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, percorso TEXT, user_id TEXT, password TEXT, informazioni TEXT)")
-            cur.execute("CREATE TABLE IF NOT EXISTS apk (id SERIAL PRIMARY KEY, nome_file TEXT NOT NULL, credenziale_nominativo TEXT, link TEXT, file_token TEXT, scadenza TEXT, creato_il TEXT)")
+            cur.execute("""CREATE TABLE IF NOT EXISTS credenziali (
+                id SERIAL PRIMARY KEY, 
+                nominativo TEXT NOT NULL, 
+                nome_file TEXT, 
+                link TEXT, 
+                percorso TEXT, 
+                user_id TEXT, 
+                password TEXT, 
+                file_token TEXT, 
+                scadenza TEXT, 
+                informazioni TEXT,
+                creato_il TEXT
+            )""")
             
             cur.execute("INSERT INTO config_notifiche (id, ora, minuto, attivo) VALUES (1, 7, 0, 1) ON CONFLICT (id) DO NOTHING")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS dispositivo TEXT")
@@ -73,9 +84,13 @@ def init_db():
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS data_credito_rinnovo_dato TEXT")
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS val_singolo_nc_rich REAL DEFAULT 0")
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS val_nc_rich REAL DEFAULT 0")
-            cur.execute("ALTER TABLE apk ADD COLUMN IF NOT EXISTS credenziale_nominativo TEXT")
-            cur.execute("ALTER TABLE apk ADD COLUMN IF NOT EXISTS file_token TEXT")
-            cur.execute("ALTER TABLE apk ADD COLUMN IF NOT EXISTS scadenza TEXT")
+            
+            # Aggiunge i nuovi campi alla tabella credenziali se non esistono
+            cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS nome_file TEXT")
+            cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS link TEXT")
+            cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS file_token TEXT")
+            cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS scadenza TEXT")
+            cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS creato_il TEXT")
             conn.commit()
     finally:
         conn.close()
@@ -586,13 +601,17 @@ def api_note_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
+# --- API CREDENZIALI UNIFICATE (ex APK + Credenziali) ---
+
 @app.get("/api/credenziali")
 def api_credenziali(request: Request):
     get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nominativo, percorso, user_id, password, informazioni FROM credenziali ORDER BY id")
+            cur.execute("""SELECT id, nominativo, nome_file, link, percorso, user_id, password, 
+                file_token, scadenza, informazioni, creato_il 
+                FROM credenziali ORDER BY creato_il DESC""")
             return cur.fetchall()
     finally:
         conn.close()
@@ -607,10 +626,12 @@ def api_credenziali_nuovo(payload: CredenzialiPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""INSERT INTO credenziali (nominativo, percorso, user_id, password, informazioni)
-                VALUES (%s, %s, %s, %s, %s)""",
-                (dati.get("nominativo", ""), dati.get("percorso", ""), dati.get("user_id", ""),
-                 dati.get("password", ""), dati.get("informazioni", "")))
+            cur.execute("""INSERT INTO credenziali (nominativo, nome_file, link, percorso, user_id, password, file_token, scadenza, informazioni, creato_il)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (dati.get("nominativo", ""), dati.get("nome_file", ""), dati.get("link", ""),
+                 dati.get("percorso", ""), dati.get("user_id", ""), dati.get("password", ""),
+                 dati.get("file_token", ""), dati.get("scadenza", ""), dati.get("informazioni", ""),
+                 datetime.now().isoformat()))
         conn.commit()
     finally:
         conn.close()
@@ -623,9 +644,10 @@ def api_credenziali_modifica(id: int, payload: CredenzialiPayload, request: Requ
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""UPDATE credenziali SET nominativo=%s, percorso=%s, user_id=%s, password=%s, informazioni=%s WHERE id=%s""",
-                (dati.get("nominativo", ""), dati.get("percorso", ""), dati.get("user_id", ""),
-                 dati.get("password", ""), dati.get("informazioni", ""), id))
+            cur.execute("""UPDATE credenziali SET nominativo=%s, nome_file=%s, link=%s, percorso=%s, user_id=%s, password=%s, file_token=%s, scadenza=%s, informazioni=%s WHERE id=%s""",
+                (dati.get("nominativo", ""), dati.get("nome_file", ""), dati.get("link", ""),
+                 dati.get("percorso", ""), dati.get("user_id", ""), dati.get("password", ""),
+                 dati.get("file_token", ""), dati.get("scadenza", ""), dati.get("informazioni", ""), id))
         conn.commit()
     finally:
         conn.close()
@@ -637,67 +659,23 @@ def api_credenziali_cancella(id: int, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM credenziali WHERE id = %s", (id,))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
-
-# --- API APK AGGIORNATA CON SCADENZA ---
-
-@app.get("/api/apk")
-def api_apk(request: Request):
-    get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, nome_file, credenziale_nominativo, link, file_token, scadenza, creato_il FROM apk ORDER BY creato_il DESC")
-            return cur.fetchall()
-    finally:
-        conn.close()
-
-class ApkPayload(BaseModel):
-    dati: dict
-
-@app.post("/api/apk")
-def api_apk_nuovo(payload: ApkPayload, request: Request):
-    get_current_user(request)
-    dati = payload.dati
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""INSERT INTO apk (nome_file, credenziale_nominativo, link, file_token, scadenza, creato_il)
-                VALUES (%s, %s, %s, %s, %s, %s)""",
-                (dati.get("nome_file", ""), dati.get("credenziale_nominativo", ""), dati.get("link", ""), 
-                 dati.get("file_token", ""), dati.get("scadenza", ""), datetime.now().isoformat()))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
-
-@app.delete("/api/apk/{id}")
-def api_apk_cancella(id: int, request: Request):
-    get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT nome_file, link, file_token, credenziale_nominativo FROM apk WHERE id = %s", (id,))
-            apk = cur.fetchone()
-            if not apk:
-                raise HTTPException(status_code=404, detail="APK non trovato")
+            cur.execute("SELECT nome_file, link, file_token, percorso FROM credenziali WHERE id = %s", (id,))
+            item = cur.fetchone()
+            if not item:
+                raise HTTPException(status_code=404, detail="Record non trovato")
             
-            if apk['credenziale_nominativo'] and apk['file_token']:
+            # Prova a cancellare dal server remoto
+            if item['percorso'] and item['file_token']:
                 try:
-                    cur.execute("SELECT percorso, user_id, password FROM credenziali WHERE nominativo = %s", (apk['credenziale_nominativo'],))
+                    cur.execute("SELECT user_id, password FROM credenziali WHERE id = %s", (id,))
                     creds = cur.fetchone()
-                    if creds and creds['percorso']:
+                    if creds:
                         req_data = json.dumps({
-                            "token": apk['file_token'],
+                            "token": item['file_token'],
                             "user": creds['user_id'],
                             "password": creds['password']
                         }).encode('utf-8')
-                        
-                        req = urllib.request.Request(creds['percorso'], data=req_data, method='POST')
+                        req = urllib.request.Request(item['percorso'], data=req_data, method='POST')
                         req.add_header('Content-Type', 'application/json')
                         try:
                             urllib.request.urlopen(req, timeout=5)
@@ -706,7 +684,7 @@ def api_apk_cancella(id: int, request: Request):
                 except Exception as e:
                     print(f"Errore configurazione cancellazione remota: {e}")
 
-            cur.execute("DELETE FROM apk WHERE id = %s", (id,))
+            cur.execute("DELETE FROM credenziali WHERE id = %s", (id,))
         conn.commit()
     finally:
         conn.close()
