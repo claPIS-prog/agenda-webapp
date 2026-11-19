@@ -9,23 +9,25 @@
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
 h2 { text-align: center; margin-top: 0; color: #333; }
+.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
+.counter-wrapper { text-align: center; }
 .search { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; margin-bottom: 15px; }
-.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #4caf50; }
-.item strong { color: #222; font-size: 15px; }
-.item small { color: #666; display: block; margin-top: 4px; }
-.item .tipo { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 8px; }
-.tipo-rinnovo { background: #e3f2fd; color: #1565c0; }
-.tipo-nuovo { background: #e8f5e9; color: #2e7d32; }
-.tipo-cambio { background: #fff3e0; color: #e65100; }
-.item .scadenza { color: #c62828; font-weight: bold; }
-.item .pagamenti { color: #2e7d32; font-weight: bold; }
+.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; }
+.item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.item-head strong { color: #222; font-size: 15px; }
+.badge { background: #e3f2fd; color: #0088cc; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
+.item small { color: #555; display: block; font-size: 13px; margin: 2px 0; }
+.item .scad { color: #c62828; font-weight: bold; }
+.item .saldo { color: #2e7d32; font-weight: bold; }
+.item .crediti { color: #6a1b9a; font-weight: bold; }
 .empty { text-align: center; color: #888; padding: 30px; }
 .error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>🔄 Storico Rinnovi</h2>
+<h2>📜 Storico Rinnovi</h2>
+<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
 <input type="text" class="search" id="search" placeholder="Cerca per nominativo...">
 <div id="lista"><div class="empty">Caricamento...</div></div>
 </div>
@@ -38,37 +40,37 @@ async function carica() {
   const box = document.getElementById('lista');
   try {
     const res = await fetch('/api/elenco_rinnovi');
-    if (!res.ok) {
-      box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>';
-      return;
-    }
+    if (!res.ok) { box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>'; return; }
     rinnovi = await res.json();
+    aggiornaContatore(rinnovi.length);
     render();
   } catch (e) {
     box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
   }
 }
 
+function aggiornaContatore(totale) {
+  document.getElementById('counter').textContent = 'Totale: ' + totale;
+}
+
 function render(filter) {
   filter = (filter || '').toLowerCase();
-  const f = rinnovi.filter(r => r.nominativo.toLowerCase().includes(filter));
+  const f = rinnovi.filter(r => (r.nominativo || '').toLowerCase().includes(filter));
   if (f.length === 0) {
-    document.getElementById('lista').innerHTML = '<div class="empty">Nessun rinnovo trovato.</div>';
+    document.getElementById('lista').innerHTML = '<div class="empty">Nessun rinnovo.</div>';
     return;
   }
   document.getElementById('lista').innerHTML = f.map(r => {
-    const tipoClass = 'tipo-' + (r.tipo || 'rinnovo');
-    const tipoLabel = (r.tipo || 'rinnovo').charAt(0).toUpperCase() + (r.tipo || 'rinnovo').slice(1);
-    const pagamenti = [];
-    if (r.importo_acconto > 0) pagamenti.push('Acconto: €' + r.importo_acconto);
-    if (r.importo_saldo > 0) pagamenti.push('Saldo: €' + r.importo_saldo);
+    const saldo = (r.importo_saldo || 0);
+    const rich = r.num_credito_rich || 0;
+    const dato = r.num_credito_dato || 0;
     return '<div class="item">' +
-      '<strong>' + r.nominativo + '</strong>' +
-      '<span class="tipo ' + tipoClass + '">' + tipoLabel + '</span>' +
+      '<div class="item-head"><strong>' + (r.nominativo || '') + '</strong>' +
+      '<span class="badge">' + (r.tipo || 'rinnovo') + '</span></div>' +
       '<small>Operazione: ' + (r.data_operazione || '-') + '</small>' +
-      '<small>Scadenza: <span class="scadenza">' + (r.scadenza || '-') + ' ore ' + (r.orario_scadenza || '00:00') + '</span></small>' +
-      (pagamenti.length > 0 ? '<small class="pagamenti">' + pagamenti.join(' | ') + '</small>' : '') +
-      (r.note ? '<small>Note: ' + r.note + '</small>' : '') +
+      '<small class="scad">Scadenza: ' + (r.scadenza || '-') + (r.orario_scadenza ? ' ore ' + r.orario_scadenza : '') + '</small>' +
+      '<small class="saldo">Saldo: €' + saldo + '</small>' +
+      '<small class="crediti">Crediti: Richiesti ' + rich + ' / Dati ' + dato + '</small>' +
       '</div>';
   }).join('');
 }
