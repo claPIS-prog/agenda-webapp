@@ -9,6 +9,8 @@
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
 h2 { text-align: center; margin-top: 0; color: #333; }
+.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
+.counter-wrapper { text-align: center; }
 .input-row { display: flex; gap: 10px; margin-bottom: 15px; }
 .input-row input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 15px; }
 .btn-add { padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
@@ -37,132 +39,95 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 <body>
 <div class="container">
 <h2>📱 Dispositivi</h2>
+<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
 <div class="input-row">
 <input type="text" id="nuovo" placeholder="Nuovo dispositivo...">
 <button class="btn-add" onclick="aggiungi()">Aggiungi</button>
 </div>
 <div id="lista"><div class="empty">Caricamento...</div></div>
 </div>
-
-<div class="modal-overlay" id="modal">
-<div class="modal">
+<div class="modal-overlay" id="modal"><div class="modal">
 <h3>✏️ Modifica Dispositivo</h3>
 <input type="text" id="m_nome">
 <div class="modal-actions">
 <button class="btn-cancel" onclick="chiudiModal()">Annulla</button>
 <button class="btn-save" onclick="salvaModifica()">Salva</button>
 </div>
-</div>
-</div>
-
+</div></div>
 <div class="toast" id="toast"></div>
-
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
-let dispositivi = [];
-let idModifica = null;
+const tg = window.Telegram.WebApp; tg.expand();
+let items = []; let idModifica = null;
 
 async function carica() {
   const box = document.getElementById('lista');
   try {
     const res = await fetch('/api/dispositivi');
-    if (!res.ok) {
-      box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>';
-      return;
-    }
-    dispositivi = await res.json();
+    if (!res.ok) { box.innerHTML = '<div class="error">Errore: HTTP ' + res.status + '</div>'; return; }
+    items = await res.json();
+    aggiornaContatore(items.length);
     render();
-  } catch (e) {
-    box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
-  }
+  } catch (e) { box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>'; }
+}
+
+function aggiornaContatore(totale) {
+  document.getElementById('counter').textContent = 'Totale: ' + totale;
 }
 
 function render() {
-  if (dispositivi.length === 0) {
-    document.getElementById('lista').innerHTML = '<div class="empty">Nessun dispositivo.</div>';
-    return;
-  }
-  document.getElementById('lista').innerHTML = dispositivi.map(d =>
-    '<div class="item"><strong>' + d.nome + '</strong>' +
-    '<div class="item-actions">' +
-    '<button class="btn btn-edit" onclick="apriModifica(' + d.id + ')">✏️</button>' +
-    '<button class="btn btn-del" onclick="cancella(' + d.id + ')">🗑️</button>' +
-    '</div></div>'
+  if (items.length === 0) { document.getElementById('lista').innerHTML = '<div class="empty">Nessun dispositivo.</div>'; return; }
+  document.getElementById('lista').innerHTML = items.map(i =>
+    '<div class="item"><strong>' + (i.nome || i.nominativo) + '</strong>' +
+    '<div class="item-actions"><button class="btn btn-edit" onclick="apriModifica(' + i.id + ')">✏️</button>' +
+    '<button class="btn btn-del" onclick="cancella(' + i.id + ')">🗑️</button></div></div>'
   ).join('');
 }
 
 async function aggiungi() {
   const nome = document.getElementById('nuovo').value.trim();
-  if (!nome) { tg.showAlert('⚠️ Inserisci un nome'); return; }
+  if (!nome) { mostraToast('⚠️ Inserisci un nome'); return; }
   try {
-    const res = await fetch('/api/lista/nuovo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome: nome, tabella: 'dispositivi' })
-    });
+    const res = await fetch('/api/lista/nuovo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: nome, tabella: 'dispositivi' }) });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     document.getElementById('nuovo').value = '';
     mostraToast('✅ Aggiunto');
     await carica();
-  } catch (e) {
-    mostraToast('❌ Errore: ' + e.message);
-  }
+  } catch (e) { mostraToast('❌ Errore: ' + e.message); }
 }
 
 function apriModifica(id) {
-  const d = dispositivi.find(x => x.id === id);
-  if (!d) return;
+  const i = items.find(x => x.id === id); if (!i) return;
   idModifica = id;
-  document.getElementById('m_nome').value = d.nome;
+  document.getElementById('m_nome').value = i.nome || i.nominativo || '';
   document.getElementById('modal').classList.add('active');
 }
-
-function chiudiModal() {
-  document.getElementById('modal').classList.remove('active');
-  idModifica = null;
-}
+function chiudiModal() { document.getElementById('modal').classList.remove('active'); idModifica = null; }
 
 async function salvaModifica() {
   if (!idModifica) return;
   const nome = document.getElementById('m_nome').value.trim();
-  if (!nome) { tg.showAlert('⚠️ Il nome è obbligatorio'); return; }
+  if (!nome) { mostraToast('⚠️ Il nome è obbligatorio'); return; }
   try {
-    const res = await fetch('/api/lista/modifica?id=' + idModifica + '&nome=' + encodeURIComponent(nome) + '&tabella=dispositivi', {
-      method: 'POST'
-    });
+    const res = await fetch('/api/lista/modifica?id=' + idModifica + '&nome=' + encodeURIComponent(nome) + '&tabella=dispositivi', { method: 'POST' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    chiudiModal();
-    mostraToast('✅ Modificato');
-    await carica();
-  } catch (e) {
-    mostraToast('❌ Errore: ' + e.message);
-  }
+    chiudiModal(); mostraToast('✅ Modificato'); await carica();
+  } catch (e) { mostraToast('❌ Errore: ' + e.message); }
 }
 
 async function cancella(id) {
-  const d = dispositivi.find(x => x.id === id);
-  if (!d) return;
-  if (!confirm('Cancellare "' + d.nome + '"?')) return;
+  const i = items.find(x => x.id === id); if (!i) return;
+  if (!confirm('Cancellare "' + (i.nome || i.nominativo) + '"?')) return;
   try {
-    const res = await fetch('/api/lista/cancella/' + id + '?tabella=dispositivi', {
-      method: 'DELETE'
-    });
+    const res = await fetch('/api/lista/cancella/' + id + '?tabella=dispositivi', { method: 'DELETE' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    mostraToast('🗑️ Cancellato');
-    await carica();
-  } catch (e) {
-    mostraToast('❌ Errore: ' + e.message);
-  }
+    mostraToast('🗑️ Cancellato'); await carica();
+  } catch (e) { mostraToast('❌ Errore: ' + e.message); }
 }
 
 function mostraToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2000);
 }
-
 carica();
 </script>
 </body>
