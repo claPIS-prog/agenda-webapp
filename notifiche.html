@@ -160,7 +160,10 @@ async function salva() {
 }
 
 async function inviaTest() {
-    mostraToast('🧪 Invio notifica di test...');
+    const btn = document.querySelector('.btn-test');
+    btn.disabled = true;
+    btn.textContent = '⏳ Invio in corso...';
+    
     try {
         const res = await fetch('/api/notifica_test', {
             method: 'POST',
@@ -168,9 +171,20 @@ async function inviaTest() {
             body: JSON.stringify({})
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        mostraToast('🧪 Notifica di test inviata!');
+        const data = await res.json();
+        
+        // Mostra il risultato dettagliato
+        let msg = '✅ ' + data.message;
+        if (data.dettagli && data.dettagli.length > 0) {
+            msg += '\n\n' + data.dettagli.join('\n');
+        }
+        alert(msg);
+        mostraToast('✅ ' + data.message);
     } catch (e) {
         mostraToast('❌ Errore: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🧪 Invia Notifica di Test';
     }
 }
 

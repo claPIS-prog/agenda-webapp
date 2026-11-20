@@ -604,15 +604,55 @@ def api_config_notifiche_update(payload: ConfigNotifichePayload, request: Reques
 
 @app.post("/api/notifica_test")
 def api_notifica_test(request: Request):
+    import requests as req_lib
+    
     user = get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT ora, minuto, attivo FROM config_notifiche WHERE id = 1")
             row = cur.fetchone() or {"ora": 7, "minuto": 0, "attivo": 1}
-        msg = f"Notifica di test per utente {user['id'] if user else 'admin'} alle {row['ora']:02d}:{row['minuto']:02d} UTC"
-        print("🔔", msg)
-        return {"ok": True, "message": msg}
+            
+            cur.execute("SELECT telegram_id, nome FROM autorizzati")
+            utenti = cur.fetchall()
+        
+        msg = (
+            f"🔔 *Notifica di Test*\n\n"
+            f"Questa è una notifica di test dal bot *AgendaGest*.\n\n"
+            f"⏰ Orario configurato: `{row['ora']:02d}:{row['minuto']:02d}` UTC\n"
+            f"📊 Stato: {'✅ *Attivo*' if row['attivo'] else '⛔ *Disattivo*'}\n\n"
+            f"Se ricevi questo messaggio, il sistema di notifiche funziona correttamente. ✅"
+        )
+        
+        # Costruisci lista chat_id unici (amici + admin)
+        chat_ids = [u['telegram_id'] for u in utenti]
+        if AUTHORIZED_IDS:
+            chat_ids.extend(list(AUTHORIZED_IDS))
+        chat_ids = list(set(chat_ids))
+        
+        inviati = 0
+        errori = 0
+        dettagli = []
+        
+        for chat_id in chat_ids:
+            try:
+                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                data = {"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"}
+                resp = req_lib.post(url, json=data, timeout=10)
+                if resp.ok:
+                    inviati += 1
+                else:
+                    errori += 1
+                    dettagli.append(f"❌ {chat_id}: HTTP {resp.status_code}")
+            except Exception as e:
+                errori += 1
+                dettagli.append(f"❌ {chat_id}: {str(e)[:50]}")
+        
+        result_msg = f"Notifica inviata a {inviati} utenti"
+        if errori > 0:
+            result_msg += f" ({errori} errori)"
+        
+        return {"ok": True, "inviati": inviati, "errori": errori, "message": result_msg, "dettagli": dettagli}
     finally:
         conn.close()
 
