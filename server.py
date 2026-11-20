@@ -1,10 +1,10 @@
 import os
 import json
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -27,7 +27,7 @@ ALL_MODULES = [
     "nominativo", "lista", "scadenze", "rinnovi", "storico_rinnovi",
     "saldo_rinnovi", "reseller", "procuratori", "server", "nota",
     "credenziali", "permessi", "dispositivi", "sistemi_op", "buffett",
-    "pagamenti", "notifiche", "operatori_it", "tabelle"
+    "pagamenti", "operatori_it", "tabelle"
 ]
 
 def get_current_user(request: Request):
@@ -36,8 +36,7 @@ def get_current_user(request: Request):
         init_data = request.query_params.get("initData")
     if not init_data:
         if AUTHORIZED_IDS:
-            admin_id = list(AUTHORIZED_IDS)[0]
-            return {"id": admin_id, "first_name": "Admin", "is_admin": True}
+            return {"id": list(AUTHORIZED_IDS)[0], "first_name": "Admin", "is_admin": True}
         return None
     try:
         validate(init_data, BOT_TOKEN)
@@ -48,27 +47,8 @@ def get_current_user(request: Request):
         return None
     except Exception:
         if AUTHORIZED_IDS:
-            admin_id = list(AUTHORIZED_IDS)[0]
-            return {"id": admin_id, "first_name": "Admin", "is_admin": True}
+            return {"id": list(AUTHORIZED_IDS)[0], "first_name": "Admin", "is_admin": True}
         return None
-
-def check_permission(module_name: str):
-    def permission_checker(request: Request):
-        user = get_current_user(request)
-        if not user:
-            raise HTTPException(status_code=401, detail="Non autenticato")
-        if user["is_admin"]:
-            return True
-        conn = db_conn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM permessi p JOIN autorizzati a ON a.id = p.user_id WHERE a.telegram_id = %s AND p.modulo = %s AND p.attivo = TRUE", (user["id"], module_name))
-                if cur.fetchone()["count"] == 0:
-                    raise HTTPException(status_code=403, detail=f"Permesso negato: {module_name}")
-        finally:
-            conn.close()
-        return True
-    return permission_checker
 
 def init_db():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
@@ -85,12 +65,10 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS buffett (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS metodi_pagamento (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS operatori_it (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
-            cur.execute("CREATE TABLE IF NOT EXISTS config_notifiche (id INTEGER PRIMARY KEY CHECK (id = 1), ora INTEGER DEFAULT 7, minuto INTEGER DEFAULT 0, attivo INTEGER DEFAULT 1)")
             cur.execute("CREATE TABLE IF NOT EXISTS saldo_rinnovi (id SERIAL PRIMARY KEY, rinnovo_id INTEGER NOT NULL REFERENCES rinnovi(id), num_credito_saldo INTEGER DEFAULT 0, data_credito_rinnovo_saldo TEXT, val_nc_dato REAL DEFAULT 0, val_nc_saldo REAL DEFAULT 0, informazioni_note TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS note (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), messaggio TEXT NOT NULL, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS credenziali (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, nome_file TEXT, link TEXT, percorso TEXT, user_id TEXT, password TEXT, file_token TEXT, scadenza TEXT, informazioni TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS permessi (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES autorizzati(id), modulo TEXT NOT NULL, attivo BOOLEAN DEFAULT FALSE, UNIQUE(user_id, modulo))")
-            cur.execute("INSERT INTO config_notifiche (id, ora, minuto, attivo) VALUES (1, 7, 0, 1) ON CONFLICT (id) DO NOTHING")
             for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),("procuratore","TEXT"),("apk_utilizzata","TEXT"),("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),("data_fine","TEXT"),("informazioni","TEXT")]:
                 cur.execute(f"ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS {col} {typ}")
             cur.execute("SELECT id FROM autorizzati")
@@ -186,8 +164,9 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
     return {"ok": True}
 
 # === NOMINATIVI / LISTA ===
-@app.get("/api/nominativi", dependencies=[Depends(check_permission("nominativo"))])
+@app.get("/api/nominativi")
 def api_nominativi(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -196,8 +175,9 @@ def api_nominativi(request: Request):
     finally:
         conn.close()
 
-@app.get("/api/contatti", dependencies=[Depends(check_permission("lista"))])
+@app.get("/api/contatti")
 def api_contatti(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -209,8 +189,9 @@ def api_contatti(request: Request):
 class AzionePayload(BaseModel):
     dati: dict
 
-@app.post("/api/azione", dependencies=[Depends(check_permission("nominativo"))])
+@app.post("/api/azione")
 def api_azione(payload: AzionePayload, request: Request):
+    get_current_user(request)
     dati = payload.dati
     azione = dati.get("azione", "")
     conn = db_conn()
@@ -227,10 +208,12 @@ def api_azione(payload: AzionePayload, request: Request):
         conn.close()
     return {"ok": True}
 
-# === SCADENZE / RINNOVI ===
-@app.get("/api/scadenze", dependencies=[Depends(check_permission("scadenze"))])
+# === SCADENZE (entro 7 giorni + scadute) ===
+@app.get("/api/scadenze")
 def api_scadenze(request: Request):
+    get_current_user(request)
     oggi = datetime.now().date()
+    limite = oggi + timedelta(days=7)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -243,14 +226,22 @@ def api_scadenze(request: Request):
                     try:
                         scad = datetime.strptime(r["scadenza"], fmt).date(); break
                     except: pass
-                if scad and scad < oggi:
-                    out.append({"id": r["id"], "nominativo_id": r["nominativo_id"], "nominativo": r["nominativo"], "scadenza": r["scadenza"], "orario_scadenza": r.get("orario_scadenza",""), "scaduta": True, "giorni": -(oggi - scad).days})
+                if not scad:
+                    continue
+                if scad <= limite:
+                    delta = (scad - oggi).days
+                    out.append({
+                        "id": r["id"], "nominativo_id": r["nominativo_id"], "nominativo": r["nominativo"],
+                        "scadenza": r["scadenza"], "orario_scadenza": r.get("orario_scadenza",""),
+                        "scaduta": delta < 0, "giorni": delta
+                    })
             return out
     finally:
         conn.close()
 
-@app.get("/api/elenco_rinnovi", dependencies=[Depends(check_permission("storico_rinnovi"))])
+@app.get("/api/elenco_rinnovi")
 def api_elenco_rinnovi(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -262,8 +253,9 @@ def api_elenco_rinnovi(request: Request):
 class RinnovoPayload(BaseModel):
     dati: dict
 
-@app.post("/api/rinnovo", dependencies=[Depends(check_permission("rinnovi"))])
+@app.post("/api/rinnovo")
 def api_rinnovo(payload: RinnovoPayload, request: Request):
+    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -277,8 +269,9 @@ def api_rinnovo(payload: RinnovoPayload, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.delete("/api/rinnovo/{id}", dependencies=[Depends(check_permission("storico_rinnovi"))])
+@app.delete("/api/rinnovo/{id}")
 def api_rinnovo_cancella(id: int, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -290,8 +283,9 @@ def api_rinnovo_cancella(id: int, request: Request):
     return {"ok": True}
 
 # === SALDO RINNOVI ===
-@app.get("/api/saldo_rinnovi", dependencies=[Depends(check_permission("saldo_rinnovi"))])
+@app.get("/api/saldo_rinnovi")
 def api_saldo_rinnovi(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -300,8 +294,9 @@ def api_saldo_rinnovi(request: Request):
     finally:
         conn.close()
 
-@app.get("/api/rinnovi_per_saldo", dependencies=[Depends(check_permission("saldo_rinnovi"))])
+@app.get("/api/rinnovi_per_saldo")
 def api_rinnovi_per_saldo(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -310,8 +305,9 @@ def api_rinnovi_per_saldo(request: Request):
     finally:
         conn.close()
 
-@app.post("/api/saldo_rinnovo", dependencies=[Depends(check_permission("saldo_rinnovi"))])
+@app.post("/api/saldo_rinnovo")
 def api_saldo_rinnovo_nuovo(payload: RinnovoPayload, request: Request):
+    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -328,8 +324,9 @@ def api_saldo_rinnovo_nuovo(payload: RinnovoPayload, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.delete("/api/saldo_rinnovo/{id}", dependencies=[Depends(check_permission("saldo_rinnovi"))])
+@app.delete("/api/saldo_rinnovo/{id}")
 def api_saldo_rinnovo_cancella(id: int, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -340,31 +337,34 @@ def api_saldo_rinnovo_cancella(id: int, request: Request):
     return {"ok": True}
 
 # === LISTE DI SUPPORTO ===
-@app.get("/api/resellers", dependencies=[Depends(check_permission("reseller"))])
+@app.get("/api/resellers")
 def api_resellers(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT id, nominativo FROM resellers ORDER BY nominativo"); return cur.fetchall()
     finally: conn.close()
 
-@app.get("/api/procuratori", dependencies=[Depends(check_permission("procuratori"))])
+@app.get("/api/procuratori")
 def api_procuratori(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT id, nominativo FROM procuratori ORDER BY nominativo"); return cur.fetchall()
     finally: conn.close()
 
-@app.get("/api/servers", dependencies=[Depends(check_permission("server"))])
+@app.get("/api/servers")
 def api_servers(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT id, nominativo FROM servers ORDER BY nominativo"); return cur.fetchall()
     finally: conn.close()
 
-@app.get("/api/dispositivi", dependencies=[Depends(check_permission("dispositivi"))])
+@app.get("/api/dispositivi")
 def api_dispositivi():
     conn = db_conn()
     try:
@@ -372,7 +372,7 @@ def api_dispositivi():
             cur.execute("SELECT id, nome FROM dispositivi ORDER BY nome"); return cur.fetchall()
     finally: conn.close()
 
-@app.get("/api/sistemi_operativi", dependencies=[Depends(check_permission("sistemi_op"))])
+@app.get("/api/sistemi_operativi")
 def api_sistemi_operativi():
     conn = db_conn()
     try:
@@ -380,7 +380,7 @@ def api_sistemi_operativi():
             cur.execute("SELECT id, nome FROM sistemi_operativi ORDER BY nome"); return cur.fetchall()
     finally: conn.close()
 
-@app.get("/api/buffett", dependencies=[Depends(check_permission("buffett"))])
+@app.get("/api/buffett")
 def api_buffett():
     conn = db_conn()
     try:
@@ -388,7 +388,7 @@ def api_buffett():
             cur.execute("SELECT id, nome FROM buffett ORDER BY nome"); return cur.fetchall()
     finally: conn.close()
 
-@app.get("/api/metodi_pagamento", dependencies=[Depends(check_permission("pagamenti"))])
+@app.get("/api/metodi_pagamento")
 def api_metodi_pagamento():
     conn = db_conn()
     try:
@@ -404,6 +404,7 @@ class ListaPayload(BaseModel):
 
 @app.post("/api/lista/nuovo")
 def api_lista_nuovo(payload: ListaPayload, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -415,6 +416,7 @@ def api_lista_nuovo(payload: ListaPayload, request: Request):
 
 @app.post("/api/lista/modifica")
 def api_lista_modifica(id: int, nome: str, tabella: str, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -426,6 +428,7 @@ def api_lista_modifica(id: int, nome: str, tabella: str, request: Request):
 
 @app.delete("/api/lista/cancella/{id}")
 def api_lista_cancella(id: int, tabella: str, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -434,7 +437,7 @@ def api_lista_cancella(id: int, tabella: str, request: Request):
     finally: conn.close()
     return {"ok": True}
 
-# === OPERATORI IT (senza protezione) ===
+# === OPERATORI IT ===
 @app.get("/api/operatori_it")
 def api_operatori_it(request: Request):
     get_current_user(request)
@@ -481,8 +484,9 @@ def api_operatori_it_cancella(id: int, request: Request):
     return {"ok": True}
 
 # === NOTE ===
-@app.get("/api/note", dependencies=[Depends(check_permission("nota"))])
+@app.get("/api/note")
 def api_note(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -493,8 +497,9 @@ def api_note(request: Request):
 class NotaPayload(BaseModel):
     dati: dict
 
-@app.post("/api/note", dependencies=[Depends(check_permission("nota"))])
+@app.post("/api/note")
 def api_note_nuovo(payload: NotaPayload, request: Request):
+    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -504,8 +509,9 @@ def api_note_nuovo(payload: NotaPayload, request: Request):
     finally: conn.close()
     return {"ok": True}
 
-@app.delete("/api/note/{id}", dependencies=[Depends(check_permission("nota"))])
+@app.delete("/api/note/{id}")
 def api_note_cancella(id: int, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -515,8 +521,9 @@ def api_note_cancella(id: int, request: Request):
     return {"ok": True}
 
 # === CREDENZIALI ===
-@app.get("/api/credenziali", dependencies=[Depends(check_permission("credenziali"))])
+@app.get("/api/credenziali")
 def api_credenziali(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -527,8 +534,9 @@ def api_credenziali(request: Request):
 class CredenzialiPayload(BaseModel):
     dati: dict
 
-@app.post("/api/credenziali", dependencies=[Depends(check_permission("credenziali"))])
+@app.post("/api/credenziali")
 def api_credenziali_nuovo(payload: CredenzialiPayload, request: Request):
+    get_current_user(request)
     d = payload.dati
     conn = db_conn()
     try:
@@ -538,8 +546,9 @@ def api_credenziali_nuovo(payload: CredenzialiPayload, request: Request):
     finally: conn.close()
     return {"ok": True}
 
-@app.put("/api/credenziali/{id}", dependencies=[Depends(check_permission("credenziali"))])
+@app.put("/api/credenziali/{id}")
 def api_credenziali_modifica(id: int, payload: CredenzialiPayload, request: Request):
+    get_current_user(request)
     d = payload.dati
     conn = db_conn()
     try:
@@ -549,8 +558,9 @@ def api_credenziali_modifica(id: int, payload: CredenzialiPayload, request: Requ
     finally: conn.close()
     return {"ok": True}
 
-@app.delete("/api/credenziali/{id}", dependencies=[Depends(check_permission("credenziali"))])
+@app.delete("/api/credenziali/{id}")
 def api_credenziali_cancella(id: int, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -572,85 +582,6 @@ def api_credenziali_cancella(id: int, request: Request):
         conn.commit()
     finally: conn.close()
     return {"ok": True}
-
-# === NOTIFICHE (senza protezione) ===
-@app.get("/api/config_notifiche")
-def api_config_notifiche(request: Request):
-    get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT ora, minuto, attivo FROM config_notifiche WHERE id = 1")
-            row = cur.fetchone()
-            if row: return {"ora": row["ora"], "minuto": row["minuto"], "attivo": bool(row["attivo"])}
-            return {"ora": 7, "minuto": 0, "attivo": True}
-    finally: conn.close()
-
-class ConfigNotifichePayload(BaseModel):
-    ora: int
-    minuto: int
-    attivo: bool
-
-@app.post("/api/config_notifiche")
-def api_config_notifiche_update(payload: ConfigNotifichePayload, request: Request):
-    get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE config_notifiche SET ora = %s, minuto = %s, attivo = %s WHERE id = 1", (payload.ora, payload.minuto, 1 if payload.attivo else 0))
-        conn.commit()
-    finally: conn.close()
-    return {"ok": True}
-
-# === NOTIFICA TEST (invia SOLO all'admin che clicca) ===
-@app.post("/api/notifica_test")
-def api_notifica_test(request: Request):
-    user = get_current_user(request)
-    
-    # Determina il chat_id: prima prova user, poi fallback su AUTHORIZED_IDS
-    chat_id = None
-    if user:
-        chat_id = user['id']
-    elif AUTHORIZED_IDS:
-        chat_id = list(AUTHORIZED_IDS)[0]
-    
-    if not chat_id:
-        return {"ok": False, "message": "Nessun utente autorizzato configurato"}
-    
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT ora, minuto, attivo FROM config_notifiche WHERE id = 1")
-            row = cur.fetchone()
-            if not row:
-                row = {"ora": 7, "minuto": 0, "attivo": 1}
-        
-        orario = f"{row['ora']:02d}:{row['minuto']:02d}"
-        stato = "Attivo" if row['attivo'] else "Disattivo"
-        
-        msg = (
-            f"🔔 Notifica di Test\n\n"
-            f"Questa è una notifica di test dal bot AgendaGest.\n\n"
-            f"Orario configurato: {orario} UTC\n"
-            f"Stato: {stato}\n\n"
-            f"Se ricevi questo messaggio, il sistema di notifiche funziona correttamente."
-        )
-        
-        try:
-            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-            data = json.dumps({"chat_id": chat_id, "text": msg}).encode('utf-8')
-            req = urllib.request.Request(url, data=data, method='POST')
-            req.add_header('Content-Type', 'application/json')
-            resp = urllib.request.urlopen(req, timeout=10)
-            
-            if resp.getcode() == 200:
-                return {"ok": True, "inviati": 1, "errori": 0, "message": f"Notifica inviata al tuo ID ({chat_id})"}
-            else:
-                return {"ok": False, "inviati": 0, "errori": 1, "message": f"Errore HTTP {resp.getcode()}"}
-        except Exception as e:
-            return {"ok": False, "inviati": 0, "errori": 1, "message": f"Errore: {str(e)}"}
-    finally:
-        conn.close()
 
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 

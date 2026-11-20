@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scadenze</title>
+<title>Scadenze Prossime 7 Giorni</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js"></script>
 <style>
@@ -12,13 +12,26 @@ body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margi
 h2 { text-align: center; margin-top: 0; color: #333; }
 .counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
 .counter-wrapper { text-align: center; }
-.item { background: #ffebee; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #f44336; }
-.item strong { color: #c62828; font-size: 15px; display: block; margin-bottom: 4px; }
+.legend { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px; font-size: 12px; }
+.legend span { padding: 4px 10px; border-radius: 12px; color: white; font-weight: bold; }
+.legend .scaduta { background: #f44336; }
+.legend .oggi { background: #ff5722; }
+.legend .urgente { background: #ff9800; }
+.legend .prossima { background: #4caf50; }
+.item { padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #4caf50; background: #f1f8e9; }
+.item.scaduta { border-left-color: #f44336; background: #ffebee; }
+.item.oggi { border-left-color: #ff5722; background: #fbe9e7; }
+.item.urgente { border-left-color: #ff9800; background: #fff3e0; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 12px; color: white; font-size: 12px; font-weight: bold; margin-bottom: 6px; }
+.badge.scaduta { background: #f44336; }
+.badge.oggi { background: #ff5722; }
+.badge.urgente { background: #ff9800; }
+.badge.prossima { background: #4caf50; }
+.item strong { color: #222; font-size: 15px; display: block; margin-bottom: 4px; }
 .item small { color: #666; display: block; font-size: 13px; margin: 2px 0; }
 .item-actions { display: flex; gap: 6px; margin-top: 8px; }
-.btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; flex: 1; text-align: center; text-decoration: none; display: inline-block; }
+.btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; flex: 1; text-align: center; }
 .btn-rinnovo { background: #4caf50; color: white; }
-.btn-pdf { background: #0088cc; color: white; }
 .btn-wa { background: #25d366; color: white; }
 .empty { text-align: center; color: #888; padding: 30px; }
 .error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
@@ -28,8 +41,14 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 </head>
 <body>
 <div class="container">
-<h2>⏰ Scadenze</h2>
+<h2>⏰ Scadenze Prossime 7 Giorni</h2>
 <div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
+<div class="legend">
+    <span class="scaduta">🔴 Scaduta</span>
+    <span class="oggi">🟠 Oggi/Domani</span>
+    <span class="urgente">🟡 Entro 3 gg</span>
+    <span class="prossima">🟢 Entro 7 gg</span>
+</div>
 <div id="lista"><div class="empty">Caricamento...</div></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -50,46 +69,53 @@ async function carica() {
     const box = document.getElementById('lista');
     try {
         const res = await fetch('/api/scadenze', { headers: getHeaders() });
-        if (!res.ok) {
-            if (res.status === 403) box.innerHTML = '<div class="error">⛔ Permesso negato.</div>';
-            else box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>';
-            return;
-        }
+        if (!res.ok) { box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>'; return; }
         scadenze = await res.json();
         aggiornaContatore(scadenze.length);
         render();
-    } catch (e) {
-        box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
-    }
+    } catch (e) { box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>'; }
 }
 
-function aggiornaContatore(totale) {
-    document.getElementById('counter').textContent = 'Totale: ' + totale;
+function aggiornaContatore(totale) { document.getElementById('counter').textContent = 'Totale: ' + totale; }
+
+function classeDi(giorni, scaduta) {
+    if (scaduta) return 'scaduta';
+    if (giorni === 0) return 'oggi';
+    if (giorni <= 3) return 'urgente';
+    return 'prossima';
+}
+
+function badgeDi(giorni, scaduta) {
+    const c = classeDi(giorni, scaduta);
+    let testo = '';
+    if (scaduta) testo = '🔴 Scaduta da ' + Math.abs(giorni) + ' giorni';
+    else if (giorni === 0) testo = '🟠 Scade OGGI';
+    else if (giorni === 1) testo = '🟠 Scade DOMANI';
+    else if (giorni <= 3) testo = '🟡 Tra ' + giorni + ' giorni';
+    else testo = '🟢 Tra ' + giorni + ' giorni';
+    return '<span class="badge ' + c + '">' + testo + '</span>';
 }
 
 function render() {
     if (scadenze.length === 0) {
-        document.getElementById('lista').innerHTML = '<div class="empty">Nessuna scadenza arretrata. 🎉</div>';
+        document.getElementById('lista').innerHTML = '<div class="empty">Nessuna scadenza nei prossimi 7 giorni. 🎉</div>';
         return;
     }
     document.getElementById('lista').innerHTML = scadenze.map(s => {
-        const giorni = s.giorni > 0 ? `Scaduta da ${s.giorni} giorni` : 'Scade oggi';
-        return '<div class="item">' +
+        const c = classeDi(s.giorni, s.scaduta);
+        return '<div class="item ' + c + '">' +
+            badgeDi(s.giorni, s.scaduta) +
             '<strong>' + (s.nominativo || '') + '</strong>' +
             '<small>📅 Scadenza: ' + (s.scadenza || '') + (s.orario_scadenza ? ' ore ' + s.orario_scadenza : '') + '</small>' +
-            '<small>⚠️ ' + giorni + '</small>' +
             '<div class="item-actions">' +
-            '<button class="btn btn-rinnovo" onclick="rinnova(' + s.nominativo_id + ')">🔄 Rinnovo</button>' +
-            '<button class="btn btn-pdf" onclick="pdf(' + s.id + ')">📄 PDF</button>' +
-            '<button class="btn btn-wa" onclick="whatsapp(\'' + (s.nominativo || '') + '\', \'' + (s.scadenza || '') + '\')">💬 WhatsApp</button>' +
+            '<button class="btn btn-rinnovo" onclick="rinnova(' + s.nominativo_id + ')">🔄 Rinnova</button>' +
+            '<button class="btn btn-wa" onclick="whatsapp(\'' + (s.nominativo || '').replace(/'/g,"\\'") + '\', \'' + (s.scadenza || '') + '\')">💬 WhatsApp</button>' +
             '</div></div>';
     }).join('');
 }
 
 function mostraToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
+    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
 }
 
@@ -97,14 +123,9 @@ function rinnova(id) {
     tg.openLink('https://agenda-webapp.onrender.com/rinnovi.html?nominativo_id=' + id);
 }
 
-function pdf(id) {
-    mostraToast('📄 Generazione PDF in corso...');
-    // Qui puoi aggiungere la logica reale di generazione PDF
-}
-
 function whatsapp(nome, scadenza) {
     const testo = 'Ciao ' + nome + ', ti ricordo che la tua scadenza del ' + scadenza + ' è in arrivo. Fammi sapere per il rinnovo!';
-    tg.openLink('https://wa.me/?text=' + encodeURIComponent(testo));
+    window.open('https://wa.me/?text=' + encodeURIComponent(testo), '_blank');
 }
 
 carica();
