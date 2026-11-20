@@ -27,11 +27,14 @@ textarea { resize: vertical; min-height: 50px; }
 .section-title.filtri { background: #607d8b; }
 .section-title.nuovo { background: #2196f3; }
 .section-title.rinnovo { background: #ff9800; }
+.section-title.crediti { background: #9c27b0; }
 .section-title.riepilogo { background: #4caf50; }
-.hint { font-size: 11px; color: #888; margin-top: 3px; font-style: italic; }
 .result-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 12px; border-radius: 6px; margin: 10px 0; }
+.result-box.credito { background: #f3e5f5; border-left-color: #9c27b0; }
 .result-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid #c8e6c9; }
+.result-box.credito .result-item { border-bottom-color: #e1bee7; }
 .result-item:last-child { border-bottom: none; font-weight: bold; font-size: 15px; color: #2e7d32; }
+.result-box.credito .result-item:last-child { color: #7b1fa2; }
 .stat-box { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 10px; border-radius: 6px; margin: 10px 0; text-align: center; }
 .stat-box strong { font-size: 18px; color: #1976d2; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
@@ -45,76 +48,61 @@ textarea { resize: vertical; min-height: 50px; }
 
 <!-- FILTRI -->
 <div class="section-title filtri">🔍 Filtri</div>
-
 <div class="row">
     <div><label>Nominativo DA:</label><select id="nominativo_da" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
     <div><label>Nominativo A:</label><select id="nominativo_a" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
 </div>
-
 <div class="row">
     <div><label>Reseller DA:</label><select id="reseller_da" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
     <div><label>Reseller A:</label><select id="reseller_a" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
 </div>
-
 <div class="row">
     <div><label>Procuratore DA:</label><select id="procuratore_da" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
     <div><label>Procuratore A:</label><select id="procuratore_a" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
 </div>
-
 <div class="row">
     <div><label>Periodo DA:</label><input type="date" id="periodo_da" onchange="calcolaAutomatico()"></div>
     <div><label>Periodo A:</label><input type="date" id="periodo_a" onchange="calcolaAutomatico()"></div>
 </div>
 
-<!-- STATISTICHE -->
 <div class="stat-box">
     <div>🆕 Nuovi: <strong id="count_nuovi">0</strong> | 🔄 Rinnovi: <strong id="count_rinnovi">0</strong></div>
 </div>
 
-<!-- NUOVO (read-only) -->
+<!-- NUOVO -->
 <div class="section-title nuovo">🆕 NUOVO</div>
 <label>Importo Nuovo (€):</label>
 <input type="number" id="importo_nuovo" step="0.01" value="0" readonly>
-
 <div class="row">
-    <div><label>Data Acconto Nuovo:</label><input type="date" id="data_acconto_nuovo" readonly></div>
     <div><label>Acconto Nuovo (€):</label><input type="number" id="acconto_nuovo" step="0.01" value="0" readonly></div>
+    <div><label>Acconto Saldo Nuovo (€):</label><input type="number" id="acconto_saldo_nuovo" step="0.01" value="0" readonly></div>
 </div>
-
+<label>Totale Acconti Nuovi (€):</label>
+<input type="number" id="totale_acconti_nuovi" step="0.01" value="0" readonly>
 <label>Info su Saldo Nuovo:</label>
 <textarea id="info_saldo_nuovo" placeholder="Note sul saldo nuovo..."></textarea>
 
-<div class="row">
-    <div><label>Data Acconto Saldo Nuovo:</label><input type="date" id="data_acconto_saldo_nuovo" readonly></div>
-    <div><label>Acconto Saldo Nuovo (€):</label><input type="number" id="acconto_saldo_nuovo" step="0.01" value="0" readonly></div>
-</div>
-
-<label>Totale Acconti Nuovi (€):</label>
-<input type="number" id="totale_acconti_nuovi" step="0.01" value="0" readonly>
-
-<label>Info su Saldo Rinnovo (NUOVO):</label>
-<textarea id="info_saldo_rinnovo_nuovo" placeholder="Note..."></textarea>
-
-<!-- RINNOVO (read-only) -->
+<!-- RINNOVO -->
 <div class="section-title rinnovo">🔄 RINNOVO</div>
 <label>Importo Rinnovo (€):</label>
 <input type="number" id="importo_rinnovo" step="0.01" value="0" readonly>
-
 <div class="row">
-    <div><label>Data Acconto Rinnovo:</label><input type="date" id="data_acconto_rinnovo" readonly></div>
     <div><label>Acconto Rinnovo (€):</label><input type="number" id="acconto_rinnovo" step="0.01" value="0" readonly></div>
+    <div><label>Acconto Saldo Rinnovo (€):</label><input type="number" id="acconto_saldo_rinnovo" step="0.01" value="0" readonly></div>
 </div>
-
+<label>Totale Acconti Rinnovo (€):</label>
+<input type="number" id="totale_acconti_rinnovo" step="0.01" value="0" readonly>
 <label>Info su Saldo Rinnovo:</label>
 <textarea id="info_saldo_rinnovo" placeholder="Note sul saldo rinnovo..."></textarea>
 
-<div class="row">
-    <div><label>Data Acconto Saldo Rinnovo:</label><input type="date" id="data_acconto_saldo_rinnovo" readonly></div>
-    <div><label>Acconto Saldo Rinnovo (€):</label><input type="number" id="acconto_saldo_rinnovo" step="0.01" value="0" readonly></div>
+<!-- CREDITI -->
+<div class="section-title crediti">🎫 CREDITI</div>
+<div class="result-box credito">
+    <div class="result-item"><span>Crediti Richiesti:</span><span id="rpt_cred_rich">0</span></div>
+    <div class="result-item"><span>Crediti Dati:</span><span id="rpt_cred_dati">0</span></div>
+    <div class="result-item"><span>Crediti Dare:</span><span id="rpt_cred_dare">0</span></div>
+    <div class="result-item"><span>Totale NC (€):</span><span id="rpt_totale_nc">€ 0.00</span></div>
 </div>
-
-<label>Totale Acconti Rinnovo (€):</label>
-<input type="number" id="totale_acconti_rinnovo" step="0.01" value="0" readonly>
 
 <!-- RIEPILOGO -->
 <div class="section-title riepilogo">📊 RIEPILOGO</div>
@@ -127,7 +115,6 @@ textarea { resize: vertical; min-height: 50px; }
 <label>Note generali (opzionale):</label>
 <textarea id="note" placeholder="Note..."></textarea>
 
-<!-- BOTTONI -->
 <button class="btn btn-save" onclick="salva()">💾 SALVA</button>
 <button class="btn btn-pdf" onclick="generaPDFWhatsApp()">📄 PDF x WHATSAPP</button>
 </div>
@@ -144,88 +131,62 @@ function getHeaders(contentType) {
     return headers;
 }
 
-let nominativi = [];
-let resellers = [];
-let procuratori = [];
-
 async function caricaDropdowns() {
     const ok = async (url) => {
         try {
             const res = await fetch(url, { headers: getHeaders() });
-            if (!res.ok) return [];
-            return await res.json();
+            return res.ok ? await res.json() : [];
         } catch (e) { return []; }
     };
-    
-    nominativi = await ok('/api/nominativi');
-    resellers = await ok('/api/resellers');
-    procuratori = await ok('/api/procuratori');
-    
-    const selDa = document.getElementById('nominativo_da');
-    const selA = document.getElementById('nominativo_a');
-    nominativi.forEach(n => {
-        selDa.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>';
-        selA.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>';
-    });
-    
-    const selResDa = document.getElementById('reseller_da');
-    const selResA = document.getElementById('reseller_a');
-    resellers.forEach(r => {
-        selResDa.innerHTML += '<option value="' + r.nominativo + '">' + r.nominativo + '</option>';
-        selResA.innerHTML += '<option value="' + r.nominativo + '">' + r.nominativo + '</option>';
-    });
-    
-    const selProcDa = document.getElementById('procuratore_da');
-    const selProcA = document.getElementById('procuratore_a');
-    procuratori.forEach(p => {
-        selProcDa.innerHTML += '<option value="' + p.nominativo + '">' + p.nominativo + '</option>';
-        selProcA.innerHTML += '<option value="' + p.nominativo + '">' + p.nominativo + '</option>';
-    });
+    const nominativi = await ok('/api/nominativi');
+    const resellers = await ok('/api/resellers');
+    const procuratori = await ok('/api/procuratori');
+    const pop = (id, arr, campo) => {
+        const sel = document.getElementById(id);
+        arr.forEach(x => { sel.innerHTML += '<option value="' + x[campo] + '">' + x[campo] + '</option>'; });
+    };
+    pop('nominativo_da', nominativi, 'nominativo'); pop('nominativo_a', nominativi, 'nominativo');
+    pop('reseller_da', resellers, 'nominativo'); pop('reseller_a', resellers, 'nominativo');
+    pop('procuratore_da', procuratori, 'nominativo'); pop('procuratore_a', procuratori, 'nominativo');
 }
 
 async function calcolaAutomatico() {
-    const nominativoDa = document.getElementById('nominativo_da').value;
-    const nominativoA = document.getElementById('nominativo_a').value;
-    const resellerDa = document.getElementById('reseller_da').value;
-    const resellerA = document.getElementById('reseller_a').value;
-    const procuratoreDa = document.getElementById('procuratore_da').value;
-    const procuratoreA = document.getElementById('procuratore_a').value;
-    const periodoDa = document.getElementById('periodo_da').value;
-    const periodoA = document.getElementById('periodo_a').value;
-    
+    const p = new URLSearchParams();
+    ['nominativo_da','nominativo_a','reseller_da','reseller_a','procuratore_da','procuratore_a','periodo_da','periodo_a'].forEach(id => {
+        p.append(id, document.getElementById(id).value);
+    });
     try {
-        const url = `/api/calcoli/calcola?nominativo_da=${encodeURIComponent(nominativoDa)}&nominativo_a=${encodeURIComponent(nominativoA)}&reseller_da=${encodeURIComponent(resellerDa)}&reseller_a=${encodeURIComponent(resellerA)}&procuratore_da=${encodeURIComponent(procuratoreDa)}&procuratore_a=${encodeURIComponent(procuratoreA)}&periodo_da=${periodoDa}&periodo_a=${periodoA}`;
-        const res = await fetch(url, { headers: getHeaders() });
+        const res = await fetch('/api/calcoli/calcola?' + p.toString(), { headers: getHeaders() });
         if (!res.ok) return;
-        const data = await res.json();
-        
-        document.getElementById('importo_nuovo').value = data.importo_nuovo.toFixed(2);
-        document.getElementById('acconto_nuovo').value = data.acconto_nuovo.toFixed(2);
-        document.getElementById('acconto_saldo_nuovo').value = data.acconto_saldo_nuovo.toFixed(2);
-        document.getElementById('totale_acconti_nuovi').value = data.totale_acconti_nuovi.toFixed(2);
-        
-        document.getElementById('importo_rinnovo').value = data.importo_rinnovo.toFixed(2);
-        document.getElementById('acconto_rinnovo').value = data.acconto_rinnovo.toFixed(2);
-        document.getElementById('acconto_saldo_rinnovo').value = data.acconto_saldo_rinnovo.toFixed(2);
-        document.getElementById('totale_acconti_rinnovo').value = data.totale_acconti_rinnovo.toFixed(2);
-        
-        document.getElementById('rpt_nuovi').textContent = '€ ' + data.totale_acconti_nuovi.toFixed(2);
-        document.getElementById('rpt_rinnovo').textContent = '€ ' + data.totale_acconti_rinnovo.toFixed(2);
-        document.getElementById('rpt_totale').textContent = '€ ' + data.totale_generale.toFixed(2);
-        
-        document.getElementById('count_nuovi').textContent = data.count_nuovi;
-        document.getElementById('count_rinnovi').textContent = data.count_rinnovi;
+        const d = await res.json();
+        document.getElementById('importo_nuovo').value = d.importo_nuovo.toFixed(2);
+        document.getElementById('acconto_nuovo').value = d.acconto_nuovo.toFixed(2);
+        document.getElementById('acconto_saldo_nuovo').value = d.acconto_saldo_nuovo.toFixed(2);
+        document.getElementById('totale_acconti_nuovi').value = d.totale_acconti_nuovi.toFixed(2);
+        document.getElementById('importo_rinnovo').value = d.importo_rinnovo.toFixed(2);
+        document.getElementById('acconto_rinnovo').value = d.acconto_rinnovo.toFixed(2);
+        document.getElementById('acconto_saldo_rinnovo').value = d.acconto_saldo_rinnovo.toFixed(2);
+        document.getElementById('totale_acconti_rinnovo').value = d.totale_acconti_rinnovo.toFixed(2);
+        document.getElementById('rpt_cred_rich').textContent = d.crediti_rich;
+        document.getElementById('rpt_cred_dati').textContent = d.crediti_dati;
+        document.getElementById('rpt_cred_dare').textContent = d.crediti_dare;
+        document.getElementById('rpt_totale_nc').textContent = '€ ' + d.totale_nc.toFixed(2);
+        document.getElementById('rpt_nuovi').textContent = '€ ' + d.totale_acconti_nuovi.toFixed(2);
+        document.getElementById('rpt_rinnovo').textContent = '€ ' + d.totale_acconti_rinnovo.toFixed(2);
+        document.getElementById('rpt_totale').textContent = '€ ' + d.totale_generale.toFixed(2);
+        document.getElementById('count_nuovi').textContent = d.count_nuovi;
+        document.getElementById('count_rinnovi').textContent = d.count_rinnovi;
     } catch (e) { console.error(e); }
 }
 
 function mostraToast(msg) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
+    t.textContent = msg; t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
 }
 
 async function salva() {
+    const v = id => parseFloat(document.getElementById(id).value) || 0;
     const dati = {
         nominativo_da: document.getElementById('nominativo_da').value,
         nominativo_a: document.getElementById('nominativo_a').value,
@@ -235,92 +196,55 @@ async function salva() {
         procuratore_a: document.getElementById('procuratore_a').value,
         periodo_da: document.getElementById('periodo_da').value,
         periodo_a: document.getElementById('periodo_a').value,
-        importo_nuovo: parseFloat(document.getElementById('importo_nuovo').value) || 0,
-        data_acconto_nuovo: document.getElementById('data_acconto_nuovo').value,
-        acconto_nuovo: parseFloat(document.getElementById('acconto_nuovo').value) || 0,
-        info_saldo_nuovo: document.getElementById('info_saldo_nuovo').value.trim(),
-        data_acconto_saldo_nuovo: document.getElementById('data_acconto_saldo_nuovo').value,
-        acconto_saldo_nuovo: parseFloat(document.getElementById('acconto_saldo_nuovo').value) || 0,
-        totale_acconti_nuovi: parseFloat(document.getElementById('totale_acconti_nuovi').value) || 0,
-        info_saldo_rinnovo_nuovo: document.getElementById('info_saldo_rinnovo_nuovo').value.trim(),
-        importo_rinnovo: parseFloat(document.getElementById('importo_rinnovo').value) || 0,
-        data_acconto_rinnovo: document.getElementById('data_acconto_rinnovo').value,
-        acconto_rinnovo: parseFloat(document.getElementById('acconto_rinnovo').value) || 0,
-        info_saldo_rinnovo: document.getElementById('info_saldo_rinnovo').value.trim(),
-        data_acconto_saldo_rinnovo: document.getElementById('data_acconto_saldo_rinnovo').value,
-        acconto_saldo_rinnovo: parseFloat(document.getElementById('acconto_saldo_rinnovo').value) || 0,
-        totale_acconti_rinnovo: parseFloat(document.getElementById('totale_acconti_rinnovo').value) || 0,
-        totale_generale: parseFloat(document.getElementById('rpt_totale').textContent.replace('€ ', '')) || 0,
+        importo_nuovo: v('importo_nuovo'), acconto_nuovo: v('acconto_nuovo'), acconto_saldo_nuovo: v('acconto_saldo_nuovo'),
+        totale_acconti_nuovi: v('totale_acconti_nuovi'), info_saldo_nuovo: document.getElementById('info_saldo_nuovo').value.trim(),
+        info_saldo_rinnovo_nuovo: '',
+        importo_rinnovo: v('importo_rinnovo'), acconto_rinnovo: v('acconto_rinnovo'), acconto_saldo_rinnovo: v('acconto_saldo_rinnovo'),
+        totale_acconti_rinnovo: v('totale_acconti_rinnovo'), info_saldo_rinnovo: document.getElementById('info_saldo_rinnovo').value.trim(),
+        totale_generale: parseFloat(document.getElementById('rpt_totale').textContent.replace('€ ','')) || 0,
+        crediti_rich: parseInt(document.getElementById('rpt_cred_rich').textContent) || 0,
+        crediti_dati: parseInt(document.getElementById('rpt_cred_dati').textContent) || 0,
+        crediti_dare: parseInt(document.getElementById('rpt_cred_dare').textContent) || 0,
+        totale_nc: parseFloat(document.getElementById('rpt_totale_nc').textContent.replace('€ ','')) || 0,
         note: document.getElementById('note').value.trim()
     };
-    
     try {
-        const res = await fetch('/api/calcoli', {
-            method: 'POST',
-            headers: getHeaders('application/json'),
-            body: JSON.stringify({ dati: dati })
-        });
+        const res = await fetch('/api/calcoli', { method: 'POST', headers: getHeaders('application/json'), body: JSON.stringify({ dati: dati }) });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         mostraToast('✅ Calcolo salvato!');
         document.getElementById('note').value = '';
-    } catch (e) {
-        mostraToast('❌ Errore: ' + e.message);
-    }
+    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
 }
 
 function generaPDFWhatsApp() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    
-    const nominativoDa = document.getElementById('nominativo_da').value || 'Tutti';
-    const nominativoA = document.getElementById('nominativo_a').value || 'Tutti';
-    const resellerDa = document.getElementById('reseller_da').value || 'Tutti';
-    const resellerA = document.getElementById('reseller_a').value || 'Tutti';
-    const procuratoreDa = document.getElementById('procuratore_da').value || 'Tutti';
-    const procuratoreA = document.getElementById('procuratore_a').value || 'Tutti';
-    const periodoDa = document.getElementById('periodo_da').value || 'N/D';
-    const periodoA = document.getElementById('periodo_a').value || 'N/D';
-    
-    doc.setFontSize(16);
-    doc.text('Report Calcoli', 105, 20, { align: 'center' });
-    
+    const val = id => document.getElementById(id).value;
+    const txt = id => document.getElementById(id).textContent;
+    doc.setFontSize(16); doc.text('Report Calcoli', 105, 20, { align: 'center' });
     doc.setFontSize(10);
-    doc.text(`Nominativi: ${nominativoDa} - ${nominativoA}`, 20, 35);
-    doc.text(`Reseller: ${resellerDa} - ${resellerA}`, 20, 42);
-    doc.text(`Procuratore: ${procuratoreDa} - ${procuratoreA}`, 20, 49);
-    doc.text(`Periodo: ${periodoDa} - ${periodoA}`, 20, 56);
-    
-    doc.setFontSize(12);
-    doc.text('NUOVO', 20, 68);
+    doc.text(`Nominativi: ${val('nominativo_da')||'Tutti'} - ${val('nominativo_a')||'Tutti'}`, 20, 35);
+    doc.text(`Reseller: ${val('reseller_da')||'Tutti'} - ${val('reseller_a')||'Tutti'}`, 20, 42);
+    doc.text(`Procuratore: ${val('procuratore_da')||'Tutti'} - ${val('procuratore_a')||'Tutti'}`, 20, 49);
+    doc.text(`Periodo: ${val('periodo_da')||'N/D'} - ${val('periodo_a')||'N/D'}`, 20, 56);
+    doc.setFontSize(12); doc.text('NUOVO', 20, 68);
     doc.setFontSize(10);
-    doc.text(`Importo: EUR ${document.getElementById('importo_nuovo').value}`, 20, 75);
-    doc.text(`Acconto: EUR ${document.getElementById('acconto_nuovo').value}`, 20, 82);
-    doc.text(`Saldo: EUR ${document.getElementById('acconto_saldo_nuovo').value}`, 20, 89);
-    doc.text(`Totale: EUR ${document.getElementById('totale_acconti_nuovi').value}`, 20, 96);
-    
-    doc.setFontSize(12);
-    doc.text('RINNOVO', 20, 108);
+    doc.text(`Importo: EUR ${val('importo_nuovo')} | Acconto: EUR ${val('acconto_nuovo')} | Saldo: EUR ${val('acconto_saldo_nuovo')}`, 20, 75);
+    doc.text(`Totale Acconti Nuovi: EUR ${val('totale_acconti_nuovi')}`, 20, 82);
+    doc.setFontSize(12); doc.text('RINNOVO', 20, 92);
     doc.setFontSize(10);
-    doc.text(`Importo: EUR ${document.getElementById('importo_rinnovo').value}`, 20, 115);
-    doc.text(`Acconto: EUR ${document.getElementById('acconto_rinnovo').value}`, 20, 122);
-    doc.text(`Saldo: EUR ${document.getElementById('acconto_saldo_rinnovo').value}`, 20, 129);
-    doc.text(`Totale: EUR ${document.getElementById('totale_acconti_rinnovo').value}`, 20, 136);
-    
-    doc.setFontSize(14);
-    doc.text(`TOTALE GENERALE: EUR ${document.getElementById('rpt_totale').textContent.replace('EUR ', '')}`, 20, 153);
-    
+    doc.text(`Importo: EUR ${val('importo_rinnovo')} | Acconto: EUR ${val('acconto_rinnovo')} | Saldo: EUR ${val('acconto_saldo_rinnovo')}`, 20, 99);
+    doc.text(`Totale Acconti Rinnovo: EUR ${val('totale_acconti_rinnovo')}`, 20, 106);
+    doc.setFontSize(12); doc.text('CREDITI', 20, 116);
+    doc.setFontSize(10);
+    doc.text(`Richiesti: ${txt('rpt_cred_rich')} | Dati: ${txt('rpt_cred_dati')} | Dare: ${txt('rpt_cred_dare')}`, 20, 123);
+    doc.text(`Totale NC: ${txt('rpt_totale_nc')}`, 20, 130);
+    doc.setFontSize(14); doc.text(`TOTALE GENERALE: ${txt('rpt_totale')}`, 20, 145);
     const note = document.getElementById('note').value;
-    if (note) {
-        doc.setFontSize(10);
-        doc.text('Note:', 20, 168);
-        doc.text(note, 20, 175);
-    }
-    
+    if (note) { doc.setFontSize(10); doc.text('Note: ' + note, 20, 160); }
     doc.save('calcoli.pdf');
-    
-    const msg = `Report Calcoli\nNominativi: ${nominativoDa} - ${nominativoA}\nReseller: ${resellerDa} - ${resellerA}\nProcuratore: ${procuratoreDa} - ${procuratoreA}\nPeriodo: ${periodoDa} - ${periodoA}\nTotale: EUR ${document.getElementById('rpt_totale').textContent.replace('EUR ', '')}`;
+    const msg = `Report Calcoli\nTotale: ${txt('rpt_totale')}\nCrediti Dare: ${txt('rpt_cred_dare')}\nTotale NC: ${txt('rpt_totale_nc')}`;
     window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
-    
     mostraToast('📄 PDF scaricato + WhatsApp aperto');
 }
 

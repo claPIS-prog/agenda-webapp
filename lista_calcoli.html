@@ -13,20 +13,21 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 .counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
 .counter-wrapper { text-align: center; }
 label { display: block; font-weight: bold; margin: 10px 0 4px; color: #333; font-size: 13px; }
-input, select { width: 100%; padding: 9px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 14px; font-family: inherit; }
+input, select { width: 100%; padding: 9px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
 .row { display: flex; gap: 8px; }
 .row > div { flex: 1; }
-.btn { width: 100%; padding: 13px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; color: white; background: #0088cc; }
-.btn:active { opacity: 0.8; }
 .section-title { font-size: 13px; color: white; font-weight: bold; margin: 18px 0 10px; padding: 8px 12px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; background: #607d8b; }
 .item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; }
 .item.nuovo { border-left-color: #2196f3; }
 .item.rinnovo { border-left-color: #ff9800; }
 .item strong { color: #222; font-size: 14px; display: block; margin-bottom: 4px; }
 .item small { color: #666; display: block; font-size: 12px; margin: 2px 0; }
-.item .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; color: white; font-size: 11px; font-weight: bold; margin-right: 6px; }
-.item .badge.nuovo { background: #2196f3; }
-.item .badge.rinnovo { background: #ff9800; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; color: white; font-size: 11px; font-weight: bold; margin-right: 6px; }
+.badge.nuovo { background: #2196f3; }
+.badge.rinnovo { background: #ff9800; }
+.badge.credito { background: #9c27b0; }
+.credit-box { background: #f3e5f5; border-radius: 5px; padding: 8px; margin-top: 6px; }
+.credit-box small { color: #6a1b9a; margin: 1px 0; }
 .empty { text-align: center; color: #888; padding: 30px; }
 .error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
@@ -38,24 +39,20 @@ input, select { width: 100%; padding: 9px; border: 1px solid #ddd; border-radius
 <h2>📋 Lista Calcoli</h2>
 <div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
 
-<!-- FILTRI -->
 <div class="section-title">🔍 Filtri</div>
 <label>Nominativo:</label>
 <select id="nominativo" onchange="caricaLista()"><option value="">-- Tutti --</option></select>
-
 <label>Tipo:</label>
 <select id="tipo" onchange="caricaLista()">
     <option value="">-- Tutti --</option>
     <option value="nuovo">🆕 Nuovi</option>
     <option value="rinnovo">🔄 Rinnovi</option>
 </select>
-
 <div class="row">
     <div><label>Data DA:</label><input type="date" id="data_da" onchange="caricaLista()"></div>
     <div><label>Data A:</label><input type="date" id="data_a" onchange="caricaLista()"></div>
 </div>
 
-<!-- LISTA -->
 <div id="lista"><div class="empty">Caricamento...</div></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -71,71 +68,63 @@ function getHeaders(contentType) {
     return headers;
 }
 
-let nominativi = [];
-
 async function caricaNominativi() {
     try {
         const res = await fetch('/api/nominativi', { headers: getHeaders() });
         if (!res.ok) return;
-        nominativi = await res.json();
+        const nominativi = await res.json();
         const sel = document.getElementById('nominativo');
-        nominativi.forEach(n => {
-            sel.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>';
-        });
+        nominativi.forEach(n => { sel.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>'; });
     } catch (e) { console.error(e); }
 }
 
 async function caricaLista() {
     const box = document.getElementById('lista');
-    const nominativo = document.getElementById('nominativo').value;
-    const tipo = document.getElementById('tipo').value;
-    const dataDa = document.getElementById('data_da').value;
-    const dataA = document.getElementById('data_a').value;
-    
+    const p = new URLSearchParams();
+    p.append('nominativo', document.getElementById('nominativo').value);
+    p.append('tipo', document.getElementById('tipo').value);
+    p.append('data_da', document.getElementById('data_da').value);
+    p.append('data_a', document.getElementById('data_a').value);
     try {
-        const url = `/api/calcoli/lista?nominativo=${encodeURIComponent(nominativo)}&tipo=${encodeURIComponent(tipo)}&data_da=${dataDa}&data_a=${dataA}`;
-        const res = await fetch(url, { headers: getHeaders() });
+        const res = await fetch('/api/calcoli/lista?' + p.toString(), { headers: getHeaders() });
         if (!res.ok) { box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>'; return; }
-        
         const items = await res.json();
-        aggiornaContatore(items.length);
-        
-        if (items.length === 0) {
-            box.innerHTML = '<div class="empty">Nessun risultato trovato.</div>';
-            return;
-        }
-        
+        document.getElementById('counter').textContent = 'Totale: ' + items.length;
+        if (items.length === 0) { box.innerHTML = '<div class="empty">Nessun risultato trovato.</div>'; return; }
         box.innerHTML = items.map(i => {
             const tipoClass = i.tipo === 'nuovo' ? 'nuovo' : 'rinnovo';
             const tipoLabel = i.tipo === 'nuovo' ? '🆕 NUOVO' : '🔄 RINNOVO';
             const data = i.data_operazione ? new Date(i.data_operazione).toLocaleDateString('it-IT') : 'N/D';
-            const scadenza = i.scadenza || 'N/D';
-            const orario = i.orario_scadenza ? ' ore ' + i.orario_scadenza : '';
             const acconto = parseFloat(i.importo_acconto || 0).toFixed(2);
             const saldo = parseFloat(i.importo_saldo || 0).toFixed(2);
-            const creditoRich = i.num_credito_rich || 0;
-            const creditoDato = i.num_credito_dato || 0;
-            
-            return '<div class="item ' + tipoClass + '">' +
+            const rich = i.num_credito_rich || 0;
+            const dati = i.num_credito_dato || 0;
+            const dare = i.num_credito_dare || (rich - dati);
+            const valSingolo = parseFloat(i.val_singolo_nc_rich || 0).toFixed(2);
+            const totNc = parseFloat(i.val_nc_rich || 0).toFixed(2);
+            let html = '<div class="item ' + tipoClass + '">' +
                 '<strong><span class="badge ' + tipoClass + '">' + tipoLabel + '</span>' + (i.nominativo || '') + '</strong>' +
-                '<small>📅 Data Operazione: ' + data + '</small>' +
-                '<small>⏰ Scadenza: ' + scadenza + orario + '</small>' +
-                '<small>💰 Acconto: € ' + acconto + ' | Saldo: € ' + saldo + '</small>' +
-                '<small>🎫 Crediti: Rich ' + creditoRich + ' | Dati ' + creditoDato + '</small>' +
-                (i.note ? '<small>📝 ' + i.note + '</small>' : '') +
-                '</div>';
+                '<small>📅 Data: ' + data + ' | ⏰ Scadenza: ' + (i.scadenza || 'N/D') + (i.orario_scadenza ? ' ore ' + i.orario_scadenza : '') + '</small>' +
+                '<small>💰 Acconto: € ' + acconto + ' | Saldo: € ' + saldo + '</small>';
+            if (rich > 0 || dati > 0) {
+                html += '<div class="credit-box">' +
+                    '<small><span class="badge credito">🎫 CREDITI</span></small>' +
+                    '<small>Richiesti: ' + rich + ' | Dati: ' + dati + ' | <strong>Dare: ' + dare + '</strong></small>' +
+                    '<small>Valore Singolo NC: € ' + valSingolo + ' | Totale NC: € ' + totNc + '</small>' +
+                    '</div>';
+            } else {
+                html += '<small>🎫 Crediti: nessuno</small>';
+            }
+            if (i.note) html += '<small>📝 ' + i.note + '</small>';
+            html += '</div>';
+            return html;
         }).join('');
-    } catch (e) {
-        box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
-    }
+    } catch (e) { box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>'; }
 }
-
-function aggiornaContatore(totale) { document.getElementById('counter').textContent = 'Totale: ' + totale; }
 
 function mostraToast(msg) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
+    t.textContent = msg; t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
 }
 

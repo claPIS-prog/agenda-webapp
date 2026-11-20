@@ -80,7 +80,10 @@ def init_db():
                 totale_acconti_nuovi REAL DEFAULT 0, info_saldo_rinnovo_nuovo TEXT,
                 importo_rinnovo REAL DEFAULT 0, data_acconto_rinnovo TEXT, acconto_rinnovo REAL DEFAULT 0,
                 info_saldo_rinnovo TEXT, data_acconto_saldo_rinnovo TEXT, acconto_saldo_rinnovo REAL DEFAULT 0,
-                totale_acconti_rinnovo REAL DEFAULT 0, totale_generale REAL DEFAULT 0, note TEXT, creato_il TEXT
+                totale_acconti_rinnovo REAL DEFAULT 0, totale_generale REAL DEFAULT 0,
+                crediti_rich INTEGER DEFAULT 0, crediti_dati INTEGER DEFAULT 0, crediti_dare INTEGER DEFAULT 0,
+                totale_nc REAL DEFAULT 0,
+                note TEXT, creato_il TEXT
             )""")
             for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),("procuratore","TEXT"),("apk_utilizzata","TEXT"),("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),("data_fine","TEXT"),("informazioni","TEXT")]:
                 cur.execute(f"ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS {col} {typ}")
@@ -592,6 +595,38 @@ def api_credenziali_cancella(id: int, request: Request):
     finally: conn.close()
     return {"ok": True}
 
+# === LISTA CALCOLI ===
+@app.get("/api/calcoli/lista")
+def api_calcoli_lista(nominativo: str = "", tipo: str = "", data_da: str = "", data_a: str = "", request: Request = None):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            query = """SELECT r.id, r.tipo, r.data_operazione, r.scadenza, r.orario_scadenza,
+                r.importo_acconto, r.importo_saldo,
+                r.num_credito_rich, r.num_credito_dato, r.num_credito_dare,
+                r.val_singolo_nc_rich, r.val_nc_rich,
+                r.note, n.nominativo
+                FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id WHERE 1=1"""
+            params = []
+            if nominativo:
+                query += " AND n.nominativo = %s"
+                params.append(nominativo)
+            if tipo:
+                query += " AND r.tipo = %s"
+                params.append(tipo)
+            if data_da:
+                query += " AND r.data_operazione >= %s"
+                params.append(data_da)
+            if data_a:
+                query += " AND r.data_operazione <= %s"
+                params.append(data_a)
+            query += " ORDER BY r.data_operazione ASC"
+            cur.execute(query, params)
+            return cur.fetchall()
+    finally:
+        conn.close()
+
 # === CALCOLI ===
 @app.get("/api/calcoli/calcola")
 def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", reseller_da: str = "", reseller_a: str = "", procuratore_da: str = "", procuratore_a: str = "", periodo_da: str = "", periodo_a: str = "", request: Request = None):
@@ -599,78 +634,57 @@ def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", reselle
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            query = """SELECT r.tipo, r.importo_acconto, r.importo_saldo, r.data_acconto, r.data_saldo,
-                r.num_credito_rich, r.num_credito_dato, n.nominativo, r.scadenza,
-                n.reseller, n.procuratore
+            query = """SELECT r.tipo, r.importo_acconto, r.importo_saldo,
+                r.num_credito_rich, r.num_credito_dato, r.num_credito_dare,
+                r.val_singolo_nc_rich, r.val_nc_rich, n.nominativo
                 FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id WHERE 1=1"""
             params = []
-            
             if nominativo_da:
-                query += " AND n.nominativo >= %s"
-                params.append(nominativo_da)
+                query += " AND n.nominativo >= %s"; params.append(nominativo_da)
             if nominativo_a:
-                query += " AND n.nominativo <= %s"
-                params.append(nominativo_a)
+                query += " AND n.nominativo <= %s"; params.append(nominativo_a)
             if reseller_da:
-                query += " AND n.reseller >= %s"
-                params.append(reseller_da)
+                query += " AND n.reseller >= %s"; params.append(reseller_da)
             if reseller_a:
-                query += " AND n.reseller <= %s"
-                params.append(reseller_a)
+                query += " AND n.reseller <= %s"; params.append(reseller_a)
             if procuratore_da:
-                query += " AND n.procuratore >= %s"
-                params.append(procuratore_da)
+                query += " AND n.procuratore >= %s"; params.append(procuratore_da)
             if procuratore_a:
-                query += " AND n.procuratore <= %s"
-                params.append(procuratore_a)
+                query += " AND n.procuratore <= %s"; params.append(procuratore_a)
             if periodo_da:
-                query += " AND r.data_operazione >= %s"
-                params.append(periodo_da)
+                query += " AND r.data_operazione >= %s"; params.append(periodo_da)
             if periodo_a:
-                query += " AND r.data_operazione <= %s"
-                params.append(periodo_a)
-            
+                query += " AND r.data_operazione <= %s"; params.append(periodo_a)
             cur.execute(query, params)
             rows = cur.fetchall()
-            
-            importo_nuovo = 0
-            acconto_nuovo = 0
-            acconto_saldo_nuovo = 0
-            importo_rinnovo = 0
-            acconto_rinnovo = 0
-            acconto_saldo_rinnovo = 0
-            
+            importo_nuovo = acconto_nuovo = acconto_saldo_nuovo = 0
+            importo_rinnovo = acconto_rinnovo = acconto_saldo_rinnovo = 0
+            crediti_rich = crediti_dati = crediti_dare = 0
+            totale_nc = 0
             for r in rows:
+                val_tot = float(r['importo_acconto'] or 0) + float(r['importo_saldo'] or 0)
+                crediti_rich += int(r['num_credito_rich'] or 0)
+                crediti_dati += int(r['num_credito_dato'] or 0)
+                crediti_dare += int(r['num_credito_dare'] or 0)
+                totale_nc += float(r['val_nc_rich'] or 0)
                 if r['tipo'] == 'nuovo':
-                    importo_nuovo += float(r['importo_acconto'] or 0) + float(r['importo_saldo'] or 0)
+                    importo_nuovo += val_tot
                     acconto_nuovo += float(r['importo_acconto'] or 0)
                     acconto_saldo_nuovo += float(r['importo_saldo'] or 0)
                 else:
-                    importo_rinnovo += float(r['importo_acconto'] or 0) + float(r['importo_saldo'] or 0)
+                    importo_rinnovo += val_tot
                     acconto_rinnovo += float(r['importo_acconto'] or 0)
                     acconto_saldo_rinnovo += float(r['importo_saldo'] or 0)
-            
             totale_acconti_nuovi = acconto_nuovo + acconto_saldo_nuovo
             totale_acconti_rinnovo = acconto_rinnovo + acconto_saldo_rinnovo
             totale_generale = totale_acconti_nuovi + totale_acconti_rinnovo
-            
             return {
-                "importo_nuovo": importo_nuovo,
-                "data_acconto_nuovo": "",
-                "acconto_nuovo": acconto_nuovo,
-                "info_saldo_nuovo": "",
-                "data_acconto_saldo_nuovo": "",
-                "acconto_saldo_nuovo": acconto_saldo_nuovo,
+                "importo_nuovo": importo_nuovo, "acconto_nuovo": acconto_nuovo, "acconto_saldo_nuovo": acconto_saldo_nuovo,
                 "totale_acconti_nuovi": totale_acconti_nuovi,
-                "info_saldo_rinnovo_nuovo": "",
-                "importo_rinnovo": importo_rinnovo,
-                "data_acconto_rinnovo": "",
-                "acconto_rinnovo": acconto_rinnovo,
-                "info_saldo_rinnovo": "",
-                "data_acconto_saldo_rinnovo": "",
-                "acconto_saldo_rinnovo": acconto_saldo_rinnovo,
+                "importo_rinnovo": importo_rinnovo, "acconto_rinnovo": acconto_rinnovo, "acconto_saldo_rinnovo": acconto_saldo_rinnovo,
                 "totale_acconti_rinnovo": totale_acconti_rinnovo,
                 "totale_generale": totale_generale,
+                "crediti_rich": crediti_rich, "crediti_dati": crediti_dati, "crediti_dare": crediti_dare, "totale_nc": totale_nc,
                 "count_nuovi": sum(1 for r in rows if r['tipo'] == 'nuovo'),
                 "count_rinnovi": sum(1 for r in rows if r['tipo'] == 'rinnovo')
             }
@@ -683,14 +697,7 @@ def api_calcoli(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""SELECT id, nominativo_da, nominativo_a, reseller_da, reseller_a, procuratore_da, procuratore_a, periodo_da, periodo_a,
-                importo_nuovo, data_acconto_nuovo, acconto_nuovo, info_saldo_nuovo,
-                data_acconto_saldo_nuovo, acconto_saldo_nuovo, totale_acconti_nuovi,
-                info_saldo_rinnovo_nuovo,
-                importo_rinnovo, data_acconto_rinnovo, acconto_rinnovo, info_saldo_rinnovo,
-                data_acconto_saldo_rinnovo, acconto_saldo_rinnovo, totale_acconti_rinnovo,
-                totale_generale, note, creato_il
-                FROM calcoli ORDER BY creato_il DESC""")
+            cur.execute("SELECT * FROM calcoli ORDER BY creato_il DESC")
             return cur.fetchall()
     finally:
         conn.close()
@@ -707,27 +714,18 @@ def api_calcoli_salva(payload: CalcoloPayload, request: Request):
         with conn.cursor() as cur:
             cur.execute("""INSERT INTO calcoli (
                 nominativo_da, nominativo_a, reseller_da, reseller_a, procuratore_da, procuratore_a, periodo_da, periodo_a,
-                importo_nuovo, data_acconto_nuovo, acconto_nuovo, info_saldo_nuovo,
-                data_acconto_saldo_nuovo, acconto_saldo_nuovo, totale_acconti_nuovi,
-                info_saldo_rinnovo_nuovo,
-                importo_rinnovo, data_acconto_rinnovo, acconto_rinnovo, info_saldo_rinnovo,
-                data_acconto_saldo_rinnovo, acconto_saldo_rinnovo, totale_acconti_rinnovo,
-                totale_generale, note, creato_il
+                importo_nuovo, acconto_nuovo, acconto_saldo_nuovo, totale_acconti_nuovi, info_saldo_nuovo, info_saldo_rinnovo_nuovo,
+                importo_rinnovo, acconto_rinnovo, acconto_saldo_rinnovo, totale_acconti_rinnovo, info_saldo_rinnovo,
+                totale_generale, crediti_rich, crediti_dati, crediti_dare, totale_nc, note, creato_il
             ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (d.get("nominativo_da",""), d.get("nominativo_a",""),
-                 d.get("reseller_da",""), d.get("reseller_a",""),
-                 d.get("procuratore_da",""), d.get("procuratore_a",""),
-                 d.get("periodo_da",""), d.get("periodo_a",""),
-                 float(d.get("importo_nuovo",0)), d.get("data_acconto_nuovo",""),
-                 float(d.get("acconto_nuovo",0)), d.get("info_saldo_nuovo",""),
-                 d.get("data_acconto_saldo_nuovo",""), float(d.get("acconto_saldo_nuovo",0)),
-                 float(d.get("totale_acconti_nuovi",0)), d.get("info_saldo_rinnovo_nuovo",""),
-                 float(d.get("importo_rinnovo",0)), d.get("data_acconto_rinnovo",""),
-                 float(d.get("acconto_rinnovo",0)), d.get("info_saldo_rinnovo",""),
-                 d.get("data_acconto_saldo_rinnovo",""), float(d.get("acconto_saldo_rinnovo",0)),
-                 float(d.get("totale_acconti_rinnovo",0)),
-                 float(d.get("totale_generale",0)), d.get("note",""),
-                 datetime.now().isoformat()))
+                (d.get("nominativo_da",""), d.get("nominativo_a",""), d.get("reseller_da",""), d.get("reseller_a",""),
+                 d.get("procuratore_da",""), d.get("procuratore_a",""), d.get("periodo_da",""), d.get("periodo_a",""),
+                 float(d.get("importo_nuovo",0)), float(d.get("acconto_nuovo",0)), float(d.get("acconto_saldo_nuovo",0)),
+                 float(d.get("totale_acconti_nuovi",0)), d.get("info_saldo_nuovo",""), d.get("info_saldo_rinnovo_nuovo",""),
+                 float(d.get("importo_rinnovo",0)), float(d.get("acconto_rinnovo",0)), float(d.get("acconto_saldo_rinnovo",0)),
+                 float(d.get("totale_acconti_rinnovo",0)), d.get("info_saldo_rinnovo",""),
+                 float(d.get("totale_generale",0)), int(d.get("crediti_rich",0)), int(d.get("crediti_dati",0)),
+                 int(d.get("crediti_dare",0)), float(d.get("totale_nc",0)), d.get("note",""), datetime.now().isoformat()))
         conn.commit()
     finally:
         conn.close()
