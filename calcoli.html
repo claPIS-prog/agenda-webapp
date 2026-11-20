@@ -12,17 +12,29 @@ body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margi
 h2 { text-align: center; margin-top: 0; color: #333; }
 .counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
 .counter-wrapper { text-align: center; }
-label { display: block; font-weight: bold; margin: 12px 0 4px; color: #333; font-size: 14px; }
-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; }
-input[readonly] { background: #f0f0f0; color: #555; cursor: not-allowed; }
-.row { display: flex; gap: 10px; }
+label { display: block; font-weight: bold; margin: 10px 0 4px; color: #333; font-size: 13px; }
+input, select, textarea { width: 100%; padding: 9px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 14px; font-family: inherit; }
+input[readonly] { background: #f0f0f0; color: #555; cursor: not-allowed; font-weight: bold; }
+textarea { resize: vertical; min-height: 50px; }
+.row { display: flex; gap: 8px; }
 .row > div { flex: 1; }
-.btn { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 15px; background: #4caf50; color: white; }
+.btn { width: 100%; padding: 13px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 15px; background: #4caf50; color: white; }
 .btn:active { background: #388e3c; }
-.result-box { background: #e3f2fd; border-left: 4px solid #0088cc; padding: 15px; border-radius: 6px; margin-top: 20px; }
-.result-box h3 { margin-top: 0; color: #0088cc; }
-.result-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #bbdefb; }
-.result-item:last-child { border-bottom: none; font-weight: bold; font-size: 16px; }
+.section-title { font-size: 13px; color: white; font-weight: bold; margin: 18px 0 10px; padding: 8px 12px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.section-title.filtri { background: #607d8b; }
+.section-title.nuovo { background: #2196f3; }
+.section-title.rinnovo { background: #ff9800; }
+.section-title.riepilogo { background: #4caf50; }
+.hint { font-size: 11px; color: #888; margin-top: 3px; font-style: italic; }
+.result-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 12px; border-radius: 6px; margin: 10px 0; }
+.result-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid #c8e6c9; }
+.result-item:last-child { border-bottom: none; font-weight: bold; font-size: 15px; color: #2e7d32; }
+.saved-list { margin-top: 20px; }
+.saved-item { background: #f9f9f9; padding: 10px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #4caf50; }
+.saved-item strong { color: #222; font-size: 13px; display: block; }
+.saved-item small { color: #666; display: block; font-size: 11px; margin: 2px 0; }
+.saved-item .del-btn { background: #f44336; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; margin-top: 6px; }
+.empty { text-align: center; color: #888; padding: 20px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
 .toast.show { opacity: 1; }
 </style>
@@ -30,23 +42,82 @@ input[readonly] { background: #f0f0f0; color: #555; cursor: not-allowed; }
 <body>
 <div class="container">
 <h2>🧮 Calcoli</h2>
-<div class="counter-wrapper"><div class="counter">Calcolo Differenze</div></div>
+<div class="counter-wrapper"><div class="counter">Gestione Contabile</div></div>
 
-<label>Valore 1:</label>
-<input type="number" id="valore1" step="0.01" value="0" oninput="calcola()">
+<!-- FILTRI -->
+<div class="section-title filtri">🔍 Filtri</div>
+<div class="row">
+    <div><label>Nominativo DA:</label><select id="nominativo_da"><option value="">-- Tutti --</option></select></div>
+    <div><label>Nominativo A:</label><select id="nominativo_a"><option value="">-- Tutti --</option></select></div>
+</div>
+<div class="row">
+    <div><label>Periodo DA:</label><input type="date" id="periodo_da"></div>
+    <div><label>Periodo A:</label><input type="date" id="periodo_a"></div>
+</div>
 
-<label>Valore 2:</label>
-<input type="number" id="valore2" step="0.01" value="0" oninput="calcola()">
+<!-- NUOVO -->
+<div class="section-title nuovo">🆕 NUOVO</div>
+<label>Importo Nuovo (€):</label>
+<input type="number" id="importo_nuovo" step="0.01" value="0">
 
+<div class="row">
+    <div><label>Data Acconto Nuovo:</label><input type="date" id="data_acconto_nuovo"></div>
+    <div><label>Acconto Nuovo (€):</label><input type="number" id="acconto_nuovo" step="0.01" value="0" oninput="calcolaTotali()"></div>
+</div>
+
+<label>Info su Saldo Nuovo:</label>
+<textarea id="info_saldo_nuovo" placeholder="Note sul saldo..."></textarea>
+
+<div class="row">
+    <div><label>Data Acconto Saldo Nuovo:</label><input type="date" id="data_acconto_saldo_nuovo"></div>
+    <div><label>Acconto Saldo Nuovo (€):</label><input type="number" id="acconto_saldo_nuovo" step="0.01" value="0" oninput="calcolaTotali()"></div>
+</div>
+
+<label>Totale Acconti Nuovi (€):</label>
+<input type="number" id="totale_acconti_nuovi" step="0.01" value="0" readonly>
+<div class="hint">Calcolato: Acconto Nuovo + Acconto Saldo Nuovo</div>
+
+<label>Info su Saldo Rinnovo (NUOVO):</label>
+<textarea id="info_saldo_rinnovo_nuovo" placeholder="Note..."></textarea>
+
+<!-- RINNOVO -->
+<div class="section-title rinnovo">🔄 RINNOVO</div>
+<label>Importo Rinnovo (€):</label>
+<input type="number" id="importo_rinnovo" step="0.01" value="0">
+
+<div class="row">
+    <div><label>Data Acconto Rinnovo:</label><input type="date" id="data_acconto_rinnovo"></div>
+    <div><label>Acconto Rinnovo (€):</label><input type="number" id="acconto_rinnovo" step="0.01" value="0" oninput="calcolaTotali()"></div>
+</div>
+
+<label>Info su Saldo Rinnovo:</label>
+<textarea id="info_saldo_rinnovo" placeholder="Note sul saldo..."></textarea>
+
+<div class="row">
+    <div><label>Data Acconto Saldo Rinnovo:</label><input type="date" id="data_acconto_saldo_rinnovo"></div>
+    <div><label>Acconto Saldo Rinnovo (€):</label><input type="number" id="acconto_saldo_rinnovo" step="0.01" value="0" oninput="calcolaTotali()"></div>
+</div>
+
+<label>Totale Acconti Rinnovo (€):</label>
+<input type="number" id="totale_acconti_rinnovo" step="0.01" value="0" readonly>
+<div class="hint">Calcolato: Acconto Rinnovo + Acconto Saldo Rinnovo</div>
+
+<!-- RIEPILOGO -->
+<div class="section-title riepilogo">📊 RIEPILOGO</div>
 <div class="result-box">
-<h3>📊 Risultati</h3>
-<div class="result-item">
-<span>Differenza:</span>
-<span id="risultato">0.00</span>
+    <div class="result-item"><span>Totale Acconti Nuovi:</span><span id="rpt_nuovi">€ 0.00</span></div>
+    <div class="result-item"><span>Totale Acconti Rinnovo:</span><span id="rpt_rinnovo">€ 0.00</span></div>
+    <div class="result-item"><span>TOTALE GENERALE:</span><span id="rpt_totale">€ 0.00</span></div>
 </div>
-</div>
+
+<label>Note generali (opzionale):</label>
+<textarea id="note" placeholder="Note..."></textarea>
 
 <button class="btn" onclick="salva()">💾 Salva Calcolo</button>
+
+<!-- SALVATI -->
+<div class="section-title filtri">📜 Calcoli Salvati</div>
+<div id="saved_list" class="saved-list"><div class="empty">Caricamento...</div></div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -61,11 +132,38 @@ function getHeaders(contentType) {
     return headers;
 }
 
-function calcola() {
-    const v1 = parseFloat(document.getElementById('valore1').value) || 0;
-    const v2 = parseFloat(document.getElementById('valore2').value) || 0;
-    const diff = v1 - v2;
-    document.getElementById('risultato').textContent = diff.toFixed(2);
+let nominativi = [];
+
+async function caricaNominativi() {
+    try {
+        const res = await fetch('/api/nominativi', { headers: getHeaders() });
+        if (!res.ok) return;
+        nominativi = await res.json();
+        const selDa = document.getElementById('nominativo_da');
+        const selA = document.getElementById('nominativo_a');
+        nominativi.forEach(n => {
+            selDa.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>';
+            selA.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>';
+        });
+    } catch (e) { console.error(e); }
+}
+
+function calcolaTotali() {
+    const accN = parseFloat(document.getElementById('acconto_nuovo').value) || 0;
+    const accSN = parseFloat(document.getElementById('acconto_saldo_nuovo').value) || 0;
+    const totN = accN + accSN;
+    document.getElementById('totale_acconti_nuovi').value = totN.toFixed(2);
+    
+    const accR = parseFloat(document.getElementById('acconto_rinnovo').value) || 0;
+    const accSR = parseFloat(document.getElementById('acconto_saldo_rinnovo').value) || 0;
+    const totR = accR + accSR;
+    document.getElementById('totale_acconti_rinnovo').value = totR.toFixed(2);
+    
+    const totGen = totN + totR;
+    
+    document.getElementById('rpt_nuovi').textContent = '€ ' + totN.toFixed(2);
+    document.getElementById('rpt_rinnovo').textContent = '€ ' + totR.toFixed(2);
+    document.getElementById('rpt_totale').textContent = '€ ' + totGen.toFixed(2);
 }
 
 function mostraToast(msg) {
@@ -76,13 +174,85 @@ function mostraToast(msg) {
 }
 
 async function salva() {
-    const v1 = parseFloat(document.getElementById('valore1').value) || 0;
-    const v2 = parseFloat(document.getElementById('valore2').value) || 0;
-    const diff = v1 - v2;
+    const dati = {
+        nominativo_da: document.getElementById('nominativo_da').value,
+        nominativo_a: document.getElementById('nominativo_a').value,
+        periodo_da: document.getElementById('periodo_da').value,
+        periodo_a: document.getElementById('periodo_a').value,
+        importo_nuovo: parseFloat(document.getElementById('importo_nuovo').value) || 0,
+        data_acconto_nuovo: document.getElementById('data_acconto_nuovo').value,
+        acconto_nuovo: parseFloat(document.getElementById('acconto_nuovo').value) || 0,
+        info_saldo_nuovo: document.getElementById('info_saldo_nuovo').value.trim(),
+        data_acconto_saldo_nuovo: document.getElementById('data_acconto_saldo_nuovo').value,
+        acconto_saldo_nuovo: parseFloat(document.getElementById('acconto_saldo_nuovo').value) || 0,
+        totale_acconti_nuovi: parseFloat(document.getElementById('totale_acconti_nuovi').value) || 0,
+        info_saldo_rinnovo_nuovo: document.getElementById('info_saldo_rinnovo_nuovo').value.trim(),
+        importo_rinnovo: parseFloat(document.getElementById('importo_rinnovo').value) || 0,
+        data_acconto_rinnovo: document.getElementById('data_acconto_rinnovo').value,
+        acconto_rinnovo: parseFloat(document.getElementById('acconto_rinnovo').value) || 0,
+        info_saldo_rinnovo: document.getElementById('info_saldo_rinnovo').value.trim(),
+        data_acconto_saldo_rinnovo: document.getElementById('data_acconto_saldo_rinnovo').value,
+        acconto_saldo_rinnovo: parseFloat(document.getElementById('acconto_saldo_rinnovo').value) || 0,
+        totale_acconti_rinnovo: parseFloat(document.getElementById('totale_acconti_rinnovo').value) || 0,
+        totale_generale: (parseFloat(document.getElementById('totale_acconti_nuovi').value) || 0) + (parseFloat(document.getElementById('totale_acconti_rinnovo').value) || 0),
+        note: document.getElementById('note').value.trim()
+    };
     
-    // TODO: Implementare salvataggio nel database
-    mostraToast('✅ Calcolo salvato: ' + diff.toFixed(2));
+    try {
+        const res = await fetch('/api/calcoli', {
+            method: 'POST',
+            headers: getHeaders('application/json'),
+            body: JSON.stringify({ dati: dati })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        mostraToast('✅ Calcolo salvato!');
+        document.getElementById('note').value = '';
+        await caricaSalvati();
+    } catch (e) {
+        mostraToast('❌ Errore: ' + e.message);
+    }
 }
+
+async function caricaSalvati() {
+    const box = document.getElementById('saved_list');
+    try {
+        const res = await fetch('/api/calcoli', { headers: getHeaders() });
+        if (!res.ok) { box.innerHTML = '<div class="empty">Errore caricamento</div>'; return; }
+        const items = await res.json();
+        if (items.length === 0) { box.innerHTML = '<div class="empty">Nessun calcolo salvato.</div>'; return; }
+        box.innerHTML = items.map(i => {
+            const data = new Date(i.creato_il).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            const nomRange = (i.nominativo_da || i.nominativo_a) ? (i.nominativo_da || 'Tutti') + ' → ' + (i.nominativo_a || 'Tutti') : 'Tutti';
+            const perRange = (i.periodo_da || i.periodo_a) ? (i.periodo_da || '?') + ' / ' + (i.periodo_a || '?') : '';
+            return '<div class="saved-item">' +
+                '<strong>📊 ' + data + '</strong>' +
+                '<small>👤 ' + nomRange + (perRange ? ' | 📅 ' + perRange : '') + '</small>' +
+                '<small>🆕 Nuovi: €' + i.totale_acconti_nuovi + ' | 🔄 Rinnovo: €' + i.totale_acconti_rinnovo + '</small>' +
+                '<small><strong>Totale: €' + i.totale_generale + '</strong></small>' +
+                (i.note ? '<small>📝 ' + i.note + '</small>' : '') +
+                '<button class="del-btn" onclick="cancella(' + i.id + ')">🗑️ Cancella</button>' +
+                '</div>';
+        }).join('');
+    } catch (e) {
+        box.innerHTML = '<div class="empty">Errore: ' + e.message + '</div>';
+    }
+}
+
+async function cancella(id) {
+    if (!confirm('Cancellare questo calcolo?')) return;
+    try {
+        const res = await fetch('/api/calcoli/' + id, { method: 'DELETE', headers: getHeaders() });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        mostraToast('🗑️ Cancellato');
+        await caricaSalvati();
+    } catch (e) {
+        mostraToast('❌ Errore: ' + e.message);
+    }
+}
+
+caricaNominativi();
+calcolaTotali();
+caricaSalvati();
 </script>
 </body>
 </html>

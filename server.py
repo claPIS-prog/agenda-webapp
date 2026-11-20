@@ -69,6 +69,31 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS note (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), messaggio TEXT NOT NULL, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS credenziali (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, nome_file TEXT, link TEXT, percorso TEXT, user_id TEXT, password TEXT, file_token TEXT, scadenza TEXT, informazioni TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS permessi (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES autorizzati(id), modulo TEXT NOT NULL, attivo BOOLEAN DEFAULT FALSE, UNIQUE(user_id, modulo))")
+            cur.execute("""CREATE TABLE IF NOT EXISTS calcoli (
+                id SERIAL PRIMARY KEY,
+                nominativo_da TEXT,
+                nominativo_a TEXT,
+                periodo_da TEXT,
+                periodo_a TEXT,
+                importo_nuovo REAL DEFAULT 0,
+                data_acconto_nuovo TEXT,
+                acconto_nuovo REAL DEFAULT 0,
+                info_saldo_nuovo TEXT,
+                data_acconto_saldo_nuovo TEXT,
+                acconto_saldo_nuovo REAL DEFAULT 0,
+                totale_acconti_nuovi REAL DEFAULT 0,
+                info_saldo_rinnovo_nuovo TEXT,
+                importo_rinnovo REAL DEFAULT 0,
+                data_acconto_rinnovo TEXT,
+                acconto_rinnovo REAL DEFAULT 0,
+                info_saldo_rinnovo TEXT,
+                data_acconto_saldo_rinnovo TEXT,
+                acconto_saldo_rinnovo REAL DEFAULT 0,
+                totale_acconti_rinnovo REAL DEFAULT 0,
+                totale_generale REAL DEFAULT 0,
+                note TEXT,
+                creato_il TEXT
+            )""")
             for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),("procuratore","TEXT"),("apk_utilizzata","TEXT"),("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),("data_fine","TEXT"),("informazioni","TEXT")]:
                 cur.execute(f"ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS {col} {typ}")
             cur.execute("SELECT id FROM autorizzati")
@@ -208,7 +233,7 @@ def api_azione(payload: AzionePayload, request: Request):
         conn.close()
     return {"ok": True}
 
-# === SCADENZE (entro 7 giorni + scadute) ===
+# === SCADENZE ===
 @app.get("/api/scadenze")
 def api_scadenze(request: Request):
     get_current_user(request)
@@ -230,11 +255,7 @@ def api_scadenze(request: Request):
                     continue
                 if scad <= limite:
                     delta = (scad - oggi).days
-                    out.append({
-                        "id": r["id"], "nominativo_id": r["nominativo_id"], "nominativo": r["nominativo"],
-                        "scadenza": r["scadenza"], "orario_scadenza": r.get("orario_scadenza",""),
-                        "scaduta": delta < 0, "giorni": delta
-                    })
+                    out.append({"id": r["id"], "nominativo_id": r["nominativo_id"], "nominativo": r["nominativo"], "scadenza": r["scadenza"], "orario_scadenza": r.get("orario_scadenza",""), "scaduta": delta < 0, "giorni": delta})
             return out
     finally:
         conn.close()
@@ -581,6 +602,73 @@ def api_credenziali_cancella(id: int, request: Request):
             cur.execute("DELETE FROM credenziali WHERE id = %s", (id,))
         conn.commit()
     finally: conn.close()
+    return {"ok": True}
+
+# === CALCOLI ===
+@app.get("/api/calcoli")
+def api_calcoli(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT id, nominativo_da, nominativo_a, periodo_da, periodo_a,
+                importo_nuovo, data_acconto_nuovo, acconto_nuovo, info_saldo_nuovo,
+                data_acconto_saldo_nuovo, acconto_saldo_nuovo, totale_acconti_nuovi,
+                info_saldo_rinnovo_nuovo,
+                importo_rinnovo, data_acconto_rinnovo, acconto_rinnovo, info_saldo_rinnovo,
+                data_acconto_saldo_rinnovo, acconto_saldo_rinnovo, totale_acconti_rinnovo,
+                totale_generale, note, creato_il
+                FROM calcoli ORDER BY creato_il DESC""")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+class CalcoloPayload(BaseModel):
+    dati: dict
+
+@app.post("/api/calcoli")
+def api_calcoli_salva(payload: CalcoloPayload, request: Request):
+    get_current_user(request)
+    d = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO calcoli (
+                nominativo_da, nominativo_a, periodo_da, periodo_a,
+                importo_nuovo, data_acconto_nuovo, acconto_nuovo, info_saldo_nuovo,
+                data_acconto_saldo_nuovo, acconto_saldo_nuovo, totale_acconti_nuovi,
+                info_saldo_rinnovo_nuovo,
+                importo_rinnovo, data_acconto_rinnovo, acconto_rinnovo, info_saldo_rinnovo,
+                data_acconto_saldo_rinnovo, acconto_saldo_rinnovo, totale_acconti_rinnovo,
+                totale_generale, note, creato_il
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (d.get("nominativo_da",""), d.get("nominativo_a",""),
+                 d.get("periodo_da",""), d.get("periodo_a",""),
+                 float(d.get("importo_nuovo",0)), d.get("data_acconto_nuovo",""),
+                 float(d.get("acconto_nuovo",0)), d.get("info_saldo_nuovo",""),
+                 d.get("data_acconto_saldo_nuovo",""), float(d.get("acconto_saldo_nuovo",0)),
+                 float(d.get("totale_acconti_nuovi",0)), d.get("info_saldo_rinnovo_nuovo",""),
+                 float(d.get("importo_rinnovo",0)), d.get("data_acconto_rinnovo",""),
+                 float(d.get("acconto_rinnovo",0)), d.get("info_saldo_rinnovo",""),
+                 d.get("data_acconto_saldo_rinnovo",""), float(d.get("acconto_saldo_rinnovo",0)),
+                 float(d.get("totale_acconti_rinnovo",0)),
+                 float(d.get("totale_generale",0)), d.get("note",""),
+                 datetime.now().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/calcoli/{id}")
+def api_calcoli_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM calcoli WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
     return {"ok": True}
 
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
