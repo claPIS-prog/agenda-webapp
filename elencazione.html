@@ -88,6 +88,8 @@ let dropdowns = {
 const tipiLineaList = ["FIBRA GByte", "FIBRA MByte", "LTE", "ADSL", "CONNESSIONE DATI"];
 const apkList = ["ivuplay (PRIVAT)", "Cricfy V6.7", "SportzX [Mobile] v2.1", "StartApp", "Paradise", "Send Files To TV v1.4.22b", "Private Server", "0Player 300626", "XCloud-1.0.15"];
 const cadenzeList = ["TEST", "MENSILE", "BIMENSILE", "TRIMESTRALE", "SEMESTRALE", "ANNUALE"];
+const tipiList = ["rinnovo", "nuovo", "omaggio"];
+const tipiLabel = { "rinnovo": "🔄 Rinnovo", "nuovo": "🆕 Nuovo", "omaggio": "🎁 Omaggio" };
 
 async function carica() {
     const box = document.getElementById('lista');
@@ -141,6 +143,15 @@ function optSelectStatic(items, placeholder, selected) {
     return html;
 }
 
+function optSelectTipo(selected) {
+    let html = '<option value="">-- Seleziona --</option>';
+    tipiList.forEach(t => {
+        const sel = t === selected ? 'selected' : '';
+        html += '<option value="' + t + '" ' + sel + '>' + tipiLabel[t] + '</option>';
+    });
+    return html;
+}
+
 function render(filter) {
     filter = (filter || '').toLowerCase();
     const f = contatti.filter(c => (c.nominativo || '').toLowerCase().includes(filter));
@@ -149,11 +160,13 @@ function render(filter) {
         return;
     }
     document.getElementById('lista').innerHTML = f.map(c => {
+        const tipoBadge = c.tipo ? '<small>🏷️ ' + (tipiLabel[c.tipo] || c.tipo) + '</small>' : '';
         return '<div class="item">' +
             '<strong>' + (c.nominativo || '') + '</strong>' +
+            tipoBadge +
             (c.prezzo ? '<small>💰 Prezzo: € ' + c.prezzo + '</small>' : '') +
             (c.cadenza ? '<small>📅 Cadenza: ' + c.cadenza + '</small>' : '') +
-            (c.tipo ? '<small>📡 Tipo: ' + c.tipo + '</small>' : '') +
+            (c.tipo_linea ? '<small>📡 Tipo: ' + c.tipo_linea + '</small>' : '') +
             (c.operatore_it ? '<small>🌐 Operatore: ' + c.operatore_it + '</small>' : '') +
             (c.dispositivo ? '<small>📱 Dispositivo: ' + c.dispositivo + '</small>' : '') +
             (c.sistema_operativo ? '<small>💻 SO: ' + c.sistema_operativo + '</small>' : '') +
@@ -181,9 +194,10 @@ function apriModifica(id) {
     
     let html = '';
     html += '<label>Nominativo:</label><input type="text" id="m_nominativo" value="' + (c.nominativo || '') + '">';
+    html += '<label>Tipo:</label><select id="m_tipo">' + optSelectTipo(c.tipo) + '</select>';
     html += '<div class="row"><div><label>Prezzo (€):</label><input type="number" id="m_prezzo" step="0.01" value="' + (c.prezzo || 0) + '"></div>';
     html += '<div><label>Cadenza:</label><select id="m_cadenza">' + optSelectStatic(cadenzeList, '--', c.cadenza) + '</select></div></div>';
-    html += '<label>Tipo Linea:</label><select id="m_tipo">' + optSelectStatic(tipiLineaList, '--', c.tipo) + '</select>';
+    html += '<label>Tipo Linea:</label><select id="m_tipo_linea">' + optSelectStatic(tipiLineaList, '--', c.tipo_linea || c.tipo) + '</select>';
     html += '<label>Operatore IT:</label><select id="m_operatore_it">' + optSelect(dropdowns.operatoriIt, '--', 'nome', c.operatore_it) + '</select>';
     
     html += '<div class="section-title">Server / Reseller</div>';
@@ -233,9 +247,10 @@ async function salvaModifica() {
         azione: 'modifica',
         id: idModifica,
         nominativo: nominativo,
+        tipo: document.getElementById('m_tipo').value,
         prezzo: parseFloat(document.getElementById('m_prezzo').value) || 0,
         cadenza: document.getElementById('m_cadenza').value,
-        tipo: document.getElementById('m_tipo').value,
+        tipo_linea: document.getElementById('m_tipo_linea').value,
         operatore_it: document.getElementById('m_operatore_it').value,
         server: document.getElementById('m_server').value,
         reseller: document.getElementById('m_reseller').value,
