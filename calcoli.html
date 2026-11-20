@@ -45,17 +45,25 @@ textarea { resize: vertical; min-height: 50px; }
 
 <!-- FILTRI -->
 <div class="section-title filtri">🔍 Filtri</div>
+
 <div class="row">
     <div><label>Nominativo DA:</label><select id="nominativo_da" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
     <div><label>Nominativo A:</label><select id="nominativo_a" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
 </div>
+
+<div class="row">
+    <div><label>Reseller DA:</label><select id="reseller_da" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
+    <div><label>Reseller A:</label><select id="reseller_a" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
+</div>
+
+<div class="row">
+    <div><label>Procuratore DA:</label><select id="procuratore_da" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
+    <div><label>Procuratore A:</label><select id="procuratore_a" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
+</div>
+
 <div class="row">
     <div><label>Periodo DA:</label><input type="date" id="periodo_da" onchange="calcolaAutomatico()"></div>
     <div><label>Periodo A:</label><input type="date" id="periodo_a" onchange="calcolaAutomatico()"></div>
-</div>
-<div class="row">
-    <div><label>Reseller:</label><select id="reseller" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
-    <div><label>Procuratore:</label><select id="procuratore" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
 </div>
 
 <!-- STATISTICHE -->
@@ -160,27 +168,33 @@ async function caricaDropdowns() {
         selA.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>';
     });
     
-    const selRes = document.getElementById('reseller');
+    const selResDa = document.getElementById('reseller_da');
+    const selResA = document.getElementById('reseller_a');
     resellers.forEach(r => {
-        selRes.innerHTML += '<option value="' + r.nominativo + '">' + r.nominativo + '</option>';
+        selResDa.innerHTML += '<option value="' + r.nominativo + '">' + r.nominativo + '</option>';
+        selResA.innerHTML += '<option value="' + r.nominativo + '">' + r.nominativo + '</option>';
     });
     
-    const selProc = document.getElementById('procuratore');
+    const selProcDa = document.getElementById('procuratore_da');
+    const selProcA = document.getElementById('procuratore_a');
     procuratori.forEach(p => {
-        selProc.innerHTML += '<option value="' + p.nominativo + '">' + p.nominativo + '</option>';
+        selProcDa.innerHTML += '<option value="' + p.nominativo + '">' + p.nominativo + '</option>';
+        selProcA.innerHTML += '<option value="' + p.nominativo + '">' + p.nominativo + '</option>';
     });
 }
 
 async function calcolaAutomatico() {
     const nominativoDa = document.getElementById('nominativo_da').value;
     const nominativoA = document.getElementById('nominativo_a').value;
+    const resellerDa = document.getElementById('reseller_da').value;
+    const resellerA = document.getElementById('reseller_a').value;
+    const procuratoreDa = document.getElementById('procuratore_da').value;
+    const procuratoreA = document.getElementById('procuratore_a').value;
     const periodoDa = document.getElementById('periodo_da').value;
     const periodoA = document.getElementById('periodo_a').value;
-    const reseller = document.getElementById('reseller').value;
-    const procuratore = document.getElementById('procuratore').value;
     
     try {
-        const url = `/api/calcoli/calcola?nominativo_da=${encodeURIComponent(nominativoDa)}&nominativo_a=${encodeURIComponent(nominativoA)}&periodo_da=${periodoDa}&periodo_a=${periodoA}&reseller=${encodeURIComponent(reseller)}&procuratore=${encodeURIComponent(procuratore)}`;
+        const url = `/api/calcoli/calcola?nominativo_da=${encodeURIComponent(nominativoDa)}&nominativo_a=${encodeURIComponent(nominativoA)}&reseller_da=${encodeURIComponent(resellerDa)}&reseller_a=${encodeURIComponent(resellerA)}&procuratore_da=${encodeURIComponent(procuratoreDa)}&procuratore_a=${encodeURIComponent(procuratoreA)}&periodo_da=${periodoDa}&periodo_a=${periodoA}`;
         const res = await fetch(url, { headers: getHeaders() });
         if (!res.ok) return;
         const data = await res.json();
@@ -215,10 +229,12 @@ async function salva() {
     const dati = {
         nominativo_da: document.getElementById('nominativo_da').value,
         nominativo_a: document.getElementById('nominativo_a').value,
+        reseller_da: document.getElementById('reseller_da').value,
+        reseller_a: document.getElementById('reseller_a').value,
+        procuratore_da: document.getElementById('procuratore_da').value,
+        procuratore_a: document.getElementById('procuratore_a').value,
         periodo_da: document.getElementById('periodo_da').value,
         periodo_a: document.getElementById('periodo_a').value,
-        reseller: document.getElementById('reseller').value,
-        procuratore: document.getElementById('procuratore').value,
         importo_nuovo: parseFloat(document.getElementById('importo_nuovo').value) || 0,
         data_acconto_nuovo: document.getElementById('data_acconto_nuovo').value,
         acconto_nuovo: parseFloat(document.getElementById('acconto_nuovo').value) || 0,
@@ -258,48 +274,51 @@ function generaPDFWhatsApp() {
     
     const nominativoDa = document.getElementById('nominativo_da').value || 'Tutti';
     const nominativoA = document.getElementById('nominativo_a').value || 'Tutti';
+    const resellerDa = document.getElementById('reseller_da').value || 'Tutti';
+    const resellerA = document.getElementById('reseller_a').value || 'Tutti';
+    const procuratoreDa = document.getElementById('procuratore_da').value || 'Tutti';
+    const procuratoreA = document.getElementById('procuratore_a').value || 'Tutti';
     const periodoDa = document.getElementById('periodo_da').value || 'N/D';
     const periodoA = document.getElementById('periodo_a').value || 'N/D';
-    const reseller = document.getElementById('reseller').value || 'Tutti';
-    const procuratore = document.getElementById('procuratore').value || 'Tutti';
     
     doc.setFontSize(16);
     doc.text('Report Calcoli', 105, 20, { align: 'center' });
     
     doc.setFontSize(10);
     doc.text(`Nominativi: ${nominativoDa} - ${nominativoA}`, 20, 35);
-    doc.text(`Periodo: ${periodoDa} - ${periodoA}`, 20, 42);
-    doc.text(`Reseller: ${reseller} | Procuratore: ${procuratore}`, 20, 49);
+    doc.text(`Reseller: ${resellerDa} - ${resellerA}`, 20, 42);
+    doc.text(`Procuratore: ${procuratoreDa} - ${procuratoreA}`, 20, 49);
+    doc.text(`Periodo: ${periodoDa} - ${periodoA}`, 20, 56);
     
     doc.setFontSize(12);
-    doc.text('NUOVO', 20, 60);
+    doc.text('NUOVO', 20, 68);
     doc.setFontSize(10);
-    doc.text(`Importo: EUR ${document.getElementById('importo_nuovo').value}`, 20, 67);
-    doc.text(`Acconto: EUR ${document.getElementById('acconto_nuovo').value}`, 20, 74);
-    doc.text(`Saldo: EUR ${document.getElementById('acconto_saldo_nuovo').value}`, 20, 81);
-    doc.text(`Totale: EUR ${document.getElementById('totale_acconti_nuovi').value}`, 20, 88);
+    doc.text(`Importo: EUR ${document.getElementById('importo_nuovo').value}`, 20, 75);
+    doc.text(`Acconto: EUR ${document.getElementById('acconto_nuovo').value}`, 20, 82);
+    doc.text(`Saldo: EUR ${document.getElementById('acconto_saldo_nuovo').value}`, 20, 89);
+    doc.text(`Totale: EUR ${document.getElementById('totale_acconti_nuovi').value}`, 20, 96);
     
     doc.setFontSize(12);
-    doc.text('RINNOVO', 20, 100);
+    doc.text('RINNOVO', 20, 108);
     doc.setFontSize(10);
-    doc.text(`Importo: EUR ${document.getElementById('importo_rinnovo').value}`, 20, 107);
-    doc.text(`Acconto: EUR ${document.getElementById('acconto_rinnovo').value}`, 20, 114);
-    doc.text(`Saldo: EUR ${document.getElementById('acconto_saldo_rinnovo').value}`, 20, 121);
-    doc.text(`Totale: EUR ${document.getElementById('totale_acconti_rinnovo').value}`, 20, 128);
+    doc.text(`Importo: EUR ${document.getElementById('importo_rinnovo').value}`, 20, 115);
+    doc.text(`Acconto: EUR ${document.getElementById('acconto_rinnovo').value}`, 20, 122);
+    doc.text(`Saldo: EUR ${document.getElementById('acconto_saldo_rinnovo').value}`, 20, 129);
+    doc.text(`Totale: EUR ${document.getElementById('totale_acconti_rinnovo').value}`, 20, 136);
     
     doc.setFontSize(14);
-    doc.text(`TOTALE GENERALE: EUR ${document.getElementById('rpt_totale').textContent.replace('EUR ', '')}`, 20, 145);
+    doc.text(`TOTALE GENERALE: EUR ${document.getElementById('rpt_totale').textContent.replace('EUR ', '')}`, 20, 153);
     
     const note = document.getElementById('note').value;
     if (note) {
         doc.setFontSize(10);
-        doc.text('Note:', 20, 160);
-        doc.text(note, 20, 167);
+        doc.text('Note:', 20, 168);
+        doc.text(note, 20, 175);
     }
     
     doc.save('calcoli.pdf');
     
-    const msg = `Report Calcoli\nNominativi: ${nominativoDa} - ${nominativoA}\nPeriodo: ${periodoDa} - ${periodoA}\nReseller: ${reseller}\nProcuratore: ${procuratore}\nTotale: EUR ${document.getElementById('rpt_totale').textContent.replace('EUR ', '')}`;
+    const msg = `Report Calcoli\nNominativi: ${nominativoDa} - ${nominativoA}\nReseller: ${resellerDa} - ${resellerA}\nProcuratore: ${procuratoreDa} - ${procuratoreA}\nPeriodo: ${periodoDa} - ${periodoA}\nTotale: EUR ${document.getElementById('rpt_totale').textContent.replace('EUR ', '')}`;
     window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
     
     mostraToast('📄 PDF scaricato + WhatsApp aperto');
