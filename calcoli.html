@@ -27,14 +27,20 @@ textarea { resize: vertical; min-height: 50px; }
 .section-title.filtri { background: #607d8b; }
 .section-title.nuovo { background: #2196f3; }
 .section-title.rinnovo { background: #ff9800; }
+.section-title.omaggio { background: #4caf50; }
 .section-title.crediti { background: #9c27b0; }
-.section-title.riepilogo { background: #4caf50; }
+.section-title.crediti-omaggio { background: #66bb6a; }
+.section-title.riepilogo { background: #333; }
 .result-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 12px; border-radius: 6px; margin: 10px 0; }
 .result-box.credito { background: #f3e5f5; border-left-color: #9c27b0; }
+.result-box.credito-omaggio { background: #e8f5e9; border-left-color: #4caf50; }
 .result-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid #c8e6c9; }
 .result-box.credito .result-item { border-bottom-color: #e1bee7; }
-.result-item:last-child { border-bottom: none; font-weight: bold; font-size: 15px; color: #2e7d32; }
+.result-box.credito-omaggio .result-item { border-bottom-color: #c8e6c9; }
+.result-item:last-child { border-bottom: none; font-weight: bold; font-size: 15px; }
+.result-box .result-item:last-child { color: #2e7d32; }
 .result-box.credito .result-item:last-child { color: #7b1fa2; }
+.result-box.credito-omaggio .result-item:last-child { color: #2e7d32; }
 .stat-box { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 10px; border-radius: 6px; margin: 10px 0; text-align: center; }
 .stat-box strong { font-size: 18px; color: #1976d2; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
@@ -66,7 +72,7 @@ textarea { resize: vertical; min-height: 50px; }
 </div>
 
 <div class="stat-box">
-    <div>🆕 Nuovi: <strong id="count_nuovi">0</strong> | 🔄 Rinnovi: <strong id="count_rinnovi">0</strong></div>
+    <div>🆕 Nuovi: <strong id="count_nuovi">0</strong> | 🔄 Rinnovi: <strong id="count_rinnovi">0</strong> | 🎁 Omaggi: <strong id="count_omaggi">0</strong></div>
 </div>
 
 <!-- NUOVO -->
@@ -95,8 +101,19 @@ textarea { resize: vertical; min-height: 50px; }
 <label>Info su Saldo Rinnovo:</label>
 <textarea id="info_saldo_rinnovo" placeholder="Note sul saldo rinnovo..."></textarea>
 
-<!-- CREDITI -->
-<div class="section-title crediti">🎫 CREDITI</div>
+<!-- OMAGGIO -->
+<div class="section-title omaggio">🎁 OMAGGIO</div>
+<label>Importo Omaggio (€):</label>
+<input type="number" id="importo_omaggio" step="0.01" value="0" readonly>
+<div class="row">
+    <div><label>Acconto Omaggio (€):</label><input type="number" id="acconto_omaggio" step="0.01" value="0" readonly></div>
+    <div><label>Acconto Saldo Omaggio (€):</label><input type="number" id="acconto_saldo_omaggio" step="0.01" value="0" readonly></div>
+</div>
+<label>Totale Acconti Omaggio (€):</label>
+<input type="number" id="totale_acconti_omaggio" step="0.01" value="0" readonly>
+
+<!-- CREDITI (Nuovi + Rinnovi) -->
+<div class="section-title crediti">🎫 CREDITI (Nuovi + Rinnovi)</div>
 <div class="result-box credito">
     <div class="result-item"><span>Crediti Richiesti:</span><span id="rpt_cred_rich">0</span></div>
     <div class="result-item"><span>Crediti Dati:</span><span id="rpt_cred_dati">0</span></div>
@@ -104,11 +121,21 @@ textarea { resize: vertical; min-height: 50px; }
     <div class="result-item"><span>Totale NC (€):</span><span id="rpt_totale_nc">€ 0.00</span></div>
 </div>
 
+<!-- CREDITI OMAGGIO -->
+<div class="section-title crediti-omaggio">🎁 CREDITI OMAGGIO</div>
+<div class="result-box credito-omaggio">
+    <div class="result-item"><span>Crediti Richiesti:</span><span id="rpt_cred_rich_omaggio">0</span></div>
+    <div class="result-item"><span>Crediti Dati:</span><span id="rpt_cred_dati_omaggio">0</span></div>
+    <div class="result-item"><span>Crediti Dare:</span><span id="rpt_cred_dare_omaggio">0</span></div>
+    <div class="result-item"><span>Totale NC Omaggio (€):</span><span id="rpt_totale_nc_omaggio">€ 0.00</span></div>
+</div>
+
 <!-- RIEPILOGO -->
 <div class="section-title riepilogo">📊 RIEPILOGO</div>
 <div class="result-box">
     <div class="result-item"><span>Totale Acconti Nuovi:</span><span id="rpt_nuovi">€ 0.00</span></div>
     <div class="result-item"><span>Totale Acconti Rinnovo:</span><span id="rpt_rinnovo">€ 0.00</span></div>
+    <div class="result-item"><span>Totale Acconti Omaggio:</span><span id="rpt_omaggio">€ 0.00</span></div>
     <div class="result-item"><span>TOTALE GENERALE:</span><span id="rpt_totale">€ 0.00</span></div>
 </div>
 
@@ -159,23 +186,41 @@ async function calcolaAutomatico() {
         const res = await fetch('/api/calcoli/calcola?' + p.toString(), { headers: getHeaders() });
         if (!res.ok) return;
         const d = await res.json();
+        
+        // NUOVO
         document.getElementById('importo_nuovo').value = d.importo_nuovo.toFixed(2);
         document.getElementById('acconto_nuovo').value = d.acconto_nuovo.toFixed(2);
         document.getElementById('acconto_saldo_nuovo').value = d.acconto_saldo_nuovo.toFixed(2);
         document.getElementById('totale_acconti_nuovi').value = d.totale_acconti_nuovi.toFixed(2);
+        // RINNOVO
         document.getElementById('importo_rinnovo').value = d.importo_rinnovo.toFixed(2);
         document.getElementById('acconto_rinnovo').value = d.acconto_rinnovo.toFixed(2);
         document.getElementById('acconto_saldo_rinnovo').value = d.acconto_saldo_rinnovo.toFixed(2);
         document.getElementById('totale_acconti_rinnovo').value = d.totale_acconti_rinnovo.toFixed(2);
+        // OMAGGIO
+        document.getElementById('importo_omaggio').value = d.importo_omaggio.toFixed(2);
+        document.getElementById('acconto_omaggio').value = d.acconto_omaggio.toFixed(2);
+        document.getElementById('acconto_saldo_omaggio').value = d.acconto_saldo_omaggio.toFixed(2);
+        document.getElementById('totale_acconti_omaggio').value = d.totale_acconti_omaggio.toFixed(2);
+        // CREDITI
         document.getElementById('rpt_cred_rich').textContent = d.crediti_rich;
         document.getElementById('rpt_cred_dati').textContent = d.crediti_dati;
         document.getElementById('rpt_cred_dare').textContent = d.crediti_dare;
         document.getElementById('rpt_totale_nc').textContent = '€ ' + d.totale_nc.toFixed(2);
+        // CREDITI OMAGGIO
+        document.getElementById('rpt_cred_rich_omaggio').textContent = d.crediti_rich_omaggio;
+        document.getElementById('rpt_cred_dati_omaggio').textContent = d.crediti_dati_omaggio;
+        document.getElementById('rpt_cred_dare_omaggio').textContent = d.crediti_dare_omaggio;
+        document.getElementById('rpt_totale_nc_omaggio').textContent = '€ ' + d.totale_nc_omaggio.toFixed(2);
+        // RIEPILOGO
         document.getElementById('rpt_nuovi').textContent = '€ ' + d.totale_acconti_nuovi.toFixed(2);
         document.getElementById('rpt_rinnovo').textContent = '€ ' + d.totale_acconti_rinnovo.toFixed(2);
+        document.getElementById('rpt_omaggio').textContent = '€ ' + d.totale_acconti_omaggio.toFixed(2);
         document.getElementById('rpt_totale').textContent = '€ ' + d.totale_generale.toFixed(2);
+        // COUNT
         document.getElementById('count_nuovi').textContent = d.count_nuovi;
         document.getElementById('count_rinnovi').textContent = d.count_rinnovi;
+        document.getElementById('count_omaggi').textContent = d.count_omaggi;
     } catch (e) { console.error(e); }
 }
 
@@ -201,11 +246,17 @@ async function salva() {
         info_saldo_rinnovo_nuovo: '',
         importo_rinnovo: v('importo_rinnovo'), acconto_rinnovo: v('acconto_rinnovo'), acconto_saldo_rinnovo: v('acconto_saldo_rinnovo'),
         totale_acconti_rinnovo: v('totale_acconti_rinnovo'), info_saldo_rinnovo: document.getElementById('info_saldo_rinnovo').value.trim(),
-        totale_generale: parseFloat(document.getElementById('rpt_totale').textContent.replace('€ ','')) || 0,
+        importo_omaggio: v('importo_omaggio'), acconto_omaggio: v('acconto_omaggio'), acconto_saldo_omaggio: v('acconto_saldo_omaggio'),
+        totale_acconti_omaggio: v('totale_acconti_omaggio'),
         crediti_rich: parseInt(document.getElementById('rpt_cred_rich').textContent) || 0,
         crediti_dati: parseInt(document.getElementById('rpt_cred_dati').textContent) || 0,
         crediti_dare: parseInt(document.getElementById('rpt_cred_dare').textContent) || 0,
         totale_nc: parseFloat(document.getElementById('rpt_totale_nc').textContent.replace('€ ','')) || 0,
+        crediti_rich_omaggio: parseInt(document.getElementById('rpt_cred_rich_omaggio').textContent) || 0,
+        crediti_dati_omaggio: parseInt(document.getElementById('rpt_cred_dati_omaggio').textContent) || 0,
+        crediti_dare_omaggio: parseInt(document.getElementById('rpt_cred_dare_omaggio').textContent) || 0,
+        totale_nc_omaggio: parseFloat(document.getElementById('rpt_totale_nc_omaggio').textContent.replace('€ ','')) || 0,
+        totale_generale: parseFloat(document.getElementById('rpt_totale').textContent.replace('€ ','')) || 0,
         note: document.getElementById('note').value.trim()
     };
     try {
@@ -235,15 +286,24 @@ function generaPDFWhatsApp() {
     doc.setFontSize(10);
     doc.text(`Importo: EUR ${val('importo_rinnovo')} | Acconto: EUR ${val('acconto_rinnovo')} | Saldo: EUR ${val('acconto_saldo_rinnovo')}`, 20, 99);
     doc.text(`Totale Acconti Rinnovo: EUR ${val('totale_acconti_rinnovo')}`, 20, 106);
-    doc.setFontSize(12); doc.text('CREDITI', 20, 116);
+    doc.setFontSize(12); doc.text('OMAGGIO', 20, 116);
     doc.setFontSize(10);
-    doc.text(`Richiesti: ${txt('rpt_cred_rich')} | Dati: ${txt('rpt_cred_dati')} | Dare: ${txt('rpt_cred_dare')}`, 20, 123);
-    doc.text(`Totale NC: ${txt('rpt_totale_nc')}`, 20, 130);
-    doc.setFontSize(14); doc.text(`TOTALE GENERALE: ${txt('rpt_totale')}`, 20, 145);
+    doc.text(`Importo: EUR ${val('importo_omaggio')} | Acconto: EUR ${val('acconto_omaggio')} | Saldo: EUR ${val('acconto_saldo_omaggio')}`, 20, 123);
+    doc.text(`Totale Acconti Omaggio: EUR ${val('totale_acconti_omaggio')}`, 20, 130);
+    doc.setFontSize(12); doc.text('CREDITI', 20, 140);
+    doc.setFontSize(10);
+    doc.text(`Richiesti: ${txt('rpt_cred_rich')} | Dati: ${txt('rpt_cred_dati')} | Dare: ${txt('rpt_cred_dare')}`, 20, 147);
+    doc.text(`Totale NC: ${txt('rpt_totale_nc')}`, 20, 154);
+    doc.setFontSize(12); doc.text('CREDITI OMAGGIO', 20, 164);
+    doc.setFontSize(10);
+    doc.text(`Richiesti: ${txt('rpt_cred_rich_omaggio')} | Dati: ${txt('rpt_cred_dati_omaggio')} | Dare: ${txt('rpt_cred_dare_omaggio')}`, 20, 171);
+    doc.text(`Totale NC Omaggio: ${txt('rpt_totale_nc_omaggio')}`, 20, 178);
+    doc.setFontSize(14); doc.setFont(undefined, 'bold');
+    doc.text(`TOTALE GENERALE: ${txt('rpt_totale')}`, 20, 193);
     const note = document.getElementById('note').value;
-    if (note) { doc.setFontSize(10); doc.text('Note: ' + note, 20, 160); }
+    if (note) { doc.setFontSize(10); doc.setFont(undefined, 'normal'); doc.text('Note: ' + note, 20, 205); }
     doc.save('calcoli.pdf');
-    const msg = `Report Calcoli\nTotale: ${txt('rpt_totale')}\nCrediti Dare: ${txt('rpt_cred_dare')}\nTotale NC: ${txt('rpt_totale_nc')}`;
+    const msg = `Report Calcoli\nTotale: ${txt('rpt_totale')}\nNuovi: ${txt('rpt_nuovi')}\nRinnovi: ${txt('rpt_rinnovo')}\nOmaggio: ${txt('rpt_omaggio')}\nCrediti Dare: ${txt('rpt_cred_dare')}\nCrediti Dare Omaggio: ${txt('rpt_cred_dare_omaggio')}`;
     window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
     mostraToast('📄 PDF scaricato + WhatsApp aperto');
 }

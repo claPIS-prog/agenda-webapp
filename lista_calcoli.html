@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lista Calcoli</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
@@ -16,18 +17,28 @@ label { display: block; font-weight: bold; margin: 10px 0 4px; color: #333; font
 input, select { width: 100%; padding: 9px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
 .row { display: flex; gap: 8px; }
 .row > div { flex: 1; }
+.btn { width: 100%; padding: 13px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; color: white; }
+.btn:active { opacity: 0.8; }
+.btn-pdf { background: #25d366; }
 .section-title { font-size: 13px; color: white; font-weight: bold; margin: 18px 0 10px; padding: 8px 12px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; background: #607d8b; }
 .item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; }
 .item.nuovo { border-left-color: #2196f3; }
 .item.rinnovo { border-left-color: #ff9800; }
+.item.omaggio { border-left-color: #4caf50; }
 .item strong { color: #222; font-size: 14px; display: block; margin-bottom: 4px; }
 .item small { color: #666; display: block; font-size: 12px; margin: 2px 0; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; color: white; font-size: 11px; font-weight: bold; margin-right: 6px; }
 .badge.nuovo { background: #2196f3; }
 .badge.rinnovo { background: #ff9800; }
+.badge.omaggio { background: #4caf50; }
 .badge.credito { background: #9c27b0; }
 .credit-box { background: #f3e5f5; border-radius: 5px; padding: 8px; margin-top: 6px; }
 .credit-box small { color: #6a1b9a; margin: 1px 0; }
+.credit-box.omaggio { background: #e8f5e9; }
+.credit-box.omaggio small { color: #2e7d32; }
+.summary-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 12px; border-radius: 6px; margin: 15px 0; }
+.summary-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.summary-item strong { color: #2e7d32; }
 .empty { text-align: center; color: #888; padding: 30px; }
 .error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
@@ -47,13 +58,27 @@ input, select { width: 100%; padding: 9px; border: 1px solid #ddd; border-radius
     <option value="">-- Tutti --</option>
     <option value="nuovo">🆕 Nuovi</option>
     <option value="rinnovo">🔄 Rinnovi</option>
+    <option value="omaggio">🎁 Omaggi</option>
 </select>
 <div class="row">
     <div><label>Data DA:</label><input type="date" id="data_da" onchange="caricaLista()"></div>
     <div><label>Data A:</label><input type="date" id="data_a" onchange="caricaLista()"></div>
 </div>
 
+<div class="summary-box" id="summary_box" style="display:none;">
+    <div class="summary-item"><span>🆕 Nuovi:</span><strong id="sum_nuovi">€ 0.00</strong></div>
+    <div class="summary-item"><span>🔄 Rinnovi:</span><strong id="sum_rinnovi">€ 0.00</strong></div>
+    <div class="summary-item"><span>🎁 Omaggi:</span><strong id="sum_omaggi">€ 0.00</strong></div>
+    <div class="summary-item"><span>🎫 Crediti Dare:</span><strong id="sum_dare">0</strong></div>
+    <div class="summary-item"><span>🎁 Crediti Dare Omaggio:</span><strong id="sum_dare_omaggio">0</strong></div>
+    <div class="summary-item"><span>💰 Totale NC:</span><strong id="sum_nc">€ 0.00</strong></div>
+    <div class="summary-item"><span>💰 Totale NC Omaggio:</span><strong id="sum_nc_omaggio">€ 0.00</strong></div>
+    <div class="summary-item" style="border-top:1px solid #c8e6c9;padding-top:6px;margin-top:4px;"><span>TOTALE GENERALE:</span><strong id="sum_totale" style="font-size:15px;">€ 0.00</strong></div>
+</div>
+
 <div id="lista"><div class="empty">Caricamento...</div></div>
+
+<button class="btn btn-pdf" onclick="generaPDFWhatsApp()">📄 PDF x WHATSAPP</button>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -67,6 +92,8 @@ function getHeaders(contentType) {
     if (initData) headers['X-Telegram-Init-Data'] = initData;
     return headers;
 }
+
+let listaDati = [];
 
 async function caricaNominativi() {
     try {
@@ -88,12 +115,31 @@ async function caricaLista() {
     try {
         const res = await fetch('/api/calcoli/lista?' + p.toString(), { headers: getHeaders() });
         if (!res.ok) { box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>'; return; }
-        const items = await res.json();
-        document.getElementById('counter').textContent = 'Totale: ' + items.length;
-        if (items.length === 0) { box.innerHTML = '<div class="empty">Nessun risultato trovato.</div>'; return; }
-        box.innerHTML = items.map(i => {
-            const tipoClass = i.tipo === 'nuovo' ? 'nuovo' : 'rinnovo';
-            const tipoLabel = i.tipo === 'nuovo' ? '🆕 NUOVO' : '🔄 RINNOVO';
+        listaDati = await res.json();
+        document.getElementById('counter').textContent = 'Totale: ' + listaDati.length;
+        if (listaDati.length === 0) { box.innerHTML = '<div class="empty">Nessun risultato trovato.</div>'; document.getElementById('summary_box').style.display = 'none'; return; }
+        
+        let totNuovi = 0, totRinnovi = 0, totOmaggi = 0, totDare = 0, totDareOmaggio = 0, totNC = 0, totNCOmaggio = 0;
+        listaDati.forEach(i => {
+            const val = (parseFloat(i.importo_acconto || 0) + parseFloat(i.importo_saldo || 0));
+            if (i.tipo === 'nuovo') { totNuovi += val; totDare += parseInt(i.num_credito_dare || 0); totNC += parseFloat(i.val_nc_rich || 0); }
+            else if (i.tipo === 'omaggio') { totOmaggi += val; totDareOmaggio += parseInt(i.num_credito_dare || 0); totNCOmaggio += parseFloat(i.val_nc_rich || 0); }
+            else { totRinnovi += val; }
+        });
+        
+        document.getElementById('sum_nuovi').textContent = '€ ' + totNuovi.toFixed(2);
+        document.getElementById('sum_rinnovi').textContent = '€ ' + totRinnovi.toFixed(2);
+        document.getElementById('sum_omaggi').textContent = '€ ' + totOmaggi.toFixed(2);
+        document.getElementById('sum_dare').textContent = totDare;
+        document.getElementById('sum_dare_omaggio').textContent = totDareOmaggio;
+        document.getElementById('sum_nc').textContent = '€ ' + totNC.toFixed(2);
+        document.getElementById('sum_nc_omaggio').textContent = '€ ' + totNCOmaggio.toFixed(2);
+        document.getElementById('sum_totale').textContent = '€ ' + (totNuovi + totRinnovi + totOmaggi).toFixed(2);
+        document.getElementById('summary_box').style.display = 'block';
+        
+        box.innerHTML = listaDati.map(i => {
+            const tipoClass = i.tipo === 'nuovo' ? 'nuovo' : (i.tipo === 'omaggio' ? 'omaggio' : 'rinnovo');
+            const tipoLabel = i.tipo === 'nuovo' ? '🆕 NUOVO' : (i.tipo === 'omaggio' ? '🎁 OMAGGIO' : '🔄 RINNOVO');
             const data = i.data_operazione ? new Date(i.data_operazione).toLocaleDateString('it-IT') : 'N/D';
             const acconto = parseFloat(i.importo_acconto || 0).toFixed(2);
             const saldo = parseFloat(i.importo_saldo || 0).toFixed(2);
@@ -107,8 +153,10 @@ async function caricaLista() {
                 '<small>📅 Data: ' + data + ' | ⏰ Scadenza: ' + (i.scadenza || 'N/D') + (i.orario_scadenza ? ' ore ' + i.orario_scadenza : '') + '</small>' +
                 '<small>💰 Acconto: € ' + acconto + ' | Saldo: € ' + saldo + '</small>';
             if (rich > 0 || dati > 0) {
-                html += '<div class="credit-box">' +
-                    '<small><span class="badge credito">🎫 CREDITI</span></small>' +
+                const boxClass = i.tipo === 'omaggio' ? 'credit-box omaggio' : 'credit-box';
+                const badgeLabel = i.tipo === 'omaggio' ? '🎁 CREDITI OMAGGIO' : '🎫 CREDITI';
+                html += '<div class="' + boxClass + '">' +
+                    '<small><span class="badge credito">' + badgeLabel + '</span></small>' +
                     '<small>Richiesti: ' + rich + ' | Dati: ' + dati + ' | <strong>Dare: ' + dare + '</strong></small>' +
                     '<small>Valore Singolo NC: € ' + valSingolo + ' | Totale NC: € ' + totNc + '</small>' +
                     '</div>';
@@ -126,6 +174,66 @@ function mostraToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function generaPDFWhatsApp() {
+    if (listaDati.length === 0) { mostraToast('⚠️ Nessun dato da esportare'); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const nominativo = document.getElementById('nominativo').value || 'Tutti';
+    const tipo = document.getElementById('tipo').value || 'Tutti';
+    const dataDa = document.getElementById('data_da').value || 'N/D';
+    const dataA = document.getElementById('data_a').value || 'N/D';
+    doc.setFontSize(16); doc.text('Lista Calcoli', 105, 20, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text(`Nominativo: ${nominativo} | Tipo: ${tipo}`, 20, 32);
+    doc.text(`Periodo: ${dataDa} - ${dataA}`, 20, 39);
+    doc.text(`Totale record: ${listaDati.length}`, 20, 46);
+    let y = 55;
+    doc.setFontSize(11); doc.setFont(undefined, 'bold'); doc.text('DETTAGLIO', 20, y); y += 8;
+    doc.setFontSize(9); doc.setFont(undefined, 'normal');
+    listaDati.forEach(i => {
+        if (y > 260) { doc.addPage(); y = 20; }
+        const tipoLabel = i.tipo === 'nuovo' ? 'NUOVO' : (i.tipo === 'omaggio' ? 'OMAGGIO' : 'RINNOVO');
+        const data = i.data_operazione ? new Date(i.data_operazione).toLocaleDateString('it-IT') : 'N/D';
+        doc.setFont(undefined, 'bold');
+        doc.text(`${tipoLabel} - ${i.nominativo || ''}`, 20, y); y += 5;
+        doc.setFont(undefined, 'normal');
+        doc.text(`Data: ${data} | Scadenza: ${i.scadenza || 'N/D'}${i.orario_scadenza ? ' ore ' + i.orario_scadenza : ''}`, 20, y); y += 5;
+        const acconto = parseFloat(i.importo_acconto || 0).toFixed(2);
+        const saldo = parseFloat(i.importo_saldo || 0).toFixed(2);
+        doc.text(`Acconto: EUR ${acconto} | Saldo: EUR ${saldo}`, 20, y); y += 5;
+        const rich = i.num_credito_rich || 0;
+        const dati = i.num_credito_dato || 0;
+        const dare = i.num_credito_dare || (rich - dati);
+        const valSingolo = parseFloat(i.val_singolo_nc_rich || 0).toFixed(2);
+        const totNc = parseFloat(i.val_nc_rich || 0).toFixed(2);
+        doc.text(`Crediti: Rich ${rich} | Dati ${dati} | Dare ${dare} | Val Singolo EUR ${valSingolo} | Totale NC EUR ${totNc}`, 20, y); y += 8;
+    });
+    y += 5;
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFontSize(11); doc.setFont(undefined, 'bold'); doc.text('RIEPILOGO', 20, y); y += 7;
+    doc.setFontSize(10); doc.setFont(undefined, 'normal');
+    let totNuovi = 0, totRinnovi = 0, totOmaggi = 0, totDare = 0, totDareOmaggio = 0, totNC = 0, totNCOmaggio = 0;
+    listaDati.forEach(i => {
+        const val = parseFloat(i.importo_acconto || 0) + parseFloat(i.importo_saldo || 0);
+        if (i.tipo === 'nuovo') { totNuovi += val; totDare += parseInt(i.num_credito_dare || 0); totNC += parseFloat(i.val_nc_rich || 0); }
+        else if (i.tipo === 'omaggio') { totOmaggi += val; totDareOmaggio += parseInt(i.num_credito_dare || 0); totNCOmaggio += parseFloat(i.val_nc_rich || 0); }
+        else { totRinnovi += val; }
+    });
+    doc.text(`Totale Nuovi: EUR ${totNuovi.toFixed(2)}`, 20, y); y += 6;
+    doc.text(`Totale Rinnovi: EUR ${totRinnovi.toFixed(2)}`, 20, y); y += 6;
+    doc.text(`Totale Omaggi: EUR ${totOmaggi.toFixed(2)}`, 20, y); y += 6;
+    doc.text(`Crediti Dare: ${totDare}`, 20, y); y += 6;
+    doc.text(`Crediti Dare Omaggio: ${totDareOmaggio}`, 20, y); y += 6;
+    doc.text(`Totale NC: EUR ${totNC.toFixed(2)}`, 20, y); y += 6;
+    doc.text(`Totale NC Omaggio: EUR ${totNCOmaggio.toFixed(2)}`, 20, y); y += 8;
+    doc.setFontSize(12); doc.setFont(undefined, 'bold');
+    doc.text(`TOTALE GENERALE: EUR ${(totNuovi + totRinnovi + totOmaggi).toFixed(2)}`, 20, y);
+    doc.save('lista_calcoli.pdf');
+    const msg = `Lista Calcoli\nNominativo: ${nominativo}\nTipo: ${tipo}\nPeriodo: ${dataDa} - ${dataA}\nRecord: ${listaDati.length}\nNuovi: EUR ${totNuovi.toFixed(2)}\nRinnovi: EUR ${totRinnovi.toFixed(2)}\nOmaggio: EUR ${totOmaggi.toFixed(2)}\nCrediti Dare: ${totDare}\nCrediti Dare Omaggio: ${totDareOmaggio}\nTotale NC: EUR ${totNC.toFixed(2)}\nTotale NC Omaggio: EUR ${totNCOmaggio.toFixed(2)}\nTOTALE GENERALE: EUR ${(totNuovi + totRinnovi + totOmaggi).toFixed(2)}`;
+    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    mostraToast('📄 PDF scaricato + WhatsApp aperto');
 }
 
 caricaNominativi();

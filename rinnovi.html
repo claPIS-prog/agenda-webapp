@@ -19,9 +19,9 @@ textarea { resize: vertical; min-height: 80px; }
 .btn { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 15px; background: #4caf50; color: white; }
 .btn:active { background: #388e3c; }
 .section-title { font-size: 13px; color: #0088cc; font-weight: bold; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
+.hint { font-size: 12px; color: #888; margin-top: 4px; font-style: italic; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
 .toast.show { opacity: 1; }
-.hint { font-size: 12px; color: #888; margin-top: 4px; font-style: italic; }
 </style>
 </head>
 <body>
@@ -70,7 +70,7 @@ function mostraForm() {
     html += '</select>';
     
     html += '<div class="section-title">Dettagli Rinnovo</div>';
-    html += '<div class="row"><div><label>Tipo:</label><select id="tipo"><option value="rinnovo">Rinnovo</option><option value="nuovo">Nuovo</option><option value="omaggio">Omaggio</option></select></div>;
+    html += '<div class="row"><div><label>Tipo:</label><select id="tipo"><option value="rinnovo">Rinnovo</option><option value="nuovo">Nuovo</option><option value="omaggio">Omaggio</option></select></div>';
     html += '<div><label>Mesi:</label><input type="number" id="mesi" value="1" min="1"></div></div>';
     
     html += '<div class="row"><div><label>Data Operazione:</label><input type="date" id="data_operazione" value="' + oggi + '"></div>';
@@ -104,12 +104,10 @@ function mostraForm() {
 function calcolaValoreSingolo() {
     const importoSaldo = parseFloat(document.getElementById('importo_saldo').value) || 0;
     const creditiDati = parseInt(document.getElementById('num_credito_dato').value) || 0;
-    
     let valoreSingolo = 0;
     if (creditiDati > 0) {
         valoreSingolo = importoSaldo / creditiDati;
     }
-    
     document.getElementById('val_singolo_nc_rich').value = valoreSingolo.toFixed(2);
 }
 

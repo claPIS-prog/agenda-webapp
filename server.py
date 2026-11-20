@@ -75,15 +75,16 @@ def init_db():
                 reseller_da TEXT, reseller_a TEXT,
                 procuratore_da TEXT, procuratore_a TEXT,
                 periodo_da TEXT, periodo_a TEXT,
-                importo_nuovo REAL DEFAULT 0, data_acconto_nuovo TEXT, acconto_nuovo REAL DEFAULT 0,
-                info_saldo_nuovo TEXT, data_acconto_saldo_nuovo TEXT, acconto_saldo_nuovo REAL DEFAULT 0,
-                totale_acconti_nuovi REAL DEFAULT 0, info_saldo_rinnovo_nuovo TEXT,
-                importo_rinnovo REAL DEFAULT 0, data_acconto_rinnovo TEXT, acconto_rinnovo REAL DEFAULT 0,
-                info_saldo_rinnovo TEXT, data_acconto_saldo_rinnovo TEXT, acconto_saldo_rinnovo REAL DEFAULT 0,
-                totale_acconti_rinnovo REAL DEFAULT 0, totale_generale REAL DEFAULT 0,
+                importo_nuovo REAL DEFAULT 0, acconto_nuovo REAL DEFAULT 0, acconto_saldo_nuovo REAL DEFAULT 0,
+                totale_acconti_nuovi REAL DEFAULT 0, info_saldo_nuovo TEXT, info_saldo_rinnovo_nuovo TEXT,
+                importo_rinnovo REAL DEFAULT 0, acconto_rinnovo REAL DEFAULT 0, acconto_saldo_rinnovo REAL DEFAULT 0,
+                totale_acconti_rinnovo REAL DEFAULT 0, info_saldo_rinnovo TEXT,
+                importo_omaggio REAL DEFAULT 0, acconto_omaggio REAL DEFAULT 0, acconto_saldo_omaggio REAL DEFAULT 0,
+                totale_acconti_omaggio REAL DEFAULT 0,
                 crediti_rich INTEGER DEFAULT 0, crediti_dati INTEGER DEFAULT 0, crediti_dare INTEGER DEFAULT 0,
-                totale_nc REAL DEFAULT 0,
-                note TEXT, creato_il TEXT
+                crediti_rich_omaggio INTEGER DEFAULT 0, crediti_dati_omaggio INTEGER DEFAULT 0, crediti_dare_omaggio INTEGER DEFAULT 0,
+                totale_nc REAL DEFAULT 0, totale_nc_omaggio REAL DEFAULT 0,
+                totale_generale REAL DEFAULT 0, note TEXT, creato_il TEXT
             )""")
             for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),("procuratore","TEXT"),("apk_utilizzata","TEXT"),("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),("data_fine","TEXT"),("informazioni","TEXT")]:
                 cur.execute(f"ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS {col} {typ}")
@@ -657,36 +658,63 @@ def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", reselle
                 query += " AND r.data_operazione <= %s"; params.append(periodo_a)
             cur.execute(query, params)
             rows = cur.fetchall()
+            
+            # Inizializza variabili per 3 categorie
             importo_nuovo = acconto_nuovo = acconto_saldo_nuovo = 0
             importo_rinnovo = acconto_rinnovo = acconto_saldo_rinnovo = 0
+            importo_omaggio = acconto_omaggio = acconto_saldo_omaggio = 0
             crediti_rich = crediti_dati = crediti_dare = 0
-            totale_nc = 0
+            crediti_rich_omaggio = crediti_dati_omaggio = crediti_dare_omaggio = 0
+            totale_nc = totale_nc_omaggio = 0
+            
             for r in rows:
-                val_tot = float(r['importo_acconto'] or 0) + float(r['importo_saldo'] or 0)
-                crediti_rich += int(r['num_credito_rich'] or 0)
-                crediti_dati += int(r['num_credito_dato'] or 0)
-                crediti_dare += int(r['num_credito_dare'] or 0)
-                totale_nc += float(r['val_nc_rich'] or 0)
+                val_acconto = float(r['importo_acconto'] or 0)
+                val_saldo = float(r['importo_saldo'] or 0)
+                val_tot = val_acconto + val_saldo
+                rich = int(r['num_credito_rich'] or 0)
+                dati = int(r['num_credito_dato'] or 0)
+                dare = int(r['num_credito_dare'] or 0)
+                nc = float(r['val_nc_rich'] or 0)
+                
                 if r['tipo'] == 'nuovo':
                     importo_nuovo += val_tot
-                    acconto_nuovo += float(r['importo_acconto'] or 0)
-                    acconto_saldo_nuovo += float(r['importo_saldo'] or 0)
-                else:
+                    acconto_nuovo += val_acconto
+                    acconto_saldo_nuovo += val_saldo
+                    crediti_rich += rich
+                    crediti_dati += dati
+                    crediti_dare += dare
+                    totale_nc += nc
+                elif r['tipo'] == 'omaggio':
+                    importo_omaggio += val_tot
+                    acconto_omaggio += val_acconto
+                    acconto_saldo_omaggio += val_saldo
+                    crediti_rich_omaggio += rich
+                    crediti_dati_omaggio += dati
+                    crediti_dare_omaggio += dare
+                    totale_nc_omaggio += nc
+                else:  # rinnovo
                     importo_rinnovo += val_tot
-                    acconto_rinnovo += float(r['importo_acconto'] or 0)
-                    acconto_saldo_rinnovo += float(r['importo_saldo'] or 0)
+                    acconto_rinnovo += val_acconto
+                    acconto_saldo_rinnovo += val_saldo
+            
             totale_acconti_nuovi = acconto_nuovo + acconto_saldo_nuovo
             totale_acconti_rinnovo = acconto_rinnovo + acconto_saldo_rinnovo
-            totale_generale = totale_acconti_nuovi + totale_acconti_rinnovo
+            totale_acconti_omaggio = acconto_omaggio + acconto_saldo_omaggio
+            totale_generale = totale_acconti_nuovi + totale_acconti_rinnovo + totale_acconti_omaggio
+            
             return {
                 "importo_nuovo": importo_nuovo, "acconto_nuovo": acconto_nuovo, "acconto_saldo_nuovo": acconto_saldo_nuovo,
                 "totale_acconti_nuovi": totale_acconti_nuovi,
                 "importo_rinnovo": importo_rinnovo, "acconto_rinnovo": acconto_rinnovo, "acconto_saldo_rinnovo": acconto_saldo_rinnovo,
                 "totale_acconti_rinnovo": totale_acconti_rinnovo,
-                "totale_generale": totale_generale,
+                "importo_omaggio": importo_omaggio, "acconto_omaggio": acconto_omaggio, "acconto_saldo_omaggio": acconto_saldo_omaggio,
+                "totale_acconti_omaggio": totale_acconti_omaggio,
                 "crediti_rich": crediti_rich, "crediti_dati": crediti_dati, "crediti_dare": crediti_dare, "totale_nc": totale_nc,
+                "crediti_rich_omaggio": crediti_rich_omaggio, "crediti_dati_omaggio": crediti_dati_omaggio, "crediti_dare_omaggio": crediti_dare_omaggio, "totale_nc_omaggio": totale_nc_omaggio,
+                "totale_generale": totale_generale,
                 "count_nuovi": sum(1 for r in rows if r['tipo'] == 'nuovo'),
-                "count_rinnovi": sum(1 for r in rows if r['tipo'] == 'rinnovo')
+                "count_rinnovi": sum(1 for r in rows if r['tipo'] == 'rinnovo'),
+                "count_omaggi": sum(1 for r in rows if r['tipo'] == 'omaggio')
             }
     finally:
         conn.close()
@@ -716,16 +744,22 @@ def api_calcoli_salva(payload: CalcoloPayload, request: Request):
                 nominativo_da, nominativo_a, reseller_da, reseller_a, procuratore_da, procuratore_a, periodo_da, periodo_a,
                 importo_nuovo, acconto_nuovo, acconto_saldo_nuovo, totale_acconti_nuovi, info_saldo_nuovo, info_saldo_rinnovo_nuovo,
                 importo_rinnovo, acconto_rinnovo, acconto_saldo_rinnovo, totale_acconti_rinnovo, info_saldo_rinnovo,
-                totale_generale, crediti_rich, crediti_dati, crediti_dare, totale_nc, note, creato_il
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                importo_omaggio, acconto_omaggio, acconto_saldo_omaggio, totale_acconti_omaggio,
+                crediti_rich, crediti_dati, crediti_dare, totale_nc,
+                crediti_rich_omaggio, crediti_dati_omaggio, crediti_dare_omaggio, totale_nc_omaggio,
+                totale_generale, note, creato_il
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (d.get("nominativo_da",""), d.get("nominativo_a",""), d.get("reseller_da",""), d.get("reseller_a",""),
                  d.get("procuratore_da",""), d.get("procuratore_a",""), d.get("periodo_da",""), d.get("periodo_a",""),
                  float(d.get("importo_nuovo",0)), float(d.get("acconto_nuovo",0)), float(d.get("acconto_saldo_nuovo",0)),
                  float(d.get("totale_acconti_nuovi",0)), d.get("info_saldo_nuovo",""), d.get("info_saldo_rinnovo_nuovo",""),
                  float(d.get("importo_rinnovo",0)), float(d.get("acconto_rinnovo",0)), float(d.get("acconto_saldo_rinnovo",0)),
                  float(d.get("totale_acconti_rinnovo",0)), d.get("info_saldo_rinnovo",""),
-                 float(d.get("totale_generale",0)), int(d.get("crediti_rich",0)), int(d.get("crediti_dati",0)),
-                 int(d.get("crediti_dare",0)), float(d.get("totale_nc",0)), d.get("note",""), datetime.now().isoformat()))
+                 float(d.get("importo_omaggio",0)), float(d.get("acconto_omaggio",0)), float(d.get("acconto_saldo_omaggio",0)),
+                 float(d.get("totale_acconti_omaggio",0)),
+                 int(d.get("crediti_rich",0)), int(d.get("crediti_dati",0)), int(d.get("crediti_dare",0)), float(d.get("totale_nc",0)),
+                 int(d.get("crediti_rich_omaggio",0)), int(d.get("crediti_dati_omaggio",0)), int(d.get("crediti_dare_omaggio",0)), float(d.get("totale_nc_omaggio",0)),
+                 float(d.get("totale_generale",0)), d.get("note",""), datetime.now().isoformat()))
         conn.commit()
     finally:
         conn.close()
