@@ -1,8 +1,10 @@
 import os
+import json
+import urllib.request
 from datetime import datetime, timedelta
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -27,6 +29,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Lista completa dei moduli disponibili nel bot
+ALL_MODULES = [
+    "nominativo", "lista", "scadenze", "rinnovi", "storico_rinnovi", 
+    "saldo_rinnovi", "reseller", "procuratori", "server", "nota", 
+    "credenziali", "permessi", "dispositivi", "sistemi_op", "buffett", 
+    "pagamenti", "notifiche", "operatori_it", "tabelle"
+]
+
 def get_current_user(request: Request):
     init_data = request.headers.get("X-Telegram-Init-Data")
     if not init_data:
@@ -34,9 +44,36 @@ def get_current_user(request: Request):
     try:
         validate(init_data, BOT_TOKEN)
         data = parse(init_data)
-        return data.get("user")
+        user = data.get("user")
+        return {"id": user["id"], "first_name": user.get("first_name", ""), "is_admin": user["id"] in AUTHORIZED_IDS}
     except Exception:
         return None
+
+def check_permission(module_name: str):
+    """Dipendenza FastAPI per verificare i permessi"""
+    async def permission_checker(request: Request):
+        user = get_current_user(request)
+        if not user:
+            raise HTTPException(status_code=401, detail="Non autenticato")
+        
+        # L'admin ha sempre tutti i permessi
+        if user["is_admin"]:
+            return True
+            
+        conn = db_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""SELECT COUNT(*) FROM permessi p 
+                             JOIN autorizzati a ON a.id = p.user_id 
+                             WHERE a.telegram_id = %s AND p.modulo = %s AND p.attivo = TRUE""", 
+                           (user["id"], module_name))
+                count = cur.fetchone()["count"]
+                if count == 0:
+                    raise HTTPException(status_code=403, detail=f"Permesso negato per il modulo: {module_name}")
+        finally:
+            conn.close()
+        return True
+    return permission_checker
 
 def init_db():
     conn = psycopg2.connect(DATABASE_URL)
@@ -57,30 +94,28 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS saldo_rinnovi (id SERIAL PRIMARY KEY, rinnovo_id INTEGER NOT NULL REFERENCES rinnovi(id), num_credito_saldo INTEGER DEFAULT 0, data_credito_rinnovo_saldo TEXT, val_nc_dato REAL DEFAULT 0, val_nc_saldo REAL DEFAULT 0, informazioni_note TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS note (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), messaggio TEXT NOT NULL, creato_il TEXT)")
             cur.execute("""CREATE TABLE IF NOT EXISTS credenziali (
-                id SERIAL PRIMARY KEY, 
-                nominativo TEXT NOT NULL, 
-                nome_file TEXT, 
-                link TEXT, 
-                percorso TEXT, 
-                user_id TEXT, 
-                password TEXT, 
-                file_token TEXT, 
-                scadenza TEXT, 
-                informazioni TEXT,
-                creato_il TEXT
+                id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, nome_file TEXT, link TEXT, percorso TEXT, 
+                user_id TEXT, password TEXT, file_token TEXT, scadenza TEXT, informazioni TEXT, creato_il TEXT
             )""")
-            
-            # NUOVA TABELLA OPERATORI IT
             cur.execute("CREATE TABLE IF NOT EXISTS operatori_it (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
+            
+            # NUOVA TABELLA PERMESSI
+            cur.execute("""CREATE TABLE IF NOT EXISTS permessi (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES autorizzati(id),
+                modulo TEXT NOT NULL,
+                attivo BOOLEAN DEFAULT FALSE,
+                UNIQUE(user_id, modulo)
+            )""")
 
             cur.execute("INSERT INTO config_notifiche (id, ora, minuto, attivo) VALUES (1, 7, 0, 1) ON CONFLICT (id) DO NOTHING")
             
-            # Aggiornamento colonne tabelle esistenti
+            # Aggiornamento colonne
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS dispositivo TEXT")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS sistema_operativo TEXT")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS buffett TEXT")
             cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS metodo_pagamento TEXT")
-            cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS operatore_it TEXT") # Nuova colonna per Nominativi
+            cur.execute("ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS operatore_it TEXT")
             
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS orario_scadenza TEXT")
             cur.execute("ALTER TABLE rinnovi ADD COLUMN IF NOT EXISTS num_credito_rich INTEGER DEFAULT 0")
@@ -97,6 +132,15 @@ def init_db():
             cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS scadenza TEXT")
             cur.execute("ALTER TABLE credenziali ADD COLUMN IF NOT EXISTS creato_il TEXT")
             
+            # Popola i permessi iniziali per gli utenti esistenti se la tabella è vuota
+            cur.execute("SELECT COUNT(*) FROM permessi")
+            if cur.fetchone()["count"] == 0:
+                cur.execute("SELECT id FROM autorizzati")
+                users = cur.fetchall()
+                for u in users:
+                    for mod in ALL_MODULES:
+                        cur.execute("INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, TRUE) ON CONFLICT DO NOTHING", (u["id"], mod))
+            
             conn.commit()
     finally:
         conn.close()
@@ -106,21 +150,98 @@ init_db()
 def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-# --- API ESISTENTI (Mantenute integre) ---
-@app.get("/api/contatti")
-def api_contatti(request: Request):
-    get_current_user(request)
+# --- API AUTORIZZAZIONI E PERMESSI ---
+
+@app.get("/api/amici")
+def api_amici(request: Request):
+    get_current_user(request) # Solo admin può vedere la lista
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nominativo, prezzo, cadenza, tipo, dispositivo, sistema_operativo, buffett, metodo_pagamento, operatore_it FROM nominativi ORDER BY nominativo")
+            cur.execute("SELECT id, telegram_id, nome FROM autorizzati ORDER BY id")
             return cur.fetchall()
     finally:
         conn.close()
 
-@app.get("/api/nominativi")
-def api_nominativi(request: Request):
+class AmicoPayload(BaseModel):
+    telegram_id: int
+    password: str
+    nome: str
+
+@app.post("/api/aggiungi_amico")
+def api_aggiungi_amico(payload: AmicoPayload, request: Request):
     get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO autorizzati (telegram_id, password, nome) VALUES (%s, %s, %s)
+                ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome RETURNING id""",
+                (payload.telegram_id, payload.password, payload.nome))
+            new_id = cur.fetchone()["id"]
+            # Assegna tutti i permessi di default al nuovo utente
+            for mod in ALL_MODULES:
+                cur.execute("INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, TRUE) ON CONFLICT DO NOTHING", (new_id, mod))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/rimuovi_amico/{amico_id}")
+def api_rimuovi_amico(amico_id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM permessi WHERE user_id = %s", (amico_id,))
+            cur.execute("DELETE FROM autorizzati WHERE id = %s", (amico_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.get("/api/permessi/{user_id}")
+def api_get_permessi(user_id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT modulo, attivo FROM permessi WHERE user_id = %s", (user_id,))
+            rows = cur.fetchall()
+            # Ritorna un dizionario {modulo: True/False}
+            perms = {row["modulo"]: row["attivo"] for row in rows}
+            # Assicurati che tutti i moduli siano presenti
+            for mod in ALL_MODULES:
+                if mod not in perms:
+                    perms[mod] = False
+            return perms
+    finally:
+        conn.close()
+
+class PermessiPayload(BaseModel):
+    user_id: int
+    permessi: dict # {modulo: bool}
+
+@app.post("/api/salva_permessi")
+def api_salva_permessi(payload: PermessiPayload, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            for modulo, attivo in payload.permessi.items():
+                if modulo in ALL_MODULES:
+                    cur.execute("""INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, %s)
+                                 ON CONFLICT (user_id, modulo) DO UPDATE SET attivo = excluded.attivo""",
+                               (payload.user_id, modulo, attivo))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# --- API DATI CON PROTEZIONE PERMESSI ---
+# Esempio: per proteggere un endpoint, aggiungi Depends(check_permission("nome_modulo"))
+
+@app.get("/api/nominativi", dependencies=[Depends(check_permission("nominativo"))])
+def api_nominativi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -129,9 +250,18 @@ def api_nominativi(request: Request):
     finally:
         conn.close()
 
-@app.get("/api/scadenze")
+@app.get("/api/contatti", dependencies=[Depends(check_permission("lista"))])
+def api_contatti(request: Request):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo, prezzo, cadenza, tipo, dispositivo, sistema_operativo, buffett, metodo_pagamento, operatore_it FROM nominativi ORDER BY nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/scadenze", dependencies=[Depends(check_permission("scadenze"))])
 def api_scadenze(request: Request):
-    get_current_user(request)
     oggi = datetime.now().date()
     conn = db_conn()
     try:
@@ -159,9 +289,8 @@ def api_scadenze(request: Request):
     finally:
         conn.close()
 
-@app.get("/api/elenco_rinnovi")
+@app.get("/api/elenco_rinnovi", dependencies=[Depends(check_permission("storico_rinnovi"))])
 def api_elenco_rinnovi(request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -179,9 +308,8 @@ def api_elenco_rinnovi(request: Request):
 class RinnovoPayload(BaseModel):
     dati: dict
 
-@app.post("/api/rinnovo")
+@app.post("/api/rinnovo", dependencies=[Depends(check_permission("rinnovi"))])
 def api_rinnovo(payload: RinnovoPayload, request: Request):
-    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -205,9 +333,8 @@ def api_rinnovo(payload: RinnovoPayload, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.delete("/api/rinnovo/{id}")
+@app.delete("/api/rinnovo/{id}", dependencies=[Depends(check_permission("storico_rinnovi"))])
 def api_rinnovo_cancella(id: int, request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -218,9 +345,8 @@ def api_rinnovo_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.get("/api/resellers")
+@app.get("/api/resellers", dependencies=[Depends(check_permission("reseller"))])
 def api_resellers(request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -229,9 +355,8 @@ def api_resellers(request: Request):
     finally:
         conn.close()
 
-@app.get("/api/procuratori")
+@app.get("/api/procuratori", dependencies=[Depends(check_permission("procuratori"))])
 def api_procuratori(request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -240,9 +365,8 @@ def api_procuratori(request: Request):
     finally:
         conn.close()
 
-@app.get("/api/servers")
+@app.get("/api/servers", dependencies=[Depends(check_permission("server"))])
 def api_servers(request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -254,9 +378,8 @@ def api_servers(request: Request):
 class AzionePayload(BaseModel):
     dati: dict
 
-@app.post("/api/azione")
+@app.post("/api/azione", dependencies=[Depends(check_permission("nominativo"))])
 def api_azione(payload: AzionePayload, request: Request):
-    get_current_user(request)
     dati = payload.dati
     azione = dati.get("azione", "")
     conn = db_conn()
@@ -303,7 +426,7 @@ def api_azione(payload: AzionePayload, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.get("/api/dispositivi")
+@app.get("/api/dispositivi", dependencies=[Depends(check_permission("dispositivi"))])
 def api_dispositivi():
     conn = db_conn()
     try:
@@ -313,7 +436,7 @@ def api_dispositivi():
     finally:
         conn.close()
 
-@app.get("/api/sistemi_operativi")
+@app.get("/api/sistemi_operativi", dependencies=[Depends(check_permission("sistemi_op"))])
 def api_sistemi_operativi():
     conn = db_conn()
     try:
@@ -323,7 +446,7 @@ def api_sistemi_operativi():
     finally:
         conn.close()
 
-@app.get("/api/buffett")
+@app.get("/api/buffett", dependencies=[Depends(check_permission("buffett"))])
 def api_buffett():
     conn = db_conn()
     try:
@@ -333,7 +456,7 @@ def api_buffett():
     finally:
         conn.close()
 
-@app.get("/api/metodi_pagamento")
+@app.get("/api/metodi_pagamento", dependencies=[Depends(check_permission("pagamenti"))])
 def api_metodi_pagamento():
     conn = db_conn()
     try:
@@ -344,14 +467,9 @@ def api_metodi_pagamento():
         conn.close()
 
 TABELLE_COLONNE = {
-    'dispositivi': 'nome',
-    'sistemi_operativi': 'nome',
-    'buffett': 'nome',
-    'metodi_pagamento': 'nome',
-    'resellers': 'nominativo',
-    'servers': 'nominativo',
-    'procuratori': 'nominativo',
-    'operatori_it': 'nome'
+    'dispositivi': 'nome', 'sistemi_operativi': 'nome', 'buffett': 'nome',
+    'metodi_pagamento': 'nome', 'resellers': 'nominativo', 'servers': 'nominativo',
+    'procuratori': 'nominativo', 'operatori_it': 'nome'
 }
 
 class ListaPayload(BaseModel):
@@ -359,7 +477,8 @@ class ListaPayload(BaseModel):
     tabella: str
 
 @app.post("/api/lista/nuovo")
-def api_lista_nuovo(payload: ListaPayload):
+def api_lista_nuovo(payload: ListaPayload, request: Request):
+    # Qui potresti aggiungere check_permission specifico per ogni tabella se necessario
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -371,7 +490,7 @@ def api_lista_nuovo(payload: ListaPayload):
     return {"ok": True}
 
 @app.post("/api/lista/modifica")
-def api_lista_modifica(id: int, nome: str, tabella: str):
+def api_lista_modifica(id: int, nome: str, tabella: str, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -383,7 +502,7 @@ def api_lista_modifica(id: int, nome: str, tabella: str):
     return {"ok": True}
 
 @app.delete("/api/lista/cancella/{id}")
-def api_lista_cancella(id: int, tabella: str):
+def api_lista_cancella(id: int, tabella: str, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -393,46 +512,7 @@ def api_lista_cancella(id: int, tabella: str):
         conn.close()
     return {"ok": True}
 
-@app.get("/api/amici")
-def api_amici():
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, telegram_id, nome FROM autorizzati ORDER BY id")
-            return cur.fetchall()
-    finally:
-        conn.close()
-
-class AmicoPayload(BaseModel):
-    telegram_id: int
-    password: str
-    nome: str
-
-@app.post("/api/aggiungi_amico")
-def api_aggiungi_amico(payload: AmicoPayload):
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""INSERT INTO autorizzati (telegram_id, password, nome) VALUES (%s, %s, %s)
-                ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome""",
-                (payload.telegram_id, payload.password, payload.nome))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
-
-@app.delete("/api/rimuovi_amico/{amico_id}")
-def api_rimuovi_amico(amico_id: int):
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM autorizzati WHERE id = %s", (amico_id,))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
-
-@app.get("/api/config_notifiche")
+@app.get("/api/config_notifiche", dependencies=[Depends(check_permission("notifiche"))])
 def api_config_notifiche():
     conn = db_conn()
     try:
@@ -450,8 +530,8 @@ class ConfigNotifichePayload(BaseModel):
     minuto: int
     attivo: bool
 
-@app.post("/api/config_notifiche")
-def api_config_notifiche_update(payload: ConfigNotifichePayload):
+@app.post("/api/config_notifiche", dependencies=[Depends(check_permission("notifiche"))])
+def api_config_notifiche_update(payload: ConfigNotifichePayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -462,9 +542,8 @@ def api_config_notifiche_update(payload: ConfigNotifichePayload):
         conn.close()
     return {"ok": True}
 
-@app.get("/api/saldo_rinnovi")
+@app.get("/api/saldo_rinnovi", dependencies=[Depends(check_permission("saldo_rinnovi"))])
 def api_saldo_rinnovi(request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -481,9 +560,8 @@ def api_saldo_rinnovi(request: Request):
     finally:
         conn.close()
 
-@app.get("/api/rinnovi_per_saldo")
+@app.get("/api/rinnovi_per_saldo", dependencies=[Depends(check_permission("saldo_rinnovi"))])
 def api_rinnovi_per_saldo(request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -498,9 +576,8 @@ def api_rinnovi_per_saldo(request: Request):
     finally:
         conn.close()
 
-@app.post("/api/saldo_rinnovo")
+@app.post("/api/saldo_rinnovo", dependencies=[Depends(check_permission("saldo_rinnovi"))])
 def api_saldo_rinnovo_nuovo(payload: RinnovoPayload, request: Request):
-    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -525,9 +602,8 @@ def api_saldo_rinnovo_nuovo(payload: RinnovoPayload, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.post("/api/saldo_rinnovo_modifica")
+@app.post("/api/saldo_rinnovo_modifica", dependencies=[Depends(check_permission("saldo_rinnovi"))])
 def api_saldo_rinnovo_modifica(payload: RinnovoPayload, request: Request):
-    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -551,9 +627,8 @@ def api_saldo_rinnovo_modifica(payload: RinnovoPayload, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.delete("/api/saldo_rinnovo/{id}")
+@app.delete("/api/saldo_rinnovi/{id}", dependencies=[Depends(check_permission("saldo_rinnovi"))])
 def api_saldo_rinnovo_cancella(id: int, request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -563,9 +638,8 @@ def api_saldo_rinnovo_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.get("/api/note")
+@app.get("/api/note", dependencies=[Depends(check_permission("nota"))])
 def api_note(request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -581,9 +655,8 @@ def api_note(request: Request):
 class NotaPayload(BaseModel):
     dati: dict
 
-@app.post("/api/note")
+@app.post("/api/note", dependencies=[Depends(check_permission("nota"))])
 def api_note_nuovo(payload: NotaPayload, request: Request):
-    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -597,9 +670,8 @@ def api_note_nuovo(payload: NotaPayload, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.delete("/api/note/{id}")
+@app.delete("/api/note/{id}", dependencies=[Depends(check_permission("nota"))])
 def api_note_cancella(id: int, request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -609,9 +681,8 @@ def api_note_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.get("/api/credenziali")
+@app.get("/api/credenziali", dependencies=[Depends(check_permission("credenziali"))])
 def api_credenziali(request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -625,9 +696,8 @@ def api_credenziali(request: Request):
 class CredenzialiPayload(BaseModel):
     dati: dict
 
-@app.post("/api/credenziali")
+@app.post("/api/credenziali", dependencies=[Depends(check_permission("credenziali"))])
 def api_credenziali_nuovo(payload: CredenzialiPayload, request: Request):
-    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -643,9 +713,8 @@ def api_credenziali_nuovo(payload: CredenzialiPayload, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.put("/api/credenziali/{id}")
+@app.put("/api/credenziali/{id}", dependencies=[Depends(check_permission("credenziali"))])
 def api_credenziali_modifica(id: int, payload: CredenzialiPayload, request: Request):
-    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -659,9 +728,8 @@ def api_credenziali_modifica(id: int, payload: CredenzialiPayload, request: Requ
         conn.close()
     return {"ok": True}
 
-@app.delete("/api/credenziali/{id}")
+@app.delete("/api/credenziali/{id}", dependencies=[Depends(check_permission("credenziali"))])
 def api_credenziali_cancella(id: int, request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -695,11 +763,8 @@ def api_credenziali_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
-# --- NUOVE API PER OPERATORI IT ---
-
-@app.get("/api/operatori_it")
+@app.get("/api/operatori_it", dependencies=[Depends(check_permission("operatori_it"))])
 def api_operatori_it(request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -711,9 +776,8 @@ def api_operatori_it(request: Request):
 class OperatorePayload(BaseModel):
     dati: dict
 
-@app.post("/api/operatori_it")
+@app.post("/api/operatori_it", dependencies=[Depends(check_permission("operatori_it"))])
 def api_operatori_it_nuovo(payload: OperatorePayload, request: Request):
-    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -724,9 +788,8 @@ def api_operatori_it_nuovo(payload: OperatorePayload, request: Request):
         conn.close()
     return {"ok": True}
 
-@app.put("/api/operatori_it/{id}")
+@app.put("/api/operatori_it/{id}", dependencies=[Depends(check_permission("operatori_it"))])
 def api_operatori_it_modifica(id: int, payload: OperatorePayload, request: Request):
-    get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
@@ -737,9 +800,8 @@ def api_operatori_it_modifica(id: int, payload: OperatorePayload, request: Reque
         conn.close()
     return {"ok": True}
 
-@app.delete("/api/operatori_it/{id}")
+@app.delete("/api/operatori_it/{id}", dependencies=[Depends(check_permission("operatori_it"))])
 def api_operatori_it_cancella(id: int, request: Request):
-    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:

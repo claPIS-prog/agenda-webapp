@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestione Permessi</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+h2 { text-align: center; margin-top: 0; color: #333; }
+.select-user { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; margin-bottom: 20px; box-sizing: border-box; }
+.module-list { display: flex; flex-direction: column; gap: 12px; }
+.module-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #0088cc; }
+.module-name { font-weight: bold; color: #333; font-size: 14px; }
+/* Toggle Switch Style */
+.switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: #4caf50; }
+input:checked + .slider:before { transform: translateX(24px); }
+.btn-save { width: 100%; padding: 14px; background: #4caf50; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 15px; cursor: pointer; margin-top: 20px; }
+.btn-save:active { background: #388e3c; }
+.empty { text-align: center; color: #888; padding: 30px; }
+.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+<h2>🔐 Gestione Permessi</h2>
+<select id="user_select" class="select-user"><option value="">-- Seleziona un Amico --</option></select>
+<div id="modules_container" class="module-list"></div>
+<button id="btn_save" class="btn-save" onclick="salvaPermessi()" style="display:none;">💾 Salva Permessi</button>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const tg = window.Telegram.WebApp; tg.expand();
+let amici = [];
+let currentPerms = {};
+const ALL_MODULES = [
+    "nominativo", "lista", "scadenze", "rinnovi", "storico_rinnovi", 
+    "saldo_rinnovi", "reseller", "procuratori", "server", "nota", 
+    "credenziali", "permessi", "dispositivi", "sistemi_op", "buffett", 
+    "pagamenti", "notifiche", "operatori_it", "tabelle"
+];
+
+// Etichette leggibili per i moduli
+const MODULE_LABELS = {
+    "nominativo": "📝 Nuovo Nominativo",
+    "lista": "📋 Lista Contatti",
+    "scadenze": "⏰ Scadenze",
+    "rinnovi": "🔄 Nuovo Rinnovo",
+    "storico_rinnovi": "📜 Storico Rinnovi",
+    "saldo_rinnovi": "📊 Saldo Rinnovi",
+    "reseller": "🏢 Reseller",
+    "procuratori": "⚖️ Procuratori",
+    "server": "🖥️ Server",
+    "nota": "💬 Invia Nota",
+    "credenziali": "🔑 Credenziali & File",
+    "permessi": "🔐 Gestione Permessi",
+    "dispositivi": "📱 Dispositivi",
+    "sistemi_op": "💻 Sistemi Op.",
+    "buffett": "🍔 Buffett",
+    "pagamenti": "💳 Pagamenti",
+    "notifiche": "🔔 Notifiche",
+    "operatori_it": "🌐 Operatori IT",
+    "tabelle": "🗂️ Tabelle Supporto"
+};
+
+async function init() {
+    try {
+        const res = await fetch('/api/amici');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        amici = await res.json();
+        const sel = document.getElementById('user_select');
+        sel.innerHTML = '<option value="">-- Seleziona un Amico --</option>' + 
+            amici.map(a => `<option value="${a.id}">${a.nome || a.telegram_id}</option>`).join('');
+        sel.addEventListener('change', caricaPermessi);
+    } catch (e) {
+        document.getElementById('modules_container').innerHTML = '<div class="error">Errore caricamento: ' + e.message + '</div>';
+    }
+}
+
+async function caricaPermessi() {
+    const userId = document.getElementById('user_select').value;
+    if (!userId) {
+        document.getElementById('modules_container').innerHTML = '';
+        document.getElementById('btn_save').style.display = 'none';
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/permessi/${userId}`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        currentPerms = await res.json();
+        renderModules();
+        document.getElementById('btn_save').style.display = 'block';
+    } catch (e) {
+        mostraToast('❌ Errore caricamento permessi');
+    }
+}
+
+function renderModules() {
+    const container = document.getElementById('modules_container');
+    container.innerHTML = ALL_MODULES.map(mod => {
+        const isActive = currentPerms[mod] === true;
+        const label = MODULE_LABELS[mod] || mod;
+        return `
+        <div class="module-item">
+            <span class="module-name">${label}</span>
+            <label class="switch">
+                <input type="checkbox" data-mod="${mod}" ${isActive ? 'checked' : ''} onchange="togglePerm('${mod}', this.checked)">
+                <span class="slider"></span>
+            </label>
+        </div>`;
+    }).join('');
+}
+
+function togglePerm(mod, state) {
+    currentPerms[mod] = state;
+}
+
+async function salvaPermessi() {
+    const userId = document.getElementById('user_select').value;
+    if (!userId) return;
+    
+    try {
+        const res = await fetch('/api/salva_permessi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: parseInt(userId), permessi: currentPerms })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        mostraToast('✅ Permessi salvati con successo!');
+    } catch (e) {
+        mostraToast('❌ Errore salvataggio: ' + e.message);
+    }
+}
+
+function mostraToast(msg) {
+    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+init();
+</script>
+</body>
+</html>
