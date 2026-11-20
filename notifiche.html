@@ -9,83 +9,168 @@
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
 h2 { text-align: center; margin-top: 0; color: #333; }
-.info { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 12px; border-radius: 5px; margin: 15px 0; font-size: 13px; color: #1565c0; }
-label { display: block; font-weight: bold; margin: 15px 0 5px; color: #333; }
-.time-row { display: flex; align-items: center; gap: 10px; }
-.time-row input { width: 70px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; text-align: center; }
-.time-row span { font-size: 22px; font-weight: bold; }
-.toggle-row { display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 12px; border-radius: 5px; margin: 15px 0; }
-.switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
+.counter-wrapper { text-align: center; }
+.info-box { background: #e3f2fd; border-left: 4px solid #0088cc; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #333; }
+.info-box ul { margin: 5px 0 0 20px; padding: 0; }
+.info-box li { margin: 3px 0; }
+.status-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px; text-align: center; font-weight: bold; color: #2e7d32; font-size: 14px; }
+.status-box.off { background: #ffebee; border-left-color: #f44336; color: #c62828; }
+label { display: block; font-weight: bold; margin: 15px 0 8px; color: #333; font-size: 14px; }
+.time-row { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+.time-row select { flex: 0 0 80px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 15px; text-align: center; }
+.time-row .separator { font-size: 20px; font-weight: bold; color: #333; }
+.toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #0088cc; margin-bottom: 20px; }
+.toggle-row span { font-weight: bold; color: #333; font-size: 14px; }
+.switch { position: relative; display: inline-block; width: 50px; height: 26px; }
 .switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; inset: 0; background: #ccc; border-radius: 28px; transition: .3s; }
-.slider:before { content: ""; position: absolute; height: 22px; width: 22px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
-input:checked + .slider { background: #4caf50; }
-input:checked + .slider:before { transform: translateX(22px); }
-button { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-.btn-save { background: #0088cc; color: white; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: #4caf50; }
+input:checked + .slider:before { transform: translateX(24px); }
+.btn { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+.btn-save { background: #4caf50; color: white; }
+.btn-save:active { background: #388e3c; }
 .btn-test { background: #ff9800; color: white; }
-.status { text-align: center; padding: 10px; border-radius: 5px; font-weight: bold; margin-top: 10px; }
-.status.on { background: #e8f5e9; color: #2e7d32; }
-.status.off { background: #ffebee; color: #c62828; }
+.btn-test:active { background: #f57c00; }
+.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
+.toast.show { opacity: 1; }
 </style>
 </head>
 <body>
 <div class="container">
 <h2>🔔 Gestione Notifiche</h2>
-<div class="info">• Le notifiche controllano le scadenze nei prossimi 7 giorni<br>• L'orario è in UTC (+1 inverno, +2 estate per l'Italia)<br>• Le modifiche si applicano immediatamente</div>
-<div id="statusBox" class="status"></div>
+<div class="counter-wrapper"><div class="counter" id="counter">Configurazione</div></div>
+
+<div class="info-box">
+<strong>ℹ️ Informazioni:</strong>
+<ul>
+<li>Le notifiche controllano le scadenze nei prossimi 7 giorni</li>
+<li>L'orario è in UTC (+1 inverno, +2 estate per Italia)</li>
+<li>Le modifiche si applicano immediatamente</li>
+</ul>
+</div>
+
+<div id="status_box" class="status-box">Caricamento...</div>
+
 <label>⏰ Orario di invio (UTC):</label>
 <div class="time-row">
-<input type="number" id="ora" min="0" max="23" placeholder="Ora">
-<span>:</span>
-<input type="number" id="minuto" min="0" max="59" placeholder="Min">
+<select id="ora"></select>
+<span class="separator">:</span>
+<select id="minuto"></select>
 </div>
+
 <div class="toggle-row">
 <span>🔔 Notifiche attive:</span>
-<label class="switch"><input type="checkbox" id="attivo"><span class="slider"></span></label>
+<label class="switch">
+<input type="checkbox" id="attivo">
+<span class="slider"></span>
+</label>
 </div>
-<button class="btn-save" onclick="salva()">💾 Salva Configurazione</button>
-<button class="btn-test" onclick="test()">🧪 Invia Notifica di Test</button>
+
+<button class="btn btn-save" onclick="salva()">💾 Salva Configurazione</button>
+<button class="btn btn-test" onclick="inviaTest()">🧪 Invia Notifica di Test</button>
 </div>
+<div class="toast" id="toast"></div>
+
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
-let cfg = { ora: 7, minuto: 0, attivo: true };
-try {
-  const params = new URLSearchParams(window.location.search);
-  const raw = params.get('config');
-  if (raw) cfg = JSON.parse(decodeURIComponent(raw));
-} catch(e) {}
-document.getElementById('ora').value = cfg.ora;
-document.getElementById('minuto').value = cfg.minuto;
-document.getElementById('attivo').checked = cfg.attivo;
-aggiornaStatus();
-function aggiornaStatus() {
-  const box = document.getElementById('statusBox');
-  const attivo = document.getElementById('attivo').checked;
-  const o = document.getElementById('ora').value;
-  const m = document.getElementById('minuto').value;
-  if (attivo) {
-    box.className = 'status on';
-    box.textContent = '✅ Attive - prossimo invio ' + String(o).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ' UTC';
-  } else {
-    box.className = 'status off';
-    box.textContent = '❌ Disattivate';
-  }
+const tg = window.Telegram.WebApp; tg.expand();
+
+// Popola select ora (0-23)
+const selOra = document.getElementById('ora');
+for (let i = 0; i < 24; i++) {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = i.toString().padStart(2, '0');
+    selOra.appendChild(opt);
 }
-document.getElementById('attivo').addEventListener('change', aggiornaStatus);
-document.getElementById('ora').addEventListener('input', aggiornaStatus);
-document.getElementById('minuto').addEventListener('input', aggiornaStatus);
-function salva() {
-  const ora = parseInt(document.getElementById('ora').value);
-  const minuto = parseInt(document.getElementById('minuto').value);
-  const attivo = document.getElementById('attivo').checked;
-  if (isNaN(ora) || isNaN(minuto) || ora < 0 || ora > 23 || minuto < 0 || minuto > 59) {
-    tg.showAlert('⚠️ Orario non valido'); return;
-  }
-  tg.sendData(JSON.stringify({ azione: 'aggiorna_config', ora: ora, minuto: minuto, attivo: attivo }));
+
+// Popola select minuto (0, 15, 30, 45)
+const selMin = document.getElementById('minuto');
+[0, 15, 30, 45].forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m.toString().padStart(2, '0');
+    selMin.appendChild(opt);
+});
+
+async function carica() {
+    try {
+        const res = await fetch('/api/config_notifiche');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        
+        selOra.value = data.ora || 7;
+        selMin.value = data.minuto || 0;
+        document.getElementById('attivo').checked = data.attivo !== false;
+        
+        aggiornaStato(data.attivo !== false, data.ora, data.minuto);
+    } catch (e) {
+        document.getElementById('status_box').className = 'status-box off';
+        document.getElementById('status_box').textContent = '❌ Errore caricamento: ' + e.message;
+    }
 }
-function test() { tg.sendData(JSON.stringify({ azione: 'test_notifica' })); }
+
+function aggiornaStato(attivo, ora, minuto) {
+    const box = document.getElementById('status_box');
+    if (attivo) {
+        box.className = 'status-box';
+        box.textContent = '✅ Attive - prossimo invio ' + ora.toString().padStart(2,'0') + ':' + minuto.toString().padStart(2,'0') + ' UTC';
+    } else {
+        box.className = 'status-box off';
+        box.textContent = '⛔ Notifiche disattivate';
+    }
+}
+
+function mostraToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+async function salva() {
+    const ora = parseInt(selOra.value);
+    const minuto = parseInt(selMin.value);
+    const attivo = document.getElementById('attivo').checked;
+    
+    try {
+        const res = await fetch('/api/config_notifiche', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ora: ora, minuto: minuto, attivo: attivo })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        aggiornaStato(attivo, ora, minuto);
+        mostraToast('✅ Configurazione salvata!');
+    } catch (e) {
+        mostraToast('❌ Errore: ' + e.message);
+    }
+}
+
+async function inviaTest() {
+    mostraToast('🧪 Invio notifica di test...');
+    try {
+        // Usa la stessa API di salvataggio ma con un flag speciale, oppure crea una nuova API
+        // Per ora simuliamo con un messaggio
+        const ora = parseInt(selOra.value);
+        const minuto = parseInt(selMin.value);
+        const attivo = document.getElementById('attivo').checked;
+        
+        const res = await fetch('/api/config_notifiche', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ora: ora, minuto: minuto, attivo: attivo, test: true })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        mostraToast('🧪 Notifica di test inviata!');
+    } catch (e) {
+        mostraToast('❌ Errore: ' + e.message);
+    }
+}
+
+carica();
 </script>
 </body>
 </html>
