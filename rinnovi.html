@@ -12,6 +12,7 @@ body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margi
 h2 { text-align: center; margin-top: 0; color: #333; }
 label { display: block; font-weight: bold; margin: 12px 0 4px; color: #333; font-size: 14px; }
 input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; font-family: inherit; }
+input[readonly] { background: #f0f0f0; color: #555; cursor: not-allowed; }
 textarea { resize: vertical; min-height: 80px; }
 .row { display: flex; gap: 10px; }
 .row > div { flex: 1; }
@@ -20,6 +21,7 @@ textarea { resize: vertical; min-height: 80px; }
 .section-title { font-size: 13px; color: #0088cc; font-weight: bold; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
 .toast.show { opacity: 1; }
+.hint { font-size: 12px; color: #888; margin-top: 4px; font-style: italic; }
 </style>
 </head>
 <body>
@@ -78,14 +80,18 @@ function mostraForm() {
     html += '<input type="time" id="orario_scadenza" placeholder="es. 14:30">';
     
     html += '<div class="section-title">Pagamenti</div>';
-    html += '<div class="row"><div><label>Importo Acconto (€):</label><input type="number" id="importo_acconto" step="0.01" value="0"></div>';
-    html += '<div><label>Importo Saldo (€):</label><input type="number" id="importo_saldo" step="0.01" value="0"></div></div>';
+    html += '<label>Importo Saldo (€):</label>';
+    html += '<input type="number" id="importo_saldo" step="0.01" value="0" oninput="calcolaValoreSingolo()">';
     
-    html += '<div class="section-title">Crediti (opzionale)</div>';
+    html += '<div class="section-title">Crediti</div>';
     html += '<div class="row"><div><label>Crediti Richiesti:</label><input type="number" id="num_credito_rich" value="0"></div>';
-    html += '<div><label>Crediti Dati:</label><input type="number" id="num_credito_dato" value="0"></div></div>';
-    html += '<div class="row"><div><label>Valore Singolo NC (€):</label><input type="number" id="val_singolo_nc_rich" step="0.01" value="0"></div>';
-    html += '<div><label>Data Credito Rinnovo Rich:</label><input type="date" id="data_credito_rinnovo_rich"></div></div>';
+    html += '<div><label>Crediti Dati:</label><input type="number" id="num_credito_dato" value="0" oninput="calcolaValoreSingolo()"></div></div>';
+    
+    html += '<label>Valore Singolo NC (€):</label>';
+    html += '<input type="number" id="val_singolo_nc_rich" step="0.01" value="0" readonly>';
+    html += '<div class="hint">Calcolato automaticamente: Importo Saldo ÷ Crediti Dati</div>';
+    
+    html += '<div class="row"><div><label>Data Credito Rinnovo Rich:</label><input type="date" id="data_credito_rinnovo_rich"></div></div>';
     
     html += '<label>Note:</label>';
     html += '<textarea id="note" placeholder="Note aggiuntive..."></textarea>';
@@ -93,6 +99,18 @@ function mostraForm() {
     html += '<button class="btn" onclick="invia()">💾 Salva Rinnovo</button>';
     
     document.getElementById('form').innerHTML = html;
+}
+
+function calcolaValoreSingolo() {
+    const importoSaldo = parseFloat(document.getElementById('importo_saldo').value) || 0;
+    const creditiDati = parseInt(document.getElementById('num_credito_dato').value) || 0;
+    
+    let valoreSingolo = 0;
+    if (creditiDati > 0) {
+        valoreSingolo = importoSaldo / creditiDati;
+    }
+    
+    document.getElementById('val_singolo_nc_rich').value = valoreSingolo.toFixed(2);
 }
 
 function mostraToast(msg) {
@@ -116,7 +134,6 @@ async function invia() {
         mesi: parseInt(document.getElementById('mesi').value) || 1,
         scadenza: document.getElementById('scadenza').value,
         orario_scadenza: document.getElementById('orario_scadenza').value,
-        importo_acconto: parseFloat(document.getElementById('importo_acconto').value) || 0,
         importo_saldo: parseFloat(document.getElementById('importo_saldo').value) || 0,
         num_credito_rich: parseInt(document.getElementById('num_credito_rich').value) || 0,
         num_credito_dato: parseInt(document.getElementById('num_credito_dato').value) || 0,
