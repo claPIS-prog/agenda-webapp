@@ -17,15 +17,17 @@ h2 { color: #333; }
 .log { background: #f5f5f5; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; margin-top: 10px; }
 button { padding: 10px 20px; background: #0088cc; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
 button:hover { background: #006699; }
+pre { background: #f5f5f5; padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 11px; }
 </style>
 </head>
 <body>
 <div class="container">
 <h2>🔍 Test Autenticazione Telegram</h2>
 
-<div id="telegram_status" class="result info">Verifica Telegram...</div>
+<div id="initdata_status" class="result info">Verifica initData...</div>
 <div id="authjs_status" class="result info">Verifica auth.js...</div>
-<div id="fetch_status" class="result info">Verifica fetch...</div>
+<div id="fetch_status" class="result info">Verifica fetch override...</div>
+<div id="hash_status" class="result info">Verifica URL hash...</div>
 
 <h3>Test API</h3>
 <button onclick="testAPI('/api/amici')">Test /api/amici</button>
@@ -39,82 +41,129 @@ button:hover { background: #006699; }
 </div>
 
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
-
 function log(msg, type = 'info') {
-    const logDiv = document.getElementById('log');
-    const time = new Date().toLocaleTimeString();
-    const color = type === 'error' ? '#c62828' : type === 'success' ? '#2e7d32' : '#333';
-    logDiv.innerHTML += `<div style="color:${color}">[${time}] ${msg}</div>`;
+    var logDiv = document.getElementById('log');
+    var time = new Date().toLocaleTimeString();
+    var color = type === 'error' ? '#c62828' : type === 'success' ? '#2e7d32' : '#333';
+    logDiv.innerHTML += '<div style="color:' + color + '">[' + time + '] ' + msg + '</div>';
     console.log(msg);
 }
 
-// Test 1: Telegram WebApp
-if (tg && tg.initData) {
-    document.getElementById('telegram_status').className = 'result success';
-    document.getElementById('telegram_status').innerHTML = '✅ Telegram WebApp OK - initData lunghezza: ' + tg.initData.length;
-    log('✅ Telegram WebApp disponibile', 'success');
-} else {
-    document.getElementById('telegram_status').className = 'result error';
-    document.getElementById('telegram_status').innerHTML = '❌ Telegram WebApp NON disponibile';
-    log('❌ Telegram WebApp non disponibile', 'error');
+// Espandi WebApp se disponibile
+try {
+    if (window.Telegram && window.Telegram.WebApp) {
+        window.Telegram.WebApp.expand();
+    }
+} catch (e) {}
+
+// Test 1: initData disponibile?
+var initData = null;
+var initSource = '';
+
+if (window.getTelegramInitData) {
+    initData = window.getTelegramInitData();
+    if (initData) initSource = 'auth.js v4.0';
 }
 
-// Test 2: auth.js
-if (window.fetch.toString().includes('X-Telegram-Init-Data')) {
-    document.getElementById('authjs_status').className = 'result success';
-    document.getElementById('authjs_status').innerHTML = '✅ auth.js caricato correttamente';
-    log('✅ auth.js rilevato', 'success');
+if (!initData) {
+    try {
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+            initData = window.Telegram.WebApp.initData;
+            initSource = 'window.Telegram.WebApp.initData';
+        }
+    } catch (e) {}
+}
+
+if (!initData) {
+    try {
+        var hash = window.location.hash || '';
+        if (hash.indexOf('tgWebAppData=') !== -1) {
+            var params = new URLSearchParams(hash.substring(1));
+            initData = params.get('tgWebAppData');
+            if (initData) initSource = 'URL hash (tgWebAppData)';
+        }
+    } catch (e) {}
+}
+
+var initStatus = document.getElementById('initdata_status');
+if (initData && initData.length > 10) {
+    initStatus.className = 'result success';
+    initStatus.innerHTML = '✅ initData trovato (' + initSource + ') - lunghezza: ' + initData.length;
+    log('✅ initData disponibile da: ' + initSource, 'success');
 } else {
-    document.getElementById('authjs_status').className = 'result error';
-    document.getElementById('authjs_status').innerHTML = '❌ auth.js NON caricato o errato';
+    initStatus.className = 'result error';
+    initStatus.innerHTML = '❌ initData NON trovato';
+    log('❌ initData non disponibile', 'error');
+}
+
+// Test 2: auth.js caricato?
+var authStatus = document.getElementById('authjs_status');
+if (window.getTelegramInitData) {
+    authStatus.className = 'result success';
+    authStatus.innerHTML = '✅ auth.js v4.0 caricato';
+    log('✅ auth.js v4.0 rilevato', 'success');
+} else {
+    authStatus.className = 'result error';
+    authStatus.innerHTML = '❌ auth.js NON caricato';
     log('❌ auth.js non rilevato', 'error');
 }
 
-// Test 3: fetch override
-const testHeaders = {};
-const testFetch = window.fetch;
-testFetch('/api/test', { headers: testHeaders }).catch(() => {});
-setTimeout(() => {
+// Test 3: URL hash contiene tgWebAppData?
+var hashStatus = document.getElementById('hash_status');
+var currentHash = window.location.hash || '';
+if (currentHash.indexOf('tgWebAppData=') !== -1) {
+    hashStatus.className = 'result success';
+    hashStatus.innerHTML = '✅ URL hash contiene tgWebAppData (lunghezza hash: ' + currentHash.length + ')';
+    log('✅ URL hash OK', 'success');
+} else {
+    hashStatus.className = 'result error';
+    hashStatus.innerHTML = '❌ URL hash NON contiene tgWebAppData<br><pre>Hash attuale: ' + (currentHash || '(vuoto)') + '</pre>';
+    log('❌ URL hash vuoto o senza tgWebAppData', 'error');
+}
+
+// Test 4: fetch override funziona?
+var fetchStatus = document.getElementById('fetch_status');
+var testHeaders = {};
+window.fetch('/api/test', { headers: testHeaders }).catch(function(){});
+setTimeout(function() {
     if (testHeaders['X-Telegram-Init-Data']) {
-        document.getElementById('fetch_status').className = 'result success';
-        document.getElementById('fetch_status').innerHTML = '✅ Fetch override funziona';
+        fetchStatus.className = 'result success';
+        fetchStatus.innerHTML = '✅ Fetch override funziona (header aggiunto)';
         log('✅ Fetch override funzionante', 'success');
     } else {
-        document.getElementById('fetch_status').className = 'result error';
-        document.getElementById('fetch_status').innerHTML = '❌ Fetch override NON funziona';
+        fetchStatus.className = 'result error';
+        fetchStatus.innerHTML = '❌ Fetch override NON aggiunge header';
         log('❌ Fetch override non funzionante', 'error');
     }
-}, 100);
+}, 200);
 
 // Test API
 async function testAPI(endpoint) {
-    const resultDiv = document.getElementById('api_result');
+    var resultDiv = document.getElementById('api_result');
     resultDiv.style.display = 'block';
     resultDiv.className = 'result info';
-    resultDiv.innerHTML = '⏳ Test in corso: ' + endpoint + '...';
+    resultDiv.innerHTML = '⏳ Test: ' + endpoint + '...';
     log('🔍 Test API: ' + endpoint);
     
     try {
-        const res = await fetch(endpoint);
-        log('📡 Risposta ricevuta: ' + res.status);
+        var res = await fetch(endpoint);
+        log('📡 Status: ' + res.status);
         
         if (res.ok) {
-            const data = await res.json();
+            var data = await res.json();
             resultDiv.className = 'result success';
-            resultDiv.innerHTML = '✅ ' + endpoint + ' - OK<br><pre>' + JSON.stringify(data, null, 2).substring(0, 200) + '...</pre>';
+            resultDiv.innerHTML = '✅ ' + endpoint + ' OK<br><pre>' + JSON.stringify(data, null, 2).substring(0, 300) + '</pre>';
             log('✅ API funzionante', 'success');
         } else {
-            const text = await res.text();
+            var text = await res.text();
             resultDiv.className = 'result error';
-            resultDiv.innerHTML = '❌ ' + endpoint + ' - HTTP ' + res.status + '<br><pre>' + text.substring(0, 200) + '</pre>';
-            log('❌ Errore API: ' + res.status, 'error');
+            resultDiv.innerHTML = '❌ ' + endpoint + ' - HTTP ' + res.status + '<br><pre>' + text.substring(0, 300) + '</pre>';
+            log('❌ Errore: ' + res.status, 'error');
         }
     } catch (e) {
         resultDiv.className = 'result error';
-        resultDiv.innerHTML = '❌ Errore: ' + e.message;
-        log('❌ Eccezione: ' + e.message, 'error');
+        resultDiv.innerHTML = '❌ ' + e.message;
+        log('❌ ' + e.message, 'error');
     }
 }
 
