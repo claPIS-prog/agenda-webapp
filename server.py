@@ -434,7 +434,7 @@ def api_lista_cancella(id: int, tabella: str, request: Request):
     finally: conn.close()
     return {"ok": True}
 
-# === OPERATORI IT (SENZA PROTEZIONE - solo admin) ===
+# === OPERATORI IT (senza protezione) ===
 @app.get("/api/operatori_it")
 def api_operatori_it(request: Request):
     get_current_user(request)
@@ -573,7 +573,7 @@ def api_credenziali_cancella(id: int, request: Request):
     finally: conn.close()
     return {"ok": True}
 
-# === NOTIFICHE (SENZA PROTEZIONE - solo admin) ===
+# === NOTIFICHE (senza protezione) ===
 @app.get("/api/config_notifiche")
 def api_config_notifiche(request: Request):
     get_current_user(request)
@@ -602,66 +602,7 @@ def api_config_notifiche_update(payload: ConfigNotifichePayload, request: Reques
     finally: conn.close()
     return {"ok": True}
 
-@app.post("/api/notifica_test")
-def api_notifica_test(request: Request):
-    user = get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT ora, minuto, attivo FROM config_notifiche WHERE id = 1")
-            row = cur.fetchone()
-            if not row:
-                row = {"ora": 7, "minuto": 0, "attivo": 1}
-            
-            cur.execute("SELECT telegram_id, nome FROM autorizzati")
-            utenti = cur.fetchall()
-        
-        orario = f"{row['ora']:02d}:{row['minuto']:02d}"
-        stato = "Attivo" if row['attivo'] else "Disattivo"
-        
-        msg = (
-            f"🔔 Notifica di Test\n\n"
-            f"Questa è una notifica di test dal bot AgendaGest.\n\n"
-            f"Orario configurato: {orario} UTC\n"
-            f"Stato: {stato}\n\n"
-            f"Se ricevi questo messaggio, il sistema di notifiche funziona correttamente."
-        )
-        
-        # Lista chat_id unici
-        chat_ids = [u['telegram_id'] for u in utenti]
-        if AUTHORIZED_IDS:
-            chat_ids.extend(list(AUTHORIZED_IDS))
-        chat_ids = list(set(chat_ids))
-        
-        inviati = 0
-        errori = 0
-        dettagli = []
-        
-        for chat_id in chat_ids:
-            try:
-                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-                data = json.dumps({"chat_id": chat_id, "text": msg}).encode('utf-8')
-                req = urllib.request.Request(url, data=data, method='POST')
-                req.add_header('Content-Type', 'application/json')
-                resp = urllib.request.urlopen(req, timeout=10)
-                if resp.getcode() == 200:
-                    inviati += 1
-                else:
-                    errori += 1
-                    dettagli.append(f"Errore {chat_id}: HTTP {resp.getcode()}")
-            except Exception as e:
-                errori += 1
-                dettagli.append(f"Errore {chat_id}: {str(e)[:50]}")
-        
-        result_msg = f"Notifica inviata a {inviati} utenti"
-        if errori > 0:
-            result_msg += f" ({errori} errori)"
-        
-        return {"ok": True, "inviati": inviati, "errori": errori, "message": result_msg, "dettagli": dettagli}
-    finally:
-        conn.close()
-
-# === NOTIFICA TEST ===
+# === NOTIFICA TEST (invia SOLO all'admin che clicca) ===
 @app.post("/api/notifica_test")
 def api_notifica_test(request: Request):
     user = get_current_user(request)
@@ -687,7 +628,6 @@ def api_notifica_test(request: Request):
             f"Se ricevi questo messaggio, il sistema di notifiche funziona correttamente."
         )
         
-        # Invia SOLO all'utente che ha richiesto il test
         chat_id = user['id']
         
         try:
