@@ -1,7 +1,7 @@
 import os
 import json
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, HTTPException, Request, Depends
@@ -21,13 +21,7 @@ if not DATABASE_URL or not BOT_TOKEN:
     raise SystemExit("DATABASE_URL o BOT_TOKEN mancanti.")
 
 app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 ALL_MODULES = [
     "nominativo", "lista", "scadenze", "rinnovi", "storico_rinnovi",
@@ -40,14 +34,11 @@ def get_current_user(request: Request):
     init_data = request.headers.get("X-Telegram-Init-Data")
     if not init_data:
         init_data = request.query_params.get("initData")
-
-    # Fallback per Telegram Web (non sempre passa initData): consenti admin
     if not init_data:
         if AUTHORIZED_IDS:
             admin_id = list(AUTHORIZED_IDS)[0]
             return {"id": admin_id, "first_name": "Admin", "is_admin": True}
         return None
-
     try:
         validate(init_data, BOT_TOKEN)
         data = parse(init_data)
@@ -71,10 +62,7 @@ def check_permission(module_name: str):
         conn = db_conn()
         try:
             with conn.cursor() as cur:
-                cur.execute("""SELECT COUNT(*) FROM permessi p
-                             JOIN autorizzati a ON a.id = p.user_id
-                             WHERE a.telegram_id = %s AND p.modulo = %s AND p.attivo = TRUE""",
-                           (user["id"], module_name))
+                cur.execute("SELECT COUNT(*) FROM permessi p JOIN autorizzati a ON a.id = p.user_id WHERE a.telegram_id = %s AND p.modulo = %s AND p.attivo = TRUE", (user["id"], module_name))
                 if cur.fetchone()["count"] == 0:
                     raise HTTPException(status_code=403, detail=f"Permesso negato: {module_name}")
         finally:
@@ -101,32 +89,14 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS saldo_rinnovi (id SERIAL PRIMARY KEY, rinnovo_id INTEGER NOT NULL REFERENCES rinnovi(id), num_credito_saldo INTEGER DEFAULT 0, data_credito_rinnovo_saldo TEXT, val_nc_dato REAL DEFAULT 0, val_nc_saldo REAL DEFAULT 0, informazioni_note TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS note (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), messaggio TEXT NOT NULL, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS credenziali (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, nome_file TEXT, link TEXT, percorso TEXT, user_id TEXT, password TEXT, file_token TEXT, scadenza TEXT, informazioni TEXT, creato_il TEXT)")
-
-            # TABELLA PERMESSI (creata qui, garantita)
-            cur.execute("""CREATE TABLE IF NOT EXISTS permessi (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES autorizzati(id),
-                modulo TEXT NOT NULL,
-                attivo BOOLEAN DEFAULT FALSE,
-                UNIQUE(user_id, modulo)
-            )""")
-
+            cur.execute("CREATE TABLE IF NOT EXISTS permessi (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES autorizzati(id), modulo TEXT NOT NULL, attivo BOOLEAN DEFAULT FALSE, UNIQUE(user_id, modulo))")
             cur.execute("INSERT INTO config_notifiche (id, ora, minuto, attivo) VALUES (1, 7, 0, 1) ON CONFLICT (id) DO NOTHING")
-
-            # Aggiungi colonne mancanti a nominativi (sicuro, idempotente)
-            for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),
-                             ("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),
-                             ("procuratore","TEXT"),("apk_utilizzata","TEXT"),("uso_vpn","INTEGER DEFAULT 0"),
-                             ("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),
-                             ("data_fine","TEXT"),("informazioni","TEXT")]:
+            for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),("procuratore","TEXT"),("apk_utilizzata","TEXT"),("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),("data_fine","TEXT"),("informazioni","TEXT")]:
                 cur.execute(f"ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS {col} {typ}")
-
-            # Popola i permessi di default (attivi) per ogni utente esistente
             cur.execute("SELECT id FROM autorizzati")
             for u in cur.fetchall():
                 for mod in ALL_MODULES:
                     cur.execute("INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, TRUE) ON CONFLICT (user_id, modulo) DO NOTHING", (u["id"], mod))
-
             conn.commit()
     finally:
         conn.close()
@@ -136,7 +106,7 @@ init_db()
 def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-# --- PERMESSI / AMICI ---
+# === PERMESSI / AMICI ===
 @app.get("/api/amici")
 def api_amici(request: Request):
     get_current_user(request)
@@ -159,9 +129,7 @@ def api_aggiungi_amico(payload: AmicoPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""INSERT INTO autorizzati (telegram_id, password, nome) VALUES (%s, %s, %s)
-                ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome RETURNING id""",
-                (payload.telegram_id, payload.password, payload.nome))
+            cur.execute("INSERT INTO autorizzati (telegram_id, password, nome) VALUES (%s, %s, %s) ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome RETURNING id", (payload.telegram_id, payload.password, payload.nome))
             new_id = cur.fetchone()["id"]
             for mod in ALL_MODULES:
                 cur.execute("INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, TRUE) ON CONFLICT (user_id, modulo) DO NOTHING", (new_id, mod))
@@ -211,15 +179,13 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
         with conn.cursor() as cur:
             for modulo, attivo in payload.permessi.items():
                 if modulo in ALL_MODULES:
-                    cur.execute("""INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, %s)
-                                 ON CONFLICT (user_id, modulo) DO UPDATE SET attivo = excluded.attivo""",
-                               (payload.user_id, modulo, attivo))
+                    cur.execute("INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, %s) ON CONFLICT (user_id, modulo) DO UPDATE SET attivo = excluded.attivo", (payload.user_id, modulo, attivo))
         conn.commit()
     finally:
         conn.close()
     return {"ok": True}
 
-# --- NOMINATIVI / LISTA ---
+# === NOMINATIVI / LISTA ===
 @app.get("/api/nominativi", dependencies=[Depends(check_permission("nominativo"))])
 def api_nominativi(request: Request):
     conn = db_conn()
@@ -253,45 +219,15 @@ def api_azione(payload: AzionePayload, request: Request):
             if azione == "cancella":
                 cur.execute("DELETE FROM nominativi WHERE id = %s", (dati.get("id"),))
             elif azione == "nuovo":
-                cur.execute("""INSERT INTO nominativi
-                    (nominativo, user_id, password, prezzo, cadenza, tipo, server, reseller,
-                     dispositivo, sistema_operativo, buffett, metodo_pagamento, operatore_it,
-                     cellulare, procuratore, apk_utilizzata, uso_vpn, quale_vpn, citta,
-                     data_iscrizione, data_fine, informazioni)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                    (dati.get("nominativo",""), dati.get("user_id",""), dati.get("password",""),
-                     float(dati.get("prezzo",0)), dati.get("cadenza",""), dati.get("tipo",""),
-                     dati.get("server",""), dati.get("reseller",""),
-                     dati.get("dispositivo",""), dati.get("sistema_operativo",""),
-                     dati.get("buffett",""), dati.get("metodo_pagamento",""), dati.get("operatore_it",""),
-                     dati.get("cellulare",""), dati.get("procuratore",""),
-                     dati.get("apk_utilizzata",""), int(dati.get("uso_vpn",0)),
-                     dati.get("quale_vpn",""), dati.get("citta",""),
-                     dati.get("data_iscrizione",""), dati.get("data_fine",""),
-                     dati.get("informazioni","")))
+                cur.execute("INSERT INTO nominativi (nominativo, user_id, password, prezzo, cadenza, tipo, server, reseller, dispositivo, sistema_operativo, buffett, metodo_pagamento, operatore_it, cellulare, procuratore, apk_utilizzata, uso_vpn, quale_vpn, citta, data_iscrizione, data_fine, informazioni) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (dati.get("nominativo",""), dati.get("user_id",""), dati.get("password",""), float(dati.get("prezzo",0)), dati.get("cadenza",""), dati.get("tipo",""), dati.get("server",""), dati.get("reseller",""), dati.get("dispositivo",""), dati.get("sistema_operativo",""), dati.get("buffett",""), dati.get("metodo_pagamento",""), dati.get("operatore_it",""), dati.get("cellulare",""), dati.get("procuratore",""), dati.get("apk_utilizzata",""), int(dati.get("uso_vpn",0)), dati.get("quale_vpn",""), dati.get("citta",""), dati.get("data_iscrizione",""), dati.get("data_fine",""), dati.get("informazioni","")))
             elif azione == "modifica":
-                cur.execute("""UPDATE nominativi SET
-                    nominativo=%s, user_id=%s, password=%s, prezzo=%s, cadenza=%s, tipo=%s,
-                    server=%s, reseller=%s, dispositivo=%s, sistema_operativo=%s,
-                    buffett=%s, metodo_pagamento=%s, operatore_it=%s, cellulare=%s, procuratore=%s,
-                    apk_utilizzata=%s, uso_vpn=%s, quale_vpn=%s, citta=%s,
-                    data_iscrizione=%s, data_fine=%s, informazioni=%s WHERE id=%s""",
-                    (dati.get("nominativo"), dati.get("user_id"), dati.get("password"),
-                     float(dati.get("prezzo",0)), dati.get("cadenza"), dati.get("tipo"),
-                     dati.get("server"), dati.get("reseller"),
-                     dati.get("dispositivo"), dati.get("sistema_operativo"),
-                     dati.get("buffett"), dati.get("metodo_pagamento"), dati.get("operatore_it"),
-                     dati.get("cellulare"), dati.get("procuratore"),
-                     dati.get("apk_utilizzata"), int(dati.get("uso_vpn",0)),
-                     dati.get("quale_vpn"), dati.get("citta"),
-                     dati.get("data_iscrizione"), dati.get("data_fine"),
-                     dati.get("informazioni"), dati.get("id")))
+                cur.execute("UPDATE nominativi SET nominativo=%s, user_id=%s, password=%s, prezzo=%s, cadenza=%s, tipo=%s, server=%s, reseller=%s, dispositivo=%s, sistema_operativo=%s, buffett=%s, metodo_pagamento=%s, operatore_it=%s, cellulare=%s, procuratore=%s, apk_utilizzata=%s, uso_vpn=%s, quale_vpn=%s, citta=%s, data_iscrizione=%s, data_fine=%s, informazioni=%s WHERE id=%s", (dati.get("nominativo"), dati.get("user_id"), dati.get("password"), float(dati.get("prezzo",0)), dati.get("cadenza"), dati.get("tipo"), dati.get("server"), dati.get("reseller"), dati.get("dispositivo"), dati.get("sistema_operativo"), dati.get("buffett"), dati.get("metodo_pagamento"), dati.get("operatore_it"), dati.get("cellulare"), dati.get("procuratore"), dati.get("apk_utilizzata"), int(dati.get("uso_vpn",0)), dati.get("quale_vpn"), dati.get("citta"), dati.get("data_iscrizione"), dati.get("data_fine"), dati.get("informazioni"), dati.get("id")))
         conn.commit()
     finally:
         conn.close()
     return {"ok": True}
 
-# --- SCADENZE / RINNOVI ---
+# === SCADENZE / RINNOVI ===
 @app.get("/api/scadenze", dependencies=[Depends(check_permission("scadenze"))])
 def api_scadenze(request: Request):
     oggi = datetime.now().date()
@@ -308,9 +244,7 @@ def api_scadenze(request: Request):
                         scad = datetime.strptime(r["scadenza"], fmt).date(); break
                     except: pass
                 if scad and scad < oggi:
-                    out.append({"id": r["id"], "nominativo_id": r["nominativo_id"], "nominativo": r["nominativo"],
-                                "scadenza": r["scadenza"], "orario_scadenza": r.get("orario_scadenza",""),
-                                "scaduta": True, "giorni": -(oggi - scad).days})
+                    out.append({"id": r["id"], "nominativo_id": r["nominativo_id"], "nominativo": r["nominativo"], "scadenza": r["scadenza"], "orario_scadenza": r.get("orario_scadenza",""), "scaduta": True, "giorni": -(oggi - scad).days})
             return out
     finally:
         conn.close()
@@ -320,13 +254,7 @@ def api_elenco_rinnovi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""SELECT r.id, r.nominativo_id, r.tipo, r.data_operazione, r.mesi,
-                r.scadenza, r.orario_scadenza, r.importo_acconto, r.importo_saldo,
-                r.data_acconto, r.data_saldo, r.note, r.creato_il,
-                r.num_credito_rich, r.num_credito_dato, r.num_credito_dare,
-                r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato,
-                r.val_singolo_nc_rich, r.val_nc_rich, n.nominativo
-                FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id ORDER BY r.creato_il DESC""")
+            cur.execute("SELECT r.id, r.nominativo_id, r.tipo, r.data_operazione, r.mesi, r.scadenza, r.orario_scadenza, r.importo_acconto, r.importo_saldo, r.data_acconto, r.data_saldo, r.note, r.creato_il, r.num_credito_rich, r.num_credito_dato, r.num_credito_dare, r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato, r.val_singolo_nc_rich, r.val_nc_rich, n.nominativo FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id ORDER BY r.creato_il DESC")
             return cur.fetchall()
     finally:
         conn.close()
@@ -343,17 +271,7 @@ def api_rinnovo(payload: RinnovoPayload, request: Request):
             num_rich = int(dati.get("num_credito_rich", 0))
             num_dato = int(dati.get("num_credito_dato", 0))
             val_singolo = float(dati.get("val_singolo_nc_rich", 0))
-            cur.execute("""INSERT INTO rinnovi (nominativo_id, tipo, data_operazione, mesi, scadenza, orario_scadenza, importo_acconto, importo_saldo, data_acconto, data_saldo, note, creato_il, num_credito_rich, num_credito_dato, num_credito_dare, data_credito_rinnovo_rich, data_credito_rinnovo_dato, val_singolo_nc_rich, val_nc_rich)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (int(dati.get("nominativo_id")), dati.get("tipo","rinnovo"), dati.get("data_operazione"),
-                 num_rich, dati.get("scadenza"), dati.get("orario_scadenza",""),
-                 float(dati.get("importo_acconto",0)), float(dati.get("importo_saldo",0)),
-                 datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_acconto",0))>0 else "",
-                 datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_saldo",0))>0 else "",
-                 dati.get("note",""), datetime.now().isoformat(),
-                 num_rich, num_dato, num_rich - num_dato,
-                 dati.get("data_credito_rinnovo_rich",""), dati.get("data_credito_rinnovo_dato",""),
-                 val_singolo, num_rich * val_singolo))
+            cur.execute("INSERT INTO rinnovi (nominativo_id, tipo, data_operazione, mesi, scadenza, orario_scadenza, importo_acconto, importo_saldo, data_acconto, data_saldo, note, creato_il, num_credito_rich, num_credito_dato, num_credito_dare, data_credito_rinnovo_rich, data_credito_rinnovo_dato, val_singolo_nc_rich, val_nc_rich) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (int(dati.get("nominativo_id")), dati.get("tipo","rinnovo"), dati.get("data_operazione"), num_rich, dati.get("scadenza"), dati.get("orario_scadenza",""), float(dati.get("importo_acconto",0)), float(dati.get("importo_saldo",0)), datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_acconto",0))>0 else "", datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_saldo",0))>0 else "", dati.get("note",""), datetime.now().isoformat(), num_rich, num_dato, num_rich - num_dato, dati.get("data_credito_rinnovo_rich",""), dati.get("data_credito_rinnovo_dato",""), val_singolo, num_rich * val_singolo))
         conn.commit()
     finally:
         conn.close()
@@ -371,18 +289,13 @@ def api_rinnovo_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
-# --- SALDO RINNOVI ---
+# === SALDO RINNOVI ===
 @app.get("/api/saldo_rinnovi", dependencies=[Depends(check_permission("saldo_rinnovi"))])
 def api_saldo_rinnovi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""SELECT s.id, s.rinnovo_id, s.num_credito_saldo, s.data_credito_rinnovo_saldo,
-                s.val_nc_dato, s.val_nc_saldo, s.informazioni_note, s.creato_il,
-                r.num_credito_rich, r.num_credito_dato, r.data_credito_rinnovo_rich,
-                r.data_credito_rinnovo_dato, r.val_nc_rich, r.val_singolo_nc_rich, n.nominativo
-                FROM saldo_rinnovi s JOIN rinnovi r ON r.id = s.rinnovo_id
-                JOIN nominativi n ON n.id = r.nominativo_id ORDER BY s.creato_il DESC""")
+            cur.execute("SELECT s.id, s.rinnovo_id, s.num_credito_saldo, s.data_credito_rinnovo_saldo, s.val_nc_dato, s.val_nc_saldo, s.informazioni_note, s.creato_il, r.num_credito_rich, r.num_credito_dato, r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato, r.val_nc_rich, r.val_singolo_nc_rich, n.nominativo FROM saldo_rinnovi s JOIN rinnovi r ON r.id = s.rinnovo_id JOIN nominativi n ON n.id = r.nominativo_id ORDER BY s.creato_il DESC")
             return cur.fetchall()
     finally:
         conn.close()
@@ -392,10 +305,7 @@ def api_rinnovi_per_saldo(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""SELECT r.id, r.num_credito_rich, r.num_credito_dato, r.num_credito_dare,
-                r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato,
-                r.val_nc_rich, r.val_singolo_nc_rich, n.nominativo
-                FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id ORDER BY n.nominativo""")
+            cur.execute("SELECT r.id, r.num_credito_rich, r.num_credito_dato, r.num_credito_dare, r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato, r.val_nc_rich, r.val_singolo_nc_rich, n.nominativo FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id ORDER BY n.nominativo")
             return cur.fetchall()
     finally:
         conn.close()
@@ -412,10 +322,7 @@ def api_saldo_rinnovo_nuovo(payload: RinnovoPayload, request: Request):
             if not row: raise HTTPException(status_code=404, detail="Rinnovo non trovato")
             num_dato = row["num_credito_dato"]; val_singolo = row["val_singolo_nc_rich"] or 0
             num_saldo = int(dati.get("num_credito_saldo", 0))
-            cur.execute("""INSERT INTO saldo_rinnovi (rinnovo_id, num_credito_saldo, data_credito_rinnovo_saldo, val_nc_dato, val_nc_saldo, informazioni_note, creato_il)
-                VALUES (%s,%s,%s,%s,%s,%s,%s)""",
-                (rinnovo_id, num_saldo, dati.get("data_credito_rinnovo_saldo",""),
-                 num_dato*val_singolo, num_saldo*val_singolo, dati.get("informazioni_note",""), datetime.now().isoformat()))
+            cur.execute("INSERT INTO saldo_rinnovi (rinnovo_id, num_credito_saldo, data_credito_rinnovo_saldo, val_nc_dato, val_nc_saldo, informazioni_note, creato_il) VALUES (%s,%s,%s,%s,%s,%s,%s)", (rinnovo_id, num_saldo, dati.get("data_credito_rinnovo_saldo",""), num_dato*val_singolo, num_saldo*val_singolo, dati.get("informazioni_note",""), datetime.now().isoformat()))
         conn.commit()
     finally:
         conn.close()
@@ -432,7 +339,7 @@ def api_saldo_rinnovo_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
-# --- LISTE DI SUPPORTO ---
+# === LISTE DI SUPPORTO ===
 @app.get("/api/resellers", dependencies=[Depends(check_permission("reseller"))])
 def api_resellers(request: Request):
     conn = db_conn()
@@ -489,9 +396,7 @@ def api_metodi_pagamento():
             cur.execute("SELECT id, nome FROM metodi_pagamento ORDER BY nome"); return cur.fetchall()
     finally: conn.close()
 
-TABELLE_COLONNE = {'dispositivi':'nome','sistemi_operativi':'nome','buffett':'nome',
-    'metodi_pagamento':'nome','resellers':'nominativo','servers':'nominativo',
-    'procuratori':'nominativo','operatori_it':'nome'}
+TABELLE_COLONNE = {'dispositivi':'nome','sistemi_operativi':'nome','buffett':'nome','metodi_pagamento':'nome','resellers':'nominativo','servers':'nominativo','procuratori':'nominativo','operatori_it':'nome'}
 
 class ListaPayload(BaseModel):
     nome: str
@@ -529,9 +434,10 @@ def api_lista_cancella(id: int, tabella: str, request: Request):
     finally: conn.close()
     return {"ok": True}
 
-# --- OPERATORI IT (endpoint garantito) ---
-@app.get("/api/operatori_it", dependencies=[Depends(check_permission("operatori_it"))])
+# === OPERATORI IT (SENZA PROTEZIONE - solo admin) ===
+@app.get("/api/operatori_it")
 def api_operatori_it(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -541,8 +447,9 @@ def api_operatori_it(request: Request):
 class OperatorePayload(BaseModel):
     dati: dict
 
-@app.post("/api/operatori_it", dependencies=[Depends(check_permission("operatori_it"))])
+@app.post("/api/operatori_it")
 def api_operatori_it_nuovo(payload: OperatorePayload, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -551,8 +458,9 @@ def api_operatori_it_nuovo(payload: OperatorePayload, request: Request):
     finally: conn.close()
     return {"ok": True}
 
-@app.put("/api/operatori_it/{id}", dependencies=[Depends(check_permission("operatori_it"))])
+@app.put("/api/operatori_it/{id}")
 def api_operatori_it_modifica(id: int, payload: OperatorePayload, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -561,8 +469,9 @@ def api_operatori_it_modifica(id: int, payload: OperatorePayload, request: Reque
     finally: conn.close()
     return {"ok": True}
 
-@app.delete("/api/operatori_it/{id}", dependencies=[Depends(check_permission("operatori_it"))])
+@app.delete("/api/operatori_it/{id}")
 def api_operatori_it_cancella(id: int, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -571,14 +480,13 @@ def api_operatori_it_cancella(id: int, request: Request):
     finally: conn.close()
     return {"ok": True}
 
-# --- NOTE ---
+# === NOTE ===
 @app.get("/api/note", dependencies=[Depends(check_permission("nota"))])
 def api_note(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""SELECT n.id, n.nominativo_id, n.messaggio, n.creato_il, nom.nominativo
-                FROM note n JOIN nominativi nom ON nom.id = n.nominativo_id ORDER BY n.creato_il DESC""")
+            cur.execute("SELECT n.id, n.nominativo_id, n.messaggio, n.creato_il, nom.nominativo FROM note n JOIN nominativi nom ON nom.id = n.nominativo_id ORDER BY n.creato_il DESC")
             return cur.fetchall()
     finally: conn.close()
 
@@ -591,8 +499,7 @@ def api_note_nuovo(payload: NotaPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO note (nominativo_id, messaggio, creato_il) VALUES (%s,%s,%s)",
-                (int(dati.get("nominativo_id")), dati.get("messaggio",""), datetime.now().isoformat()))
+            cur.execute("INSERT INTO note (nominativo_id, messaggio, creato_il) VALUES (%s,%s,%s)", (int(dati.get("nominativo_id")), dati.get("messaggio",""), datetime.now().isoformat()))
         conn.commit()
     finally: conn.close()
     return {"ok": True}
@@ -607,14 +514,13 @@ def api_note_cancella(id: int, request: Request):
     finally: conn.close()
     return {"ok": True}
 
-# --- CREDENZIALI ---
+# === CREDENZIALI ===
 @app.get("/api/credenziali", dependencies=[Depends(check_permission("credenziali"))])
 def api_credenziali(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""SELECT id, nominativo, nome_file, link, percorso, user_id, password,
-                file_token, scadenza, informazioni, creato_il FROM credenziali ORDER BY creato_il DESC""")
+            cur.execute("SELECT id, nominativo, nome_file, link, percorso, user_id, password, file_token, scadenza, informazioni, creato_il FROM credenziali ORDER BY creato_il DESC")
             return cur.fetchall()
     finally: conn.close()
 
@@ -627,11 +533,7 @@ def api_credenziali_nuovo(payload: CredenzialiPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""INSERT INTO credenziali (nominativo, nome_file, link, percorso, user_id, password, file_token, scadenza, informazioni, creato_il)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (d.get("nominativo",""),d.get("nome_file",""),d.get("link",""),d.get("percorso",""),
-                 d.get("user_id",""),d.get("password",""),d.get("file_token",""),d.get("scadenza",""),
-                 d.get("informazioni",""), datetime.now().isoformat()))
+            cur.execute("INSERT INTO credenziali (nominativo, nome_file, link, percorso, user_id, password, file_token, scadenza, informazioni, creato_il) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (d.get("nominativo",""),d.get("nome_file",""),d.get("link",""),d.get("percorso",""),d.get("user_id",""),d.get("password",""),d.get("file_token",""),d.get("scadenza",""),d.get("informazioni",""), datetime.now().isoformat()))
         conn.commit()
     finally: conn.close()
     return {"ok": True}
@@ -642,10 +544,7 @@ def api_credenziali_modifica(id: int, payload: CredenzialiPayload, request: Requ
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""UPDATE credenziali SET nominativo=%s, nome_file=%s, link=%s, percorso=%s, user_id=%s, password=%s, file_token=%s, scadenza=%s, informazioni=%s WHERE id=%s""",
-                (d.get("nominativo",""),d.get("nome_file",""),d.get("link",""),d.get("percorso",""),
-                 d.get("user_id",""),d.get("password",""),d.get("file_token",""),d.get("scadenza",""),
-                 d.get("informazioni",""), id))
+            cur.execute("UPDATE credenziali SET nominativo=%s, nome_file=%s, link=%s, percorso=%s, user_id=%s, password=%s, file_token=%s, scadenza=%s, informazioni=%s WHERE id=%s", (d.get("nominativo",""),d.get("nome_file",""),d.get("link",""),d.get("percorso",""),d.get("user_id",""),d.get("password",""),d.get("file_token",""),d.get("scadenza",""),d.get("informazioni",""), id))
         conn.commit()
     finally: conn.close()
     return {"ok": True}
@@ -674,9 +573,10 @@ def api_credenziali_cancella(id: int, request: Request):
     finally: conn.close()
     return {"ok": True}
 
-# --- NOTIFICHE ---
-@app.get("/api/config_notifiche", dependencies=[Depends(check_permission("notifiche"))])
-def api_config_notifiche():
+# === NOTIFICHE (SENZA PROTEZIONE - solo admin) ===
+@app.get("/api/config_notifiche")
+def api_config_notifiche(request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -691,19 +591,18 @@ class ConfigNotifichePayload(BaseModel):
     minuto: int
     attivo: bool
 
-@app.post("/api/config_notifiche", dependencies=[Depends(check_permission("notifiche"))])
+@app.post("/api/config_notifiche")
 def api_config_notifiche_update(payload: ConfigNotifichePayload, request: Request):
+    get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("UPDATE config_notifiche SET ora = %s, minuto = %s, attivo = %s WHERE id = 1",
-                        (payload.ora, payload.minuto, 1 if payload.attivo else 0))
+            cur.execute("UPDATE config_notifiche SET ora = %s, minuto = %s, attivo = %s WHERE id = 1", (payload.ora, payload.minuto, 1 if payload.attivo else 0))
         conn.commit()
     finally: conn.close()
     return {"ok": True}
 
-# NUOVO ENDPOINT: risolve il 405 del bottone "Invia Notifica di Test"
-@app.post("/api/notifica_test", dependencies=[Depends(check_permission("notifiche"))])
+@app.post("/api/notifica_test")
 def api_notifica_test(request: Request):
     user = get_current_user(request)
     conn = db_conn()
@@ -711,8 +610,7 @@ def api_notifica_test(request: Request):
         with conn.cursor() as cur:
             cur.execute("SELECT ora, minuto, attivo FROM config_notifiche WHERE id = 1")
             row = cur.fetchone() or {"ora": 7, "minuto": 0, "attivo": 1}
-        msg = (f"Notifica di test generata per l'utente {user['id'] if user else 'admin'} "
-               f"alle {row['ora']:02d}:{row['minuto']:02d} UTC (stato: {'attivo' if row['attivo'] else 'disattivo'})")
+        msg = f"Notifica di test per utente {user['id'] if user else 'admin'} alle {row['ora']:02d}:{row['minuto']:02d} UTC"
         print("🔔", msg)
         return {"ok": True, "message": msg}
     finally:
