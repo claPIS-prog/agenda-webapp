@@ -605,21 +605,76 @@ def api_credenziali_cancella(id: int, request: Request):
     return {"ok": True}
 
 # === CALCOLI ===
-@app.get("/api/calcoli")
-def api_calcoli(request: Request):
+@app.get("/api/calcoli/calcola")
+def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", periodo_da: str = "", periodo_a: str = "", request: Request = None):
     get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""SELECT id, nominativo_da, nominativo_a, periodo_da, periodo_a,
-                importo_nuovo, data_acconto_nuovo, acconto_nuovo, info_saldo_nuovo,
-                data_acconto_saldo_nuovo, acconto_saldo_nuovo, totale_acconti_nuovi,
-                info_saldo_rinnovo_nuovo,
-                importo_rinnovo, data_acconto_rinnovo, acconto_rinnovo, info_saldo_rinnovo,
-                data_acconto_saldo_rinnovo, acconto_saldo_rinnovo, totale_acconti_rinnovo,
-                totale_generale, note, creato_il
-                FROM calcoli ORDER BY creato_il DESC""")
-            return cur.fetchall()
+            # Query base con filtri
+            query = """SELECT r.tipo, r.importo_acconto, r.importo_saldo, r.data_acconto, r.data_saldo,
+                r.num_credito_rich, r.num_credito_dato, n.nominativo, r.scadenza
+                FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id WHERE 1=1"""
+            params = []
+            
+            if nominativo_da:
+                query += " AND n.nominativo >= %s"
+                params.append(nominativo_da)
+            if nominativo_a:
+                query += " AND n.nominativo <= %s"
+                params.append(nominativo_a)
+            if periodo_da:
+                query += " AND r.data_operazione >= %s"
+                params.append(periodo_da)
+            if periodo_a:
+                query += " AND r.data_operazione <= %s"
+                params.append(periodo_a)
+            
+            cur.execute(query, params)
+            rows = cur.fetchall()
+            
+            # Calcoli automatici
+            importo_nuovo = 0
+            acconto_nuovo = 0
+            acconto_saldo_nuovo = 0
+            importo_rinnovo = 0
+            acconto_rinnovo = 0
+            acconto_saldo_rinnovo = 0
+            
+            for r in rows:
+                if r['tipo'] == 'nuovo':
+                    importo_nuovo += float(r['importo_acconto'] or 0) + float(r['importo_saldo'] or 0)
+                    acconto_nuovo += float(r['importo_acconto'] or 0)
+                    acconto_saldo_nuovo += float(r['importo_saldo'] or 0)
+                else:  # rinnovo
+                    importo_rinnovo += float(r['importo_acconto'] or 0) + float(r['importo_saldo'] or 0)
+                    acconto_rinnovo += float(r['importo_acconto'] or 0)
+                    acconto_saldo_rinnovo += float(r['importo_saldo'] or 0)
+            
+            totale_acconti_nuovi = acconto_nuovo + acconto_saldo_nuovo
+            totale_acconti_rinnovo = acconto_rinnovo + acconto_saldo_rinnovo
+            totale_generale = totale_acconti_nuovi + totale_acconti_rinnovo
+            
+            return {
+                "importo_nuovo": importo_nuovo,
+                "data_acconto_nuovo": "",
+                "acconto_nuovo": acconto_nuovo,
+                "info_saldo_nuovo": "",
+                "data_acconto_saldo_nuovo": "",
+                "acconto_saldo_nuovo": acconto_saldo_nuovo,
+                "totale_acconti_nuovi": totale_acconti_nuovi,
+                "info_saldo_rinnovo_nuovo": "",
+                "importo_rinnovo": importo_rinnovo,
+                "data_acconto_rinnovo": "",
+                "acconto_rinnovo": acconto_rinnovo,
+                "info_saldo_rinnovo": "",
+                "data_acconto_saldo_rinnovo": "",
+                "acconto_saldo_rinnovo": acconto_saldo_rinnovo,
+                "totale_acconti_rinnovo": totale_acconti_rinnovo,
+                "totale_generale": totale_generale,
+                "count_nuovi": sum(1 for r in rows if r['tipo'] == 'nuovo'),
+                "count_rinnovi": sum(1 for r in rows if r['tipo'] == 'rinnovo')
+            }
     finally:
         conn.close()
 
