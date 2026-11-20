@@ -604,27 +604,30 @@ def api_config_notifiche_update(payload: ConfigNotifichePayload, request: Reques
 
 @app.post("/api/notifica_test")
 def api_notifica_test(request: Request):
-    import requests as req_lib
-    
     user = get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT ora, minuto, attivo FROM config_notifiche WHERE id = 1")
-            row = cur.fetchone() or {"ora": 7, "minuto": 0, "attivo": 1}
+            row = cur.fetchone()
+            if not row:
+                row = {"ora": 7, "minuto": 0, "attivo": 1}
             
             cur.execute("SELECT telegram_id, nome FROM autorizzati")
             utenti = cur.fetchall()
         
+        orario = f"{row['ora']:02d}:{row['minuto']:02d}"
+        stato = "Attivo" if row['attivo'] else "Disattivo"
+        
         msg = (
-            f"🔔 *Notifica di Test*\n\n"
-            f"Questa è una notifica di test dal bot *AgendaGest*.\n\n"
-            f"⏰ Orario configurato: `{row['ora']:02d}:{row['minuto']:02d}` UTC\n"
-            f"📊 Stato: {'✅ *Attivo*' if row['attivo'] else '⛔ *Disattivo*'}\n\n"
-            f"Se ricevi questo messaggio, il sistema di notifiche funziona correttamente. ✅"
+            f"🔔 Notifica di Test\n\n"
+            f"Questa è una notifica di test dal bot AgendaGest.\n\n"
+            f"Orario configurato: {orario} UTC\n"
+            f"Stato: {stato}\n\n"
+            f"Se ricevi questo messaggio, il sistema di notifiche funziona correttamente."
         )
         
-        # Costruisci lista chat_id unici (amici + admin)
+        # Lista chat_id unici
         chat_ids = [u['telegram_id'] for u in utenti]
         if AUTHORIZED_IDS:
             chat_ids.extend(list(AUTHORIZED_IDS))
@@ -637,16 +640,18 @@ def api_notifica_test(request: Request):
         for chat_id in chat_ids:
             try:
                 url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-                data = {"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"}
-                resp = req_lib.post(url, json=data, timeout=10)
-                if resp.ok:
+                data = json.dumps({"chat_id": chat_id, "text": msg}).encode('utf-8')
+                req = urllib.request.Request(url, data=data, method='POST')
+                req.add_header('Content-Type', 'application/json')
+                resp = urllib.request.urlopen(req, timeout=10)
+                if resp.getcode() == 200:
                     inviati += 1
                 else:
                     errori += 1
-                    dettagli.append(f"❌ {chat_id}: HTTP {resp.status_code}")
+                    dettagli.append(f"Errore {chat_id}: HTTP {resp.getcode()}")
             except Exception as e:
                 errori += 1
-                dettagli.append(f"❌ {chat_id}: {str(e)[:50]}")
+                dettagli.append(f"Errore {chat_id}: {str(e)[:50]}")
         
         result_msg = f"Notifica inviata a {inviati} utenti"
         if errori > 0:
