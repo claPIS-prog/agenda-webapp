@@ -51,7 +51,7 @@ def get_current_user(request: Request):
 
 def check_permission(module_name: str):
     """Dipendenza FastAPI per verificare i permessi"""
-    async def permission_checker(request: Request):
+    def permission_checker(request: Request):
         user = get_current_user(request)
         if not user:
             raise HTTPException(status_code=401, detail="Non autenticato")
@@ -76,7 +76,8 @@ def check_permission(module_name: str):
     return permission_checker
 
 def init_db():
-    conn = psycopg2.connect(DATABASE_URL)
+    # FIX: Aggiunto cursor_factory=RealDictCursor per permettere l'accesso ai campi per nome
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     try:
         with conn.cursor() as cur:
             # Tabelle esistenti
@@ -238,7 +239,6 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
     return {"ok": True}
 
 # --- API DATI CON PROTEZIONE PERMESSI ---
-# Esempio: per proteggere un endpoint, aggiungi Depends(check_permission("nome_modulo"))
 
 @app.get("/api/nominativi", dependencies=[Depends(check_permission("nominativo"))])
 def api_nominativi(request: Request):
@@ -478,7 +478,6 @@ class ListaPayload(BaseModel):
 
 @app.post("/api/lista/nuovo")
 def api_lista_nuovo(payload: ListaPayload, request: Request):
-    # Qui potresti aggiungere check_permission specifico per ogni tabella se necessario
     conn = db_conn()
     try:
         with conn.cursor() as cur:
