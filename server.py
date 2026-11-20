@@ -27,7 +27,7 @@ ALL_MODULES = [
     "nominativo", "lista", "scadenze", "rinnovi", "storico_rinnovi",
     "saldo_rinnovi", "reseller", "procuratori", "server", "nota",
     "credenziali", "permessi", "dispositivi", "sistemi_op", "buffett",
-    "pagamenti", "operatori_it", "tabelle"
+    "pagamenti", "operatori_it", "tabelle", "crediti"
 ]
 
 def get_current_user(request: Request):
@@ -54,7 +54,7 @@ def init_db():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     try:
         with conn.cursor() as cur:
-            cur.execute("CREATE TABLE IF NOT EXISTS nominativi (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, prezzo REAL DEFAULT 0, cadenza TEXT, tipo TEXT, dispositivo TEXT, sistema_operativo TEXT, buffett TEXT, metodo_pagamento TEXT, operatore_it TEXT, server TEXT, reseller TEXT, user_id TEXT, password TEXT, cellulare TEXT, procuratore TEXT, apk_utilizzata TEXT, uso_vpn INTEGER DEFAULT 0, quale_vpn TEXT, citta TEXT, data_iscrizione TEXT, data_fine TEXT, informazioni TEXT)")
+            cur.execute("CREATE TABLE IF NOT EXISTS nominativi (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, tipo TEXT, prezzo REAL DEFAULT 0, cadenza TEXT, tipo_linea TEXT, dispositivo TEXT, sistema_operativo TEXT, buffett TEXT, metodo_pagamento TEXT, operatore_it TEXT, server TEXT, reseller TEXT, user_id TEXT, password TEXT, cellulare TEXT, procuratore TEXT, apk_utilizzata TEXT, uso_vpn INTEGER DEFAULT 0, quale_vpn TEXT, citta TEXT, data_iscrizione TEXT, data_fine TEXT, informazioni TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS rinnovi (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), tipo TEXT, data_operazione TEXT, mesi INTEGER, scadenza TEXT, orario_scadenza TEXT, importo_acconto REAL DEFAULT 0, importo_saldo REAL DEFAULT 0, data_acconto TEXT, data_saldo TEXT, note TEXT, creato_il TEXT, num_credito_rich INTEGER DEFAULT 0, num_credito_dato INTEGER DEFAULT 0, num_credito_dare INTEGER DEFAULT 0, data_credito_rinnovo_rich TEXT, data_credito_rinnovo_dato TEXT, val_singolo_nc_rich REAL DEFAULT 0, val_nc_rich REAL DEFAULT 0)")
             cur.execute("CREATE TABLE IF NOT EXISTS servers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS resellers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
@@ -86,7 +86,8 @@ def init_db():
                 totale_nc REAL DEFAULT 0, totale_nc_omaggio REAL DEFAULT 0,
                 totale_generale REAL DEFAULT 0, note TEXT, creato_il TEXT
             )""")
-            for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),("procuratore","TEXT"),("apk_utilizzata","TEXT"),("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),("data_fine","TEXT"),("informazioni","TEXT")]:
+            cur.execute("CREATE TABLE IF NOT EXISTS crediti (id SERIAL PRIMARY KEY, data_acquisto TEXT, fornitore TEXT, modalita_pagamento TEXT, quantita INTEGER DEFAULT 0, valore REAL DEFAULT 0, note TEXT, creato_il TEXT)")
+            for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),("procuratore","TEXT"),("apk_utilizzata","TEXT"),("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),("data_fine","TEXT"),("informazioni","TEXT"),("tipo_linea","TEXT")]:
                 cur.execute(f"ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS {col} {typ}")
             cur.execute("SELECT id FROM autorizzati")
             for u in cur.fetchall():
@@ -187,7 +188,7 @@ def api_nominativi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nominativo FROM nominativi ORDER BY nominativo")
+            cur.execute("SELECT id, nominativo, tipo FROM nominativi ORDER BY nominativo")
             return cur.fetchall()
     finally:
         conn.close()
@@ -198,7 +199,7 @@ def api_contatti(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nominativo, prezzo, cadenza, tipo, dispositivo, sistema_operativo, buffett, metodo_pagamento, operatore_it FROM nominativi ORDER BY nominativo")
+            cur.execute("SELECT id, nominativo, tipo, prezzo, cadenza, tipo_linea, dispositivo, sistema_operativo, buffett, metodo_pagamento, operatore_it FROM nominativi ORDER BY nominativo")
             return cur.fetchall()
     finally:
         conn.close()
@@ -689,7 +690,6 @@ def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", reselle
             cur.execute(query, params)
             rows = cur.fetchall()
             
-            # Inizializza variabili per 3 categorie
             importo_nuovo = acconto_nuovo = acconto_saldo_nuovo = 0
             importo_rinnovo = acconto_rinnovo = acconto_saldo_rinnovo = 0
             importo_omaggio = acconto_omaggio = acconto_saldo_omaggio = 0
@@ -722,7 +722,7 @@ def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", reselle
                     crediti_dati_omaggio += dati
                     crediti_dare_omaggio += dare
                     totale_nc_omaggio += nc
-                else:  # rinnovo
+                else:
                     importo_rinnovo += val_tot
                     acconto_rinnovo += val_acconto
                     acconto_saldo_rinnovo += val_saldo
@@ -802,6 +802,64 @@ def api_calcoli_cancella(id: int, request: Request):
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM calcoli WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# === CREDITI ===
+@app.get("/api/crediti")
+def api_crediti(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM crediti ORDER BY data_acquisto DESC")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+class CreditoPayload(BaseModel):
+    dati: dict
+
+@app.post("/api/crediti")
+def api_crediti_salva(payload: CreditoPayload, request: Request):
+    get_current_user(request)
+    d = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO crediti (data_acquisto, fornitore, modalita_pagamento, quantita, valore, note, creato_il) 
+                VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                (d.get("data_acquisto",""), d.get("fornitore",""), d.get("modalita_pagamento",""),
+                 int(d.get("quantita",0)), float(d.get("valore",0)), d.get("note",""), datetime.now().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.put("/api/crediti/{id}")
+def api_crediti_modifica(id: int, payload: CreditoPayload, request: Request):
+    get_current_user(request)
+    d = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""UPDATE crediti SET data_acquisto=%s, fornitore=%s, modalita_pagamento=%s, quantita=%s, valore=%s, note=%s WHERE id=%s""",
+                (d.get("data_acquisto",""), d.get("fornitore",""), d.get("modalita_pagamento",""),
+                 int(d.get("quantita",0)), float(d.get("valore",0)), d.get("note",""), id))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/crediti/{id}")
+def api_crediti_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM crediti WHERE id = %s", (id,))
         conn.commit()
     finally:
         conn.close()
