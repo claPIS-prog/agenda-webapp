@@ -53,6 +53,10 @@ textarea { resize: vertical; min-height: 50px; }
     <div><label>Periodo DA:</label><input type="date" id="periodo_da" onchange="calcolaAutomatico()"></div>
     <div><label>Periodo A:</label><input type="date" id="periodo_a" onchange="calcolaAutomatico()"></div>
 </div>
+<div class="row">
+    <div><label>Reseller:</label><select id="reseller" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
+    <div><label>Procuratore:</label><select id="procuratore" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
+</div>
 
 <!-- STATISTICHE -->
 <div class="stat-box">
@@ -133,19 +137,38 @@ function getHeaders(contentType) {
 }
 
 let nominativi = [];
+let resellers = [];
+let procuratori = [];
 
-async function caricaNominativi() {
-    try {
-        const res = await fetch('/api/nominativi', { headers: getHeaders() });
-        if (!res.ok) return;
-        nominativi = await res.json();
-        const selDa = document.getElementById('nominativo_da');
-        const selA = document.getElementById('nominativo_a');
-        nominativi.forEach(n => {
-            selDa.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>';
-            selA.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>';
-        });
-    } catch (e) { console.error(e); }
+async function caricaDropdowns() {
+    const ok = async (url) => {
+        try {
+            const res = await fetch(url, { headers: getHeaders() });
+            if (!res.ok) return [];
+            return await res.json();
+        } catch (e) { return []; }
+    };
+    
+    nominativi = await ok('/api/nominativi');
+    resellers = await ok('/api/resellers');
+    procuratori = await ok('/api/procuratori');
+    
+    const selDa = document.getElementById('nominativo_da');
+    const selA = document.getElementById('nominativo_a');
+    nominativi.forEach(n => {
+        selDa.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>';
+        selA.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>';
+    });
+    
+    const selRes = document.getElementById('reseller');
+    resellers.forEach(r => {
+        selRes.innerHTML += '<option value="' + r.nominativo + '">' + r.nominativo + '</option>';
+    });
+    
+    const selProc = document.getElementById('procuratore');
+    procuratori.forEach(p => {
+        selProc.innerHTML += '<option value="' + p.nominativo + '">' + p.nominativo + '</option>';
+    });
 }
 
 async function calcolaAutomatico() {
@@ -153,14 +176,15 @@ async function calcolaAutomatico() {
     const nominativoA = document.getElementById('nominativo_a').value;
     const periodoDa = document.getElementById('periodo_da').value;
     const periodoA = document.getElementById('periodo_a').value;
+    const reseller = document.getElementById('reseller').value;
+    const procuratore = document.getElementById('procuratore').value;
     
     try {
-        const url = `/api/calcoli/calcola?nominativo_da=${encodeURIComponent(nominativoDa)}&nominativo_a=${encodeURIComponent(nominativoA)}&periodo_da=${periodoDa}&periodo_a=${periodoA}`;
+        const url = `/api/calcoli/calcola?nominativo_da=${encodeURIComponent(nominativoDa)}&nominativo_a=${encodeURIComponent(nominativoA)}&periodo_da=${periodoDa}&periodo_a=${periodoA}&reseller=${encodeURIComponent(reseller)}&procuratore=${encodeURIComponent(procuratore)}`;
         const res = await fetch(url, { headers: getHeaders() });
         if (!res.ok) return;
         const data = await res.json();
         
-        // Aggiorna tutti i campi read-only
         document.getElementById('importo_nuovo').value = data.importo_nuovo.toFixed(2);
         document.getElementById('acconto_nuovo').value = data.acconto_nuovo.toFixed(2);
         document.getElementById('acconto_saldo_nuovo').value = data.acconto_saldo_nuovo.toFixed(2);
@@ -193,6 +217,8 @@ async function salva() {
         nominativo_a: document.getElementById('nominativo_a').value,
         periodo_da: document.getElementById('periodo_da').value,
         periodo_a: document.getElementById('periodo_a').value,
+        reseller: document.getElementById('reseller').value,
+        procuratore: document.getElementById('procuratore').value,
         importo_nuovo: parseFloat(document.getElementById('importo_nuovo').value) || 0,
         data_acconto_nuovo: document.getElementById('data_acconto_nuovo').value,
         acconto_nuovo: parseFloat(document.getElementById('acconto_nuovo').value) || 0,
@@ -234,6 +260,8 @@ function generaPDFWhatsApp() {
     const nominativoA = document.getElementById('nominativo_a').value || 'Tutti';
     const periodoDa = document.getElementById('periodo_da').value || 'N/D';
     const periodoA = document.getElementById('periodo_a').value || 'N/D';
+    const reseller = document.getElementById('reseller').value || 'Tutti';
+    const procuratore = document.getElementById('procuratore').value || 'Tutti';
     
     doc.setFontSize(16);
     doc.text('Report Calcoli', 105, 20, { align: 'center' });
@@ -241,42 +269,43 @@ function generaPDFWhatsApp() {
     doc.setFontSize(10);
     doc.text(`Nominativi: ${nominativoDa} - ${nominativoA}`, 20, 35);
     doc.text(`Periodo: ${periodoDa} - ${periodoA}`, 20, 42);
+    doc.text(`Reseller: ${reseller} | Procuratore: ${procuratore}`, 20, 49);
     
     doc.setFontSize(12);
-    doc.text('NUOVO', 20, 55);
+    doc.text('NUOVO', 20, 60);
     doc.setFontSize(10);
-    doc.text(`Importo: € ${document.getElementById('importo_nuovo').value}`, 20, 62);
-    doc.text(`Acconto: € ${document.getElementById('acconto_nuovo').value}`, 20, 69);
-    doc.text(`Saldo: € ${document.getElementById('acconto_saldo_nuovo').value}`, 20, 76);
-    doc.text(`Totale: € ${document.getElementById('totale_acconti_nuovi').value}`, 20, 83);
+    doc.text(`Importo: EUR ${document.getElementById('importo_nuovo').value}`, 20, 67);
+    doc.text(`Acconto: EUR ${document.getElementById('acconto_nuovo').value}`, 20, 74);
+    doc.text(`Saldo: EUR ${document.getElementById('acconto_saldo_nuovo').value}`, 20, 81);
+    doc.text(`Totale: EUR ${document.getElementById('totale_acconti_nuovi').value}`, 20, 88);
     
     doc.setFontSize(12);
-    doc.text('RINNOVO', 20, 95);
+    doc.text('RINNOVO', 20, 100);
     doc.setFontSize(10);
-    doc.text(`Importo: € ${document.getElementById('importo_rinnovo').value}`, 20, 102);
-    doc.text(`Acconto: € ${document.getElementById('acconto_rinnovo').value}`, 20, 109);
-    doc.text(`Saldo: € ${document.getElementById('acconto_saldo_rinnovo').value}`, 20, 116);
-    doc.text(`Totale: € ${document.getElementById('totale_acconti_rinnovo').value}`, 20, 123);
+    doc.text(`Importo: EUR ${document.getElementById('importo_rinnovo').value}`, 20, 107);
+    doc.text(`Acconto: EUR ${document.getElementById('acconto_rinnovo').value}`, 20, 114);
+    doc.text(`Saldo: EUR ${document.getElementById('acconto_saldo_rinnovo').value}`, 20, 121);
+    doc.text(`Totale: EUR ${document.getElementById('totale_acconti_rinnovo').value}`, 20, 128);
     
     doc.setFontSize(14);
-    doc.text(`TOTALE GENERALE: € ${document.getElementById('rpt_totale').textContent.replace('€ ', '')}`, 20, 140);
+    doc.text(`TOTALE GENERALE: EUR ${document.getElementById('rpt_totale').textContent.replace('EUR ', '')}`, 20, 145);
     
     const note = document.getElementById('note').value;
     if (note) {
         doc.setFontSize(10);
-        doc.text('Note:', 20, 155);
-        doc.text(note, 20, 162);
+        doc.text('Note:', 20, 160);
+        doc.text(note, 20, 167);
     }
     
     doc.save('calcoli.pdf');
     
-    const msg = `Report Calcoli\nNominativi: ${nominativoDa} - ${nominativoA}\nPeriodo: ${periodoDa} - ${periodoA}\nTotale: € ${document.getElementById('rpt_totale').textContent.replace('€ ', '')}`;
+    const msg = `Report Calcoli\nNominativi: ${nominativoDa} - ${nominativoA}\nPeriodo: ${periodoDa} - ${periodoA}\nReseller: ${reseller}\nProcuratore: ${procuratore}\nTotale: EUR ${document.getElementById('rpt_totale').textContent.replace('EUR ', '')}`;
     window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
     
     mostraToast('📄 PDF scaricato + WhatsApp aperto');
 }
 
-caricaNominativi();
+caricaDropdowns();
 calcolaAutomatico();
 </script>
 </body>

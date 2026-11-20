@@ -71,28 +71,14 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS permessi (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES autorizzati(id), modulo TEXT NOT NULL, attivo BOOLEAN DEFAULT FALSE, UNIQUE(user_id, modulo))")
             cur.execute("""CREATE TABLE IF NOT EXISTS calcoli (
                 id SERIAL PRIMARY KEY,
-                nominativo_da TEXT,
-                nominativo_a TEXT,
-                periodo_da TEXT,
-                periodo_a TEXT,
-                importo_nuovo REAL DEFAULT 0,
-                data_acconto_nuovo TEXT,
-                acconto_nuovo REAL DEFAULT 0,
-                info_saldo_nuovo TEXT,
-                data_acconto_saldo_nuovo TEXT,
-                acconto_saldo_nuovo REAL DEFAULT 0,
-                totale_acconti_nuovi REAL DEFAULT 0,
-                info_saldo_rinnovo_nuovo TEXT,
-                importo_rinnovo REAL DEFAULT 0,
-                data_acconto_rinnovo TEXT,
-                acconto_rinnovo REAL DEFAULT 0,
-                info_saldo_rinnovo TEXT,
-                data_acconto_saldo_rinnovo TEXT,
-                acconto_saldo_rinnovo REAL DEFAULT 0,
-                totale_acconti_rinnovo REAL DEFAULT 0,
-                totale_generale REAL DEFAULT 0,
-                note TEXT,
-                creato_il TEXT
+                nominativo_da TEXT, nominativo_a TEXT, periodo_da TEXT, periodo_a TEXT,
+                reseller TEXT, procuratore TEXT,
+                importo_nuovo REAL DEFAULT 0, data_acconto_nuovo TEXT, acconto_nuovo REAL DEFAULT 0,
+                info_saldo_nuovo TEXT, data_acconto_saldo_nuovo TEXT, acconto_saldo_nuovo REAL DEFAULT 0,
+                totale_acconti_nuovi REAL DEFAULT 0, info_saldo_rinnovo_nuovo TEXT,
+                importo_rinnovo REAL DEFAULT 0, data_acconto_rinnovo TEXT, acconto_rinnovo REAL DEFAULT 0,
+                info_saldo_rinnovo TEXT, data_acconto_saldo_rinnovo TEXT, acconto_saldo_rinnovo REAL DEFAULT 0,
+                totale_acconti_rinnovo REAL DEFAULT 0, totale_generale REAL DEFAULT 0, note TEXT, creato_il TEXT
             )""")
             for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),("procuratore","TEXT"),("apk_utilizzata","TEXT"),("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),("data_fine","TEXT"),("informazioni","TEXT")]:
                 cur.execute(f"ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS {col} {typ}")
@@ -606,14 +592,14 @@ def api_credenziali_cancella(id: int, request: Request):
 
 # === CALCOLI ===
 @app.get("/api/calcoli/calcola")
-def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", periodo_da: str = "", periodo_a: str = "", request: Request = None):
+def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", periodo_da: str = "", periodo_a: str = "", reseller: str = "", procuratore: str = "", request: Request = None):
     get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Query base con filtri
             query = """SELECT r.tipo, r.importo_acconto, r.importo_saldo, r.data_acconto, r.data_saldo,
-                r.num_credito_rich, r.num_credito_dato, n.nominativo, r.scadenza
+                r.num_credito_rich, r.num_credito_dato, n.nominativo, r.scadenza,
+                n.reseller, n.procuratore
                 FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id WHERE 1=1"""
             params = []
             
@@ -629,11 +615,16 @@ def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", periodo
             if periodo_a:
                 query += " AND r.data_operazione <= %s"
                 params.append(periodo_a)
+            if reseller:
+                query += " AND n.reseller = %s"
+                params.append(reseller)
+            if procuratore:
+                query += " AND n.procuratore = %s"
+                params.append(procuratore)
             
             cur.execute(query, params)
             rows = cur.fetchall()
             
-            # Calcoli automatici
             importo_nuovo = 0
             acconto_nuovo = 0
             acconto_saldo_nuovo = 0
@@ -646,7 +637,7 @@ def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", periodo
                     importo_nuovo += float(r['importo_acconto'] or 0) + float(r['importo_saldo'] or 0)
                     acconto_nuovo += float(r['importo_acconto'] or 0)
                     acconto_saldo_nuovo += float(r['importo_saldo'] or 0)
-                else:  # rinnovo
+                else:
                     importo_rinnovo += float(r['importo_acconto'] or 0) + float(r['importo_saldo'] or 0)
                     acconto_rinnovo += float(r['importo_acconto'] or 0)
                     acconto_saldo_rinnovo += float(r['importo_saldo'] or 0)
@@ -678,6 +669,25 @@ def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", periodo
     finally:
         conn.close()
 
+@app.get("/api/calcoli")
+def api_calcoli(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT id, nominativo_da, nominativo_a, periodo_da, periodo_a,
+                reseller, procuratore,
+                importo_nuovo, data_acconto_nuovo, acconto_nuovo, info_saldo_nuovo,
+                data_acconto_saldo_nuovo, acconto_saldo_nuovo, totale_acconti_nuovi,
+                info_saldo_rinnovo_nuovo,
+                importo_rinnovo, data_acconto_rinnovo, acconto_rinnovo, info_saldo_rinnovo,
+                data_acconto_saldo_rinnovo, acconto_saldo_rinnovo, totale_acconti_rinnovo,
+                totale_generale, note, creato_il
+                FROM calcoli ORDER BY creato_il DESC""")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
 class CalcoloPayload(BaseModel):
     dati: dict
 
@@ -690,15 +700,17 @@ def api_calcoli_salva(payload: CalcoloPayload, request: Request):
         with conn.cursor() as cur:
             cur.execute("""INSERT INTO calcoli (
                 nominativo_da, nominativo_a, periodo_da, periodo_a,
+                reseller, procuratore,
                 importo_nuovo, data_acconto_nuovo, acconto_nuovo, info_saldo_nuovo,
                 data_acconto_saldo_nuovo, acconto_saldo_nuovo, totale_acconti_nuovi,
                 info_saldo_rinnovo_nuovo,
                 importo_rinnovo, data_acconto_rinnovo, acconto_rinnovo, info_saldo_rinnovo,
                 data_acconto_saldo_rinnovo, acconto_saldo_rinnovo, totale_acconti_rinnovo,
                 totale_generale, note, creato_il
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (d.get("nominativo_da",""), d.get("nominativo_a",""),
                  d.get("periodo_da",""), d.get("periodo_a",""),
+                 d.get("reseller",""), d.get("procuratore",""),
                  float(d.get("importo_nuovo",0)), d.get("data_acconto_nuovo",""),
                  float(d.get("acconto_nuovo",0)), d.get("info_saldo_nuovo",""),
                  d.get("data_acconto_saldo_nuovo",""), float(d.get("acconto_saldo_nuovo",0)),
