@@ -606,8 +606,16 @@ def api_config_notifiche_update(payload: ConfigNotifichePayload, request: Reques
 @app.post("/api/notifica_test")
 def api_notifica_test(request: Request):
     user = get_current_user(request)
-    if not user:
-        return {"ok": False, "message": "Utente non autenticato"}
+    
+    # Determina il chat_id: prima prova user, poi fallback su AUTHORIZED_IDS
+    chat_id = None
+    if user:
+        chat_id = user['id']
+    elif AUTHORIZED_IDS:
+        chat_id = list(AUTHORIZED_IDS)[0]
+    
+    if not chat_id:
+        return {"ok": False, "message": "Nessun utente autorizzato configurato"}
     
     conn = db_conn()
     try:
@@ -627,8 +635,6 @@ def api_notifica_test(request: Request):
             f"Stato: {stato}\n\n"
             f"Se ricevi questo messaggio, il sistema di notifiche funziona correttamente."
         )
-        
-        chat_id = user['id']
         
         try:
             url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
