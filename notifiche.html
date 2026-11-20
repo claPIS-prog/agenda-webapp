@@ -152,8 +152,6 @@ async function salva() {
 async function inviaTest() {
     mostraToast('🧪 Invio notifica di test...');
     try {
-        // Usa la stessa API di salvataggio ma con un flag speciale, oppure crea una nuova API
-        // Per ora simuliamo con un messaggio
         const ora = parseInt(selOra.value);
         const minuto = parseInt(selMin.value);
         const attivo = document.getElementById('attivo').checked;
