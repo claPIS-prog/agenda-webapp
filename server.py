@@ -807,6 +807,66 @@ def api_calcoli_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
+# === LISTA CREDITI ===
+@app.get("/api/lista_crediti")
+def api_lista_crediti(data_da: str = "", data_a: str = "", fornitore_da: str = "", fornitore_a: str = "", request: Request = None):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            # ACQUISTATO (dalla tabella crediti)
+            query_acq = "SELECT SUM(quantita) as tot_qta, SUM(valore) as tot_val FROM crediti WHERE 1=1"
+            params_acq = []
+            if data_da:
+                query_acq += " AND data_acquisto >= %s"
+                params_acq.append(data_da)
+            if data_a:
+                query_acq += " AND data_acquisto <= %s"
+                params_acq.append(data_a)
+            if fornitore_da:
+                query_acq += " AND fornitore >= %s"
+                params_acq.append(fornitore_da)
+            if fornitore_a:
+                query_acq += " AND fornitore <= %s"
+                params_acq.append(fornitore_a)
+            
+            cur.execute(query_acq, params_acq)
+            acquisto = cur.fetchone()
+            tot_acq_qta = int(acquisto['tot_qta'] or 0)
+            tot_acq_val = float(acquisto['tot_val'] or 0)
+            
+            # VENDUTO (dalla tabella rinnovi - num_credito_dato)
+            query_vend = """SELECT SUM(r.num_credito_dato) as tot_qta_vend, 
+                SUM(r.num_credito_dato * r.val_singolo_nc_rich) as tot_val_vend
+                FROM rinnovi r WHERE r.num_credito_dato > 0"""
+            params_vend = []
+            if data_da:
+                query_vend += " AND r.data_operazione >= %s"
+                params_vend.append(data_da)
+            if data_a:
+                query_vend += " AND r.data_operazione <= %s"
+                params_vend.append(data_a)
+            
+            cur.execute(query_vend, params_vend)
+            vendita = cur.fetchone()
+            tot_vend_qta = int(vendita['tot_qta_vend'] or 0)
+            tot_vend_val = float(vendita['tot_val_vend'] or 0)
+            
+            # SALDO
+            saldo_qta = tot_acq_qta - tot_vend_qta
+            saldo_val = tot_acq_val - tot_vend_val
+            
+            return {
+                "tot_acq_qta": tot_acq_qta,
+                "tot_acq_val": tot_acq_val,
+                "tot_vend_qta": tot_vend_qta,
+                "tot_vend_val": tot_vend_val,
+                "saldo_qta": saldo_qta,
+                "saldo_val": saldo_val
+            }
+    finally:
+        conn.close()
+
 # === CREDITI ===
 @app.get("/api/crediti")
 def api_crediti(request: Request):

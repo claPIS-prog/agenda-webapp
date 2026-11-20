@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lista Crediti</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="/auth.js"></script>
+<style>
+body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+h2 { text-align: center; margin-top: 0; color: #333; }
+label { display: block; font-weight: bold; margin: 10px 0 4px; color: #333; font-size: 13px; }
+input, select { width: 100%; padding: 9px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
+.row { display: flex; gap: 8px; }
+.row > div { flex: 1; }
+.section-title { font-size: 13px; color: white; font-weight: bold; margin: 18px 0 10px; padding: 8px 12px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; background: #607d8b; }
+.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+.summary-card { background: white; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.summary-card.acquistato { border-top: 4px solid #2196f3; }
+.summary-card.venduto { border-top: 4px solid #ff9800; }
+.summary-card.saldo { border-top: 4px solid #4caf50; }
+.summary-card h3 { margin: 0 0 10px 0; font-size: 12px; color: #666; text-transform: uppercase; }
+.summary-card .value { font-size: 24px; font-weight: bold; margin: 5px 0; }
+.summary-card.acquistato .value { color: #2196f3; }
+.summary-card.venduto .value { color: #ff9800; }
+.summary-card.saldo .value { color: #4caf50; }
+.summary-card .subvalue { font-size: 14px; color: #888; }
+.btn { width: 100%; padding: 13px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; color: white; }
+.btn:active { opacity: 0.8; }
+.btn-pdf { background: #25d366; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+<h2>🎫 Lista Crediti</h2>
+
+<div class="section-title">🔍 Filtri</div>
+<div class="row">
+    <div><label>Data DA:</label><input type="date" id="data_da"></div>
+    <div><label>Data A:</label><input type="date" id="data_a"></div>
+</div>
+<div class="row">
+    <div><label>Fornitore DA:</label><input type="text" id="fornitore_da" placeholder="es. Pierino"></div>
+    <div><label>Fornitore A:</label><input type="text" id="fornitore_a" placeholder="es. Xy"></div>
+</div>
+
+<button class="btn" style="background:#0088cc;" onclick="calcola()">📊 Calcola</button>
+
+<div class="summary-grid">
+    <div class="summary-card acquistato">
+        <h3>🛒 Acquistato</h3>
+        <div class="value" id="acq_qta">0</div>
+        <div class="subvalue" id="acq_val">€ 0.00</div>
+    </div>
+    <div class="summary-card venduto">
+        <h3>💰 Venduto</h3>
+        <div class="value" id="vend_qta">0</div>
+        <div class="subvalue" id="vend_val">€ 0.00</div>
+    </div>
+    <div class="summary-card saldo">
+        <h3>📊 Saldo</h3>
+        <div class="value" id="saldo_qta">0</div>
+        <div class="subvalue" id="saldo_val">€ 0.00</div>
+    </div>
+</div>
+
+<button class="btn btn-pdf" onclick="generaPDF()">📄 PDF</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram.WebApp; tg.expand();
+
+function getHeaders(contentType) {
+    const headers = {};
+    if (contentType) headers['Content-Type'] = contentType;
+    const initData = tg.initData;
+    if (initData) headers['X-Telegram-Init-Data'] = initData;
+    return headers;
+}
+
+let datiCorrenti = {};
+
+function mostraToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+async function calcola() {
+    const p = new URLSearchParams();
+    p.append('data_da', document.getElementById('data_da').value);
+    p.append('data_a', document.getElementById('data_a').value);
+    p.append('fornitore_da', document.getElementById('fornitore_da').value);
+    p.append('fornitore_a', document.getElementById('fornitore_a').value);
+    
+    try {
+        const res = await fetch('/api/lista_crediti?' + p.toString(), { headers: getHeaders() });
+        if (!res.ok) { mostraToast('❌ Errore server'); return; }
+        datiCorrenti = await res.json();
+        
+        document.getElementById('acq_qta').textContent = datiCorrenti.tot_acq_qta;
+        document.getElementById('acq_val').textContent = '€ ' + datiCorrenti.tot_acq_val.toFixed(2);
+        document.getElementById('vend_qta').textContent = datiCorrenti.tot_vend_qta;
+        document.getElementById('vend_val').textContent = '€ ' + datiCorrenti.tot_vend_val.toFixed(2);
+        document.getElementById('saldo_qta').textContent = datiCorrenti.saldo_qta;
+        document.getElementById('saldo_val').textContent = '€ ' + datiCorrenti.saldo_val.toFixed(2);
+        
+        mostraToast('✅ Calcolo completato');
+    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
+}
+
+function generaPDF() {
+    if (!datiCorrenti.tot_acq_qta && !datiCorrenti.tot_vend_qta) {
+        mostraToast('⚠️ Nessun dato da esportare');
+        return;
+    }
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const dataDa = document.getElementById('data_da').value || 'N/D';
+    const dataA = document.getElementById('data_a').value || 'N/D';
+    const fornDa = document.getElementById('fornitore_da').value || 'Tutti';
+    const fornA = document.getElementById('fornitore_a').value || 'Tutti';
+    
+    doc.setFontSize(16);
+    doc.text('Lista Crediti', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.text(`Periodo: ${dataDa} - ${dataA}`, 20, 35);
+    doc.text(`Fornitore: ${fornDa} - ${fornA}`, 20, 42);
+    
+    doc.setFontSize(14);
+    doc.text('RIEPILOGO', 20, 60);
+    
+    doc.setFontSize(12);
+    doc.text('ACQUISTATO', 20, 75);
+    doc.setFontSize(10);
+    doc.text(`Quantità: ${datiCorrenti.tot_acq_qta}`, 20, 82);
+    doc.text(`Valore: EUR ${datiCorrenti.tot_acq_val.toFixed(2)}`, 20, 89);
+    
+    doc.setFontSize(12);
+    doc.text('VENDUTO', 20, 102);
+    doc.setFontSize(10);
+    doc.text(`Quantità: ${datiCorrenti.tot_vend_qta}`, 20, 109);
+    doc.text(`Valore: EUR ${datiCorrenti.tot_vend_val.toFixed(2)}`, 20, 116);
+    
+    doc.setFontSize(12);
+    doc.text('SALDO', 20, 129);
+    doc.setFontSize(10);
+    doc.text(`Quantità: ${datiCorrenti.saldo_qta}`, 20, 136);
+    doc.text(`Valore: EUR ${datiCorrenti.saldo_val.toFixed(2)}`, 20, 143);
+    
+    doc.save('lista_crediti.pdf');
+    mostraToast('📄 PDF scaricato');
+}
+
+// Caricamento iniziale
+calcola();
+</script>
+</body>
+</html>
