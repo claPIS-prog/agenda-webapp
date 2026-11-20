@@ -661,6 +661,51 @@ def api_notifica_test(request: Request):
     finally:
         conn.close()
 
+# === NOTIFICA TEST ===
+@app.post("/api/notifica_test")
+def api_notifica_test(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return {"ok": False, "message": "Utente non autenticato"}
+    
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT ora, minuto, attivo FROM config_notifiche WHERE id = 1")
+            row = cur.fetchone()
+            if not row:
+                row = {"ora": 7, "minuto": 0, "attivo": 1}
+        
+        orario = f"{row['ora']:02d}:{row['minuto']:02d}"
+        stato = "Attivo" if row['attivo'] else "Disattivo"
+        
+        msg = (
+            f"🔔 Notifica di Test\n\n"
+            f"Questa è una notifica di test dal bot AgendaGest.\n\n"
+            f"Orario configurato: {orario} UTC\n"
+            f"Stato: {stato}\n\n"
+            f"Se ricevi questo messaggio, il sistema di notifiche funziona correttamente."
+        )
+        
+        # Invia SOLO all'utente che ha richiesto il test
+        chat_id = user['id']
+        
+        try:
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+            data = json.dumps({"chat_id": chat_id, "text": msg}).encode('utf-8')
+            req = urllib.request.Request(url, data=data, method='POST')
+            req.add_header('Content-Type', 'application/json')
+            resp = urllib.request.urlopen(req, timeout=10)
+            
+            if resp.getcode() == 200:
+                return {"ok": True, "inviati": 1, "errori": 0, "message": f"Notifica inviata al tuo ID ({chat_id})"}
+            else:
+                return {"ok": False, "inviati": 0, "errori": 1, "message": f"Errore HTTP {resp.getcode()}"}
+        except Exception as e:
+            return {"ok": False, "inviati": 0, "errori": 1, "message": f"Errore: {str(e)}"}
+    finally:
+        conn.close()
+
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 if __name__ == "__main__":
