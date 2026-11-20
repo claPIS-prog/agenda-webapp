@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contabilità</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+h2 { text-align: center; margin-top: 0; color: #333; }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 20px; }
+.btn-modulo { 
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 25px; background: white; border: 1px solid #e0e0e0; border-radius: 8px;
+    text-decoration: none; color: #333; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.btn-modulo:active { transform: scale(0.98); background: #f9f9f9; }
+.btn-modulo .icon { font-size: 28px; margin-bottom: 8px; }
+.btn-modulo .label { font-weight: bold; font-size: 14px; text-align: center; }
+.back-btn { 
+    display: block; width: 100%; padding: 12px; margin-top: 20px;
+    background: #f0f0f0; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<h2>💰 Contabilità</h2>
+<p style="text-align:center; color:#666; margin-bottom:0;">Gestione calcoli e contabilità</p>
+<div class="grid">
+    <a href="/calcoli.html" class="btn-modulo"><span class="icon">🧮</span><span class="label">Calcoli</span></a>
+    <a href="#" class="btn-modulo" onclick="mostraAvviso(event)"><span class="icon">📒</span><span class="label">Contabilità</span></a>
+</div>
+<button class="back-btn" onclick="tg.close()">↩️ Chiudi</button>
+</div>
+<script>
+const tg = window.Telegram.WebApp; tg.expand();
+
+function mostraAvviso(e) {
+    e.preventDefault();
+    alert('🚧 Modulo/Form in allestimento\n\nQuesta funzionalità sarà disponibile a breve.');
+}
+</script>
+</body>
+</html>
