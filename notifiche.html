@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestione Notifiche</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
@@ -77,6 +78,15 @@ input:checked + .slider:before { transform: translateX(24px); }
 <script>
 const tg = window.Telegram.WebApp; tg.expand();
 
+// Header di autenticazione Telegram (OBBLIGATORIO per le API protette)
+function getHeaders(contentType) {
+    const headers = {};
+    if (contentType) headers['Content-Type'] = contentType;
+    const initData = tg.initData;
+    if (initData) headers['X-Telegram-Init-Data'] = initData;
+    return headers;
+}
+
 // Popola select ora (0-23)
 const selOra = document.getElementById('ora');
 for (let i = 0; i < 24; i++) {
@@ -97,7 +107,7 @@ const selMin = document.getElementById('minuto');
 
 async function carica() {
     try {
-        const res = await fetch('/api/config_notifiche');
+        const res = await fetch('/api/config_notifiche', { headers: getHeaders() });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         
@@ -138,7 +148,7 @@ async function salva() {
     try {
         const res = await fetch('/api/config_notifiche', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getHeaders('application/json'),
             body: JSON.stringify({ ora: ora, minuto: minuto, attivo: attivo })
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -152,14 +162,10 @@ async function salva() {
 async function inviaTest() {
     mostraToast('🧪 Invio notifica di test...');
     try {
-        const ora = parseInt(selOra.value);
-        const minuto = parseInt(selMin.value);
-        const attivo = document.getElementById('attivo').checked;
-        
-        const res = await fetch('/api/config_notifiche', {
+        const res = await fetch('/api/notifica_test', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ora: ora, minuto: minuto, attivo: attivo, test: true })
+            headers: getHeaders('application/json'),
+            body: JSON.stringify({})
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         mostraToast('🧪 Notifica di test inviata!');

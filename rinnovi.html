@@ -3,132 +3,143 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rinnovo</title>
+<title>Nuovo Rinnovo</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
 h2 { text-align: center; margin-top: 0; color: #333; }
 label { display: block; font-weight: bold; margin: 12px 0 4px; color: #333; font-size: 14px; }
-input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; }
-input[readonly] { background: #f0f0f0; color: #666; }
+input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; font-family: inherit; }
+textarea { resize: vertical; min-height: 80px; }
 .row { display: flex; gap: 10px; }
 .row > div { flex: 1; }
 .btn { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 15px; background: #4caf50; color: white; }
 .btn:active { background: #388e3c; }
 .section-title { font-size: 13px; color: #0088cc; font-weight: bold; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
-.empty { text-align: center; color: #888; padding: 30px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
 .toast.show { opacity: 1; }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>🔄 Rinnovo</h2>
-<div id="form"><div class="empty">Caricamento...</div></div>
+<h2>🔄 Nuovo Rinnovo</h2>
+<div id="form"><div style="text-align:center;color:#888;padding:30px;">Caricamento...</div></div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
-let nominativi = [];
+const tg = window.Telegram.WebApp; tg.expand();
 
-async function caricaNominativi() {
-  try {
-    const res = await fetch('/api/nominativi');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    nominativi = await res.json();
-    mostraForm();
-  } catch (e) {
-    document.getElementById('form').innerHTML = '<div class="empty">Errore: ' + e.message + '</div>';
-  }
+function getHeaders(contentType) {
+    const headers = {};
+    if (contentType) headers['Content-Type'] = contentType;
+    const initData = tg.initData;
+    if (initData) headers['X-Telegram-Init-Data'] = initData;
+    return headers;
+}
+
+let nominativi = [];
+const urlParams = new URLSearchParams(window.location.search);
+const preselectId = urlParams.get('nominativo_id');
+
+async function carica() {
+    try {
+        const res = await fetch('/api/nominativi', { headers: getHeaders() });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        nominativi = await res.json();
+        mostraForm();
+    } catch (e) {
+        document.getElementById('form').innerHTML = '<div style="text-align:center;color:#c62828;padding:30px;">Errore: ' + e.message + '</div>';
+    }
 }
 
 function mostraForm() {
-  if (!Array.isArray(nominativi) || nominativi.length === 0) {
-    document.getElementById('form').innerHTML = '<div class="empty">Nessun nominativo disponibile.</div>';
-    return;
-  }
-  const oggi = new Date().toISOString().split('T')[0];
-  const options = nominativi.map(n => '<option value="' + n.id + '">' + n.nominativo + '</option>').join('');
-  
-  document.getElementById('form').innerHTML = 
-    '<label>Seleziona Nominativo:</label><select id="nominativo_id">' + options + '</select>' +
-    '<div class="section-title">Dettagli Rinnovo</div>' +
-    '<label>Tipo Rinnovo:</label><select id="tipo"><option value="rinnovo">Rinnovo</option><option value="nuovo">Nuovo</option><option value="cambio">Cambio</option></select>' +
-    '<label>Data Operazione:</label><input type="date" id="data_operazione" value="' + oggi + '">' +
-    '<label>Data Scadenza:</label><input type="date" id="scadenza">' +
-    '<label>Orario Scadenza:</label><input type="time" id="orario_scadenza" value="00:00">' +
-    '<div class="section-title">Importi</div>' +
-    '<div class="row"><div><label>Acconto (€):</label><input type="number" id="importo_acconto" step="0.01" value="0"></div><div><label>Saldo (€):</label><input type="number" id="importo_saldo" step="0.01" value="0"></div></div>' +
-    '<div class="section-title">Crediti</div>' +
-    '<div class="row"><div><label>Num Credito Richiesto:</label><input type="number" id="num_credito_rich" min="0" value="0"></div><div><label>Num Credito Dato:</label><input type="number" id="num_credito_dato" min="0" value="0"></div></div>' +
-    '<label>Num Credito Dare:</label><input type="number" id="num_credito_dare" readonly value="0">' +
-    '<div class="row"><div><label>Data Credito Rinnovo Rich:</label><input type="date" id="data_credito_rinnovo_rich"></div><div><label>Data Credito Rinnovo Dato:</label><input type="date" id="data_credito_rinnovo_dato"></div></div>' +
-    '<div class="row"><div><label>Val Singolo NC Rich (€):</label><input type="number" id="val_singolo_nc_rich" step="0.01" value="0"></div><div><label>Val NC Rich (€):</label><input type="number" id="val_nc_rich" readonly value="0"></div></div>' +
-    '<label>Note:</label><input type="text" id="note" placeholder="opzionale">' +
-    '<button class="btn" onclick="invia()">💾 Salva Rinnovo</button>';
-  
-  document.getElementById('num_credito_rich').addEventListener('input', calcolaDare);
-  document.getElementById('num_credito_dato').addEventListener('input', calcolaDare);
-  document.getElementById('num_credito_rich').addEventListener('input', calcolaValNCRich);
-  document.getElementById('val_singolo_nc_rich').addEventListener('input', calcolaValNCRich);
-}
-
-function calcolaDare() {
-  const rich = parseInt(document.getElementById('num_credito_rich').value) || 0;
-  const dato = parseInt(document.getElementById('num_credito_dato').value) || 0;
-  document.getElementById('num_credito_dare').value = rich - dato;
-}
-
-function calcolaValNCRich() {
-  const rich = parseInt(document.getElementById('num_credito_rich').value) || 0;
-  const singolo = parseFloat(document.getElementById('val_singolo_nc_rich').value) || 0;
-  document.getElementById('val_nc_rich').value = (rich * singolo).toFixed(2);
+    const oggi = new Date().toISOString().split('T')[0];
+    let html = '';
+    
+    html += '<label>Nominativo:</label>';
+    html += '<select id="nominativo_id">';
+    html += '<option value="">-- Seleziona --</option>';
+    nominativi.forEach(n => {
+        const selected = (preselectId && n.id == preselectId) ? 'selected' : '';
+        html += '<option value="' + n.id + '" ' + selected + '>' + n.nominativo + '</option>';
+    });
+    html += '</select>';
+    
+    html += '<div class="section-title">Dettagli Rinnovo</div>';
+    html += '<div class="row"><div><label>Tipo:</label><select id="tipo"><option value="rinnovo">Rinnovo</option><option value="nuovo">Nuovo</option></select></div>';
+    html += '<div><label>Mesi:</label><input type="number" id="mesi" value="1" min="1"></div></div>';
+    
+    html += '<div class="row"><div><label>Data Operazione:</label><input type="date" id="data_operazione" value="' + oggi + '"></div>';
+    html += '<div><label>Scadenza:</label><input type="date" id="scadenza"></div></div>';
+    
+    html += '<label>Orario Scadenza:</label>';
+    html += '<input type="time" id="orario_scadenza" placeholder="es. 14:30">';
+    
+    html += '<div class="section-title">Pagamenti</div>';
+    html += '<div class="row"><div><label>Importo Acconto (€):</label><input type="number" id="importo_acconto" step="0.01" value="0"></div>';
+    html += '<div><label>Importo Saldo (€):</label><input type="number" id="importo_saldo" step="0.01" value="0"></div></div>';
+    
+    html += '<div class="section-title">Crediti (opzionale)</div>';
+    html += '<div class="row"><div><label>Crediti Richiesti:</label><input type="number" id="num_credito_rich" value="0"></div>';
+    html += '<div><label>Crediti Dati:</label><input type="number" id="num_credito_dato" value="0"></div></div>';
+    html += '<div class="row"><div><label>Valore Singolo NC (€):</label><input type="number" id="val_singolo_nc_rich" step="0.01" value="0"></div>';
+    html += '<div><label>Data Credito Rinnovo Rich:</label><input type="date" id="data_credito_rinnovo_rich"></div></div>';
+    
+    html += '<label>Note:</label>';
+    html += '<textarea id="note" placeholder="Note aggiuntive..."></textarea>';
+    
+    html += '<button class="btn" onclick="invia()">💾 Salva Rinnovo</button>';
+    
+    document.getElementById('form').innerHTML = html;
 }
 
 function mostraToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => { t.classList.remove('show'); }, 2500);
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
 }
 
 async function invia() {
-  const dati = {
-    azione: 'nuovo_rinnovo',
-    nominativo_id: parseInt(document.getElementById('nominativo_id').value),
-    tipo: document.getElementById('tipo').value,
-    data_operazione: document.getElementById('data_operazione').value,
-    scadenza: document.getElementById('scadenza').value,
-    orario_scadenza: document.getElementById('orario_scadenza').value,
-    importo_acconto: parseFloat(document.getElementById('importo_acconto').value) || 0,
-    importo_saldo: parseFloat(document.getElementById('importo_saldo').value) || 0,
-    num_credito_rich: parseInt(document.getElementById('num_credito_rich').value) || 0,
-    num_credito_dato: parseInt(document.getElementById('num_credito_dato').value) || 0,
-    data_credito_rinnovo_rich: document.getElementById('data_credito_rinnovo_rich').value,
-    data_credito_rinnovo_dato: document.getElementById('data_credito_rinnovo_dato').value,
-    val_singolo_nc_rich: parseFloat(document.getElementById('val_singolo_nc_rich').value) || 0,
-    note: document.getElementById('note').value
-  };
-  if (!dati.nominativo_id) { mostraToast('⚠️ Seleziona un nominativo'); return; }
-  if (!dati.data_operazione) { mostraToast('⚠️ Inserisci la data'); return; }
-  if (!dati.scadenza) { mostraToast('⚠️ Inserisci la data di scadenza'); return; }
-  try {
-    const res = await fetch('/api/rinnovo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dati: dati })
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    mostraToast('✅ Rinnovo registrato!');
-    setTimeout(() => tg.close(), 1500);
-  } catch (e) {
-    mostraToast('❌ Errore: ' + e.message);
-  }
+    const nominativoId = parseInt(document.getElementById('nominativo_id').value);
+    if (!nominativoId) {
+        mostraToast('⚠️ Seleziona un nominativo');
+        return;
+    }
+    
+    const dati = {
+        nominativo_id: nominativoId,
+        tipo: document.getElementById('tipo').value,
+        data_operazione: document.getElementById('data_operazione').value,
+        mesi: parseInt(document.getElementById('mesi').value) || 1,
+        scadenza: document.getElementById('scadenza').value,
+        orario_scadenza: document.getElementById('orario_scadenza').value,
+        importo_acconto: parseFloat(document.getElementById('importo_acconto').value) || 0,
+        importo_saldo: parseFloat(document.getElementById('importo_saldo').value) || 0,
+        num_credito_rich: parseInt(document.getElementById('num_credito_rich').value) || 0,
+        num_credito_dato: parseInt(document.getElementById('num_credito_dato').value) || 0,
+        val_singolo_nc_rich: parseFloat(document.getElementById('val_singolo_nc_rich').value) || 0,
+        data_credito_rinnovo_rich: document.getElementById('data_credito_rinnovo_rich').value,
+        note: document.getElementById('note').value.trim()
+    };
+    
+    try {
+        const res = await fetch('/api/rinnovo', {
+            method: 'POST',
+            headers: getHeaders('application/json'),
+            body: JSON.stringify({ dati: dati })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        mostraToast('✅ Rinnovo salvato con successo!');
+        setTimeout(() => tg.close(), 1500);
+    } catch (e) {
+        mostraToast('❌ Errore: ' + e.message);
+    }
 }
 
-caricaNominativi();
+carica();
 </script>
 </body>
 </html>

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Invia Messaggio</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
@@ -48,120 +49,135 @@ textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5p
 </div>
 <div class="toast" id="toast"></div>
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
+const tg = window.Telegram.WebApp; tg.expand();
+
+function getHeaders(contentType) {
+    const headers = {};
+    if (contentType) headers['Content-Type'] = contentType;
+    const initData = tg.initData;
+    if (initData) headers['X-Telegram-Init-Data'] = initData;
+    return headers;
+}
+
 let note = [];
 let nominativi = [];
 
 async function carica() {
-  const box = document.getElementById('lista');
-  try {
-    const [resNote, resNom] = await Promise.all([
-      fetch('/api/note'),
-      fetch('/api/nominativi')
-    ]);
-    if (!resNote.ok || !resNom.ok) throw new Error('Errore server');
-    note = await resNote.json();
-    nominativi = await resNom.json();
-    popolaSelect();
-    render();
-  } catch (e) {
-    box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
-  }
+    const box = document.getElementById('lista');
+    try {
+        const [resNote, resNom] = await Promise.all([
+            fetch('/api/note', { headers: getHeaders() }),
+            fetch('/api/nominativi', { headers: getHeaders() })
+        ]);
+        if (!resNote.ok || !resNom.ok) {
+            if (resNote.status === 403 || resNom.status === 403) {
+                box.innerHTML = '<div class="error">⛔ Permesso negato.</div>';
+            } else {
+                box.innerHTML = '<div class="error">Errore server</div>';
+            }
+            return;
+        }
+        note = await resNote.json();
+        nominativi = await resNom.json();
+        popolaSelect();
+        render();
+    } catch (e) {
+        box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
+    }
 }
 
 function popolaSelect() {
-  const sel = document.getElementById('nominativo_id');
-  sel.innerHTML = '<option value="">-- Seleziona --</option>' + 
-    nominativi.map(n => '<option value="' + n.id + '">' + n.nominativo + '</option>').join('');
+    const sel = document.getElementById('nominativo_id');
+    sel.innerHTML = '<option value="">-- Seleziona --</option>' + 
+        nominativi.map(n => '<option value="' + n.id + '">' + n.nominativo + '</option>').join('');
 }
 
 function render() {
-  aggiornaContatore(note.length);
-  if (note.length === 0) {
-    document.getElementById('lista').innerHTML = '<div class="empty">Nessun messaggio salvato.</div>';
-    return;
-  }
-  document.getElementById('lista').innerHTML = note.map(n => {
-    const data = new Date(n.creato_il).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    return '<div class="item">' +
-      '<div class="item-head"><strong>' + (n.nominativo || '') + '</strong></div>' +
-      '<small>Data: ' + data + '</small>' +
-      '<div class="messaggio">' + (n.messaggio || '') + '</div>' +
-      '<div class="item-actions">' +
-      '<button class="btn btn-wa" onclick="inviaWhatsApp(' + n.id + ')">💬 WhatsApp</button>' +
-      '<button class="btn btn-del" onclick="cancella(' + n.id + ')">🗑️ Cancella</button>' +
-      '</div></div>';
-  }).join('');
+    aggiornaContatore(note.length);
+    if (note.length === 0) {
+        document.getElementById('lista').innerHTML = '<div class="empty">Nessun messaggio salvato.</div>';
+        return;
+    }
+    document.getElementById('lista').innerHTML = note.map(n => {
+        const data = new Date(n.creato_il).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return '<div class="item">' +
+            '<div class="item-head"><strong>' + (n.nominativo || '') + '</strong></div>' +
+            '<small>Data: ' + data + '</small>' +
+            '<div class="messaggio">' + (n.messaggio || '') + '</div>' +
+            '<div class="item-actions">' +
+            '<button class="btn btn-wa" onclick="inviaWhatsApp(' + n.id + ')">💬 WhatsApp</button>' +
+            '<button class="btn btn-del" onclick="cancella(' + n.id + ')">🗑️ Cancella</button>' +
+            '</div></div>';
+    }).join('');
 }
 
 function aggiornaContatore(totale) {
-  document.getElementById('counter').textContent = 'Totale: ' + totale;
+    document.getElementById('counter').textContent = 'Totale: ' + totale;
 }
 
 function mostraToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
 }
 
 async function aggiungi() {
-  const nominativoId = parseInt(document.getElementById('nominativo_id').value);
-  const messaggio = document.getElementById('messaggio').value.trim();
-  
-  if (!nominativoId) {
-    mostraToast('⚠️ Seleziona un nominativo');
-    return;
-  }
-  if (!messaggio) {
-    mostraToast('⚠️ Scrivi un messaggio');
-    return;
-  }
-  
-  const dati = {
-    nominativo_id: nominativoId,
-    messaggio: messaggio
-  };
-  
-  try {
-    const res = await fetch('/api/note', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dati: dati })
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    document.getElementById('messaggio').value = '';
-    mostraToast('✅ Messaggio salvato');
-    await carica();
-  } catch (e) {
-    mostraToast('❌ Errore: ' + e.message);
-  }
+    const nominativoId = parseInt(document.getElementById('nominativo_id').value);
+    const messaggio = document.getElementById('messaggio').value.trim();
+    
+    if (!nominativoId) {
+        mostraToast('⚠️ Seleziona un nominativo');
+        return;
+    }
+    if (!messaggio) {
+        mostraToast('⚠️ Scrivi un messaggio');
+        return;
+    }
+    
+    const dati = {
+        nominativo_id: nominativoId,
+        messaggio: messaggio
+    };
+    
+    try {
+        const res = await fetch('/api/note', {
+            method: 'POST',
+            headers: getHeaders('application/json'),
+            body: JSON.stringify({ dati: dati })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        document.getElementById('messaggio').value = '';
+        mostraToast('✅ Messaggio salvato');
+        await carica();
+    } catch (e) {
+        mostraToast('❌ Errore: ' + e.message);
+    }
 }
 
 function inviaWhatsApp(id) {
-  const n = note.find(x => x.id === id);
-  if (!n) return;
-  
-  const testo = 'Ciao ' + (n.nominativo || '') + ',\n\n' + (n.messaggio || '');
-  const url = 'https://wa.me/?text=' + encodeURIComponent(testo);
-  window.open(url, '_blank');
-  mostraToast('💬 WhatsApp aperto');
+    const n = note.find(x => x.id === id);
+    if (!n) return;
+    
+    const testo = 'Ciao ' + (n.nominativo || '') + ',\n\n' + (n.messaggio || '');
+    const url = 'https://wa.me/?text=' + encodeURIComponent(testo);
+    window.open(url, '_blank');
+    mostraToast('💬 WhatsApp aperto');
 }
 
 async function cancella(id) {
-  const n = note.find(x => x.id === id);
-  if (!n) return;
-  if (!confirm('Cancellare il messaggio per "' + n.nominativo + '"?')) return;
-  
-  try {
-    const res = await fetch('/api/note/' + id, { method: 'DELETE' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    mostraToast('🗑️ Cancellato');
-    await carica();
-  } catch (e) {
-    mostraToast('❌ Errore: ' + e.message);
-  }
+    const n = note.find(x => x.id === id);
+    if (!n) return;
+    if (!confirm('Cancellare il messaggio per "' + n.nominativo + '"?')) return;
+    
+    try {
+        const res = await fetch('/api/note/' + id, { method: 'DELETE', headers: getHeaders() });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        mostraToast('🗑️ Cancellato');
+        await carica();
+    } catch (e) {
+        mostraToast('❌ Errore: ' + e.message);
+    }
 }
 
 carica();

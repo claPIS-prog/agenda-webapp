@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Operatori IT</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
@@ -57,13 +58,26 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 <div class="toast" id="toast"></div>
 <script>
 const tg = window.Telegram.WebApp; tg.expand();
+
+function getHeaders(contentType) {
+    const headers = {};
+    if (contentType) headers['Content-Type'] = contentType;
+    const initData = tg.initData;
+    if (initData) headers['X-Telegram-Init-Data'] = initData;
+    return headers;
+}
+
 let items = []; let idModifica = null;
 
 async function carica() {
   const box = document.getElementById('lista');
   try {
-    const res = await fetch('/api/operatori_it');
-    if (!res.ok) { box.innerHTML = '<div class="error">Errore: HTTP ' + res.status + '</div>'; return; }
+    const res = await fetch('/api/operatori_it', { headers: getHeaders() });
+    if (!res.ok) {
+        if (res.status === 403) box.innerHTML = '<div class="error">⛔ Permesso negato.</div>';
+        else box.innerHTML = '<div class="error">Errore: HTTP ' + res.status + '</div>';
+        return;
+    }
     items = await res.json();
     aggiornaContatore(items.length);
     render();
@@ -85,7 +99,7 @@ async function aggiungi() {
   const nome = document.getElementById('nuovo').value.trim();
   if (!nome) { mostraToast('⚠️ Inserisci un nome'); return; }
   try {
-    const res = await fetch('/api/operatori_it', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dati: { nome: nome } }) });
+    const res = await fetch('/api/operatori_it', { method: 'POST', headers: getHeaders('application/json'), body: JSON.stringify({ dati: { nome: nome } }) });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     document.getElementById('nuovo').value = '';
     mostraToast('✅ Aggiunto'); await carica();
@@ -105,7 +119,7 @@ async function salvaModifica() {
   const nome = document.getElementById('m_nome').value.trim();
   if (!nome) { mostraToast('⚠️ Il nome è obbligatorio'); return; }
   try {
-    const res = await fetch(`/api/operatori_it/${idModifica}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dati: { nome: nome } }) });
+    const res = await fetch('/api/operatori_it/' + idModifica, { method: 'PUT', headers: getHeaders('application/json'), body: JSON.stringify({ dati: { nome: nome } }) });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     chiudiModal(); mostraToast('✅ Modificato'); await carica();
   } catch (e) { mostraToast('❌ Errore: ' + e.message); }
@@ -115,7 +129,7 @@ async function cancella(id) {
   const i = items.find(x => x.id === id); if (!i) return;
   if (!confirm('Cancellare "' + i.nome + '"?')) return;
   try {
-    const res = await fetch(`/api/operatori_it/${id}`, { method: 'DELETE' });
+    const res = await fetch('/api/operatori_it/' + id, { method: 'DELETE', headers: getHeaders() });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     mostraToast('🗑️ Cancellato'); await carica();
   } catch (e) { mostraToast('❌ Errore: ' + e.message); }

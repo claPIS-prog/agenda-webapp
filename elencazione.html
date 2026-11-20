@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lista Nominativi</title>
+<title>Lista Contatti</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
@@ -12,187 +13,88 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 .counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
 .counter-wrapper { text-align: center; }
 .search { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; margin-bottom: 15px; }
-.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; display: flex; justify-content: space-between; align-items: center; }
-.item-info { flex: 1; }
-.item strong { color: #222; font-size: 15px; }
-.item small { color: #666; display: block; margin-top: 4px; }
-.item-actions { display: flex; gap: 6px; }
-.btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; }
-.btn-edit { background: #ff9800; color: white; }
-.btn-edit:active { background: #f57c00; }
-.btn-del { background: #f44336; color: white; }
-.btn-del:active { background: #d32f2f; }
+.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; }
+.item strong { color: #222; font-size: 15px; display: block; margin-bottom: 4px; }
+.item small { color: #666; display: block; font-size: 13px; margin: 2px 0; }
 .empty { text-align: center; color: #888; padding: 30px; }
 .error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
-.modal-overlay.active { display: flex; }
-.modal { background: white; border-radius: 10px; padding: 20px; width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; }
-.modal h3 { margin-top: 0; color: #333; }
-.modal label { display: block; font-weight: bold; margin: 10px 0 4px; font-size: 13px; color: #555; }
-.modal input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
-.modal-actions { display: flex; gap: 10px; margin-top: 15px; }
-.modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
-.btn-save { background: #4caf50; color: white; }
-.btn-cancel { background: #9e9e9e; color: white; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 6px; z-index: 200; opacity: 0; transition: opacity 0.3s; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
 .toast.show { opacity: 1; }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>📋 Lista Nominativi</h2>
+<h2>📋 Lista Contatti</h2>
 <div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
-<input type="text" class="search" id="search" placeholder="Cerca per nome...">
+<input type="text" class="search" id="search" placeholder="Cerca per nominativo...">
 <div id="lista"><div class="empty">Caricamento...</div></div>
 </div>
-
-<div class="modal-overlay" id="modal">
-<div class="modal">
-<h3>✏️ Modifica Nominativo</h3>
-<label>Nominativo</label>
-<input type="text" id="m_nominativo">
-<label>Prezzo (€)</label>
-<input type="number" id="m_prezzo" step="0.01">
-<label>Cadenza</label>
-<input type="text" id="m_cadenza" placeholder="es. mensile, trimestrale">
-<label>Tipo</label>
-<input type="text" id="m_tipo" placeholder="es. TV, Telefono">
-<label>Dispositivo</label>
-<input type="text" id="m_dispositivo">
-<label>Sistema Operativo</label>
-<input type="text" id="m_sistema_operativo">
-<label>Buffett</label>
-<input type="text" id="m_buffett">
-<label>Metodo Pagamento</label>
-<input type="text" id="m_metodo_pagamento">
-<div class="modal-actions">
-<button class="btn-cancel" onclick="chiudiModal()">Annulla</button>
-<button class="btn-save" onclick="salvaModifica()">Salva</button>
-</div>
-</div>
-</div>
-
 <div class="toast" id="toast"></div>
-
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
+
+function getHeaders(contentType) {
+    const headers = {};
+    if (contentType) headers['Content-Type'] = contentType;
+    const initData = tg.initData;
+    if (initData) headers['X-Telegram-Init-Data'] = initData;
+    return headers;
+}
+
 let contatti = [];
-let idModifica = null;
 
 async function carica() {
-  const box = document.getElementById('lista');
-  try {
-    const res = await fetch('/api/contatti');
-    if (!res.ok) {
-      box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>';
-      return;
+    const box = document.getElementById('lista');
+    try {
+        const res = await fetch('/api/contatti', { headers: getHeaders() });
+        if (!res.ok) {
+            if (res.status === 403) {
+                box.innerHTML = '<div class="error">⛔ Permesso negato per questo modulo.</div>';
+            } else {
+                box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>';
+            }
+            return;
+        }
+        contatti = await res.json();
+        aggiornaContatore(contatti.length);
+        render();
+    } catch (e) {
+        box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
     }
-    contatti = await res.json();
-    aggiornaContatore(contatti.length);
-    render();
-  } catch (e) {
-    box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
-  }
 }
 
 function aggiornaContatore(totale) {
-  document.getElementById('counter').textContent = 'Totale: ' + totale;
+    document.getElementById('counter').textContent = 'Totale: ' + totale;
 }
 
 function render(filter) {
-  filter = (filter || '').toLowerCase();
-  const f = contatti.filter(c => c.nominativo.toLowerCase().includes(filter));
-  aggiornaContatore(contatti.length);
-  if (f.length === 0) {
-    document.getElementById('lista').innerHTML = '<div class="empty">Nessun nominativo.</div>';
-    return;
-  }
-  document.getElementById('lista').innerHTML = f.map(c =>
-    '<div class="item">' +
-    '<div class="item-info"><strong>' + c.nominativo + '</strong>' +
-    '<small>€ ' + (c.prezzo || 0) + ' - ' + (c.cadenza || '') + '</small></div>' +
-    '<div class="item-actions">' +
-    '<button class="btn btn-edit" onclick="apriModifica(' + c.id + ')">✏️</button>' +
-    '<button class="btn btn-del" onclick="cancella(' + c.id + ')">🗑️</button>' +
-    '</div></div>'
-  ).join('');
-}
-
-function apriModifica(id) {
-  const c = contatti.find(x => x.id === id);
-  if (!c) return;
-  idModifica = id;
-  document.getElementById('m_nominativo').value = c.nominativo || '';
-  document.getElementById('m_prezzo').value = c.prezzo || 0;
-  document.getElementById('m_cadenza').value = c.cadenza || '';
-  document.getElementById('m_tipo').value = c.tipo || '';
-  document.getElementById('m_dispositivo').value = c.dispositivo || '';
-  document.getElementById('m_sistema_operativo').value = c.sistema_operativo || '';
-  document.getElementById('m_buffett').value = c.buffett || '';
-  document.getElementById('m_metodo_pagamento').value = c.metodo_pagamento || '';
-  document.getElementById('modal').classList.add('active');
-}
-
-function chiudiModal() {
-  document.getElementById('modal').classList.remove('active');
-  idModifica = null;
-}
-
-async function salvaModifica() {
-  if (!idModifica) return;
-  const dati = {
-    azione: 'modifica',
-    id: idModifica,
-    nominativo: document.getElementById('m_nominativo').value.trim(),
-    prezzo: parseFloat(document.getElementById('m_prezzo').value) || 0,
-    cadenza: document.getElementById('m_cadenza').value.trim(),
-    tipo: document.getElementById('m_tipo').value.trim(),
-    dispositivo: document.getElementById('m_dispositivo').value.trim(),
-    sistema_operativo: document.getElementById('m_sistema_operativo').value.trim(),
-    buffett: document.getElementById('m_buffett').value.trim(),
-    metodo_pagamento: document.getElementById('m_metodo_pagamento').value.trim()
-  };
-  if (!dati.nominativo) {
-    mostraToast('⚠️ Il nome è obbligatorio');
-    return;
-  }
-  try {
-    const res = await fetch('/api/azione', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dati: dati })
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    chiudiModal();
-    mostraToast('✅ Modificato');
-    await carica();
-  } catch (e) {
-    mostraToast('❌ Errore: ' + e.message);
-  }
-}
-
-async function cancella(id) {
-  const c = contatti.find(x => x.id === id);
-  if (!c) return;
-  if (!confirm('Cancellare "' + c.nominativo + '"?')) return;
-  try {
-    const res = await fetch('/api/lista/cancella/' + id + '?tabella=nominativi', {
-      method: 'DELETE'
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    mostraToast('🗑️ Cancellato');
-    await carica();
-  } catch (e) {
-    mostraToast('❌ Errore: ' + e.message);
-  }
+    filter = (filter || '').toLowerCase();
+    const f = contatti.filter(c => (c.nominativo || '').toLowerCase().includes(filter));
+    if (f.length === 0) {
+        document.getElementById('lista').innerHTML = '<div class="empty">Nessun contatto trovato.</div>';
+        return;
+    }
+    document.getElementById('lista').innerHTML = f.map(c => {
+        return '<div class="item">' +
+            '<strong>' + (c.nominativo || '') + '</strong>' +
+            (c.prezzo ? '<small>💰 Prezzo: € ' + c.prezzo + '</small>' : '') +
+            (c.cadenza ? '<small>📅 Cadenza: ' + c.cadenza + '</small>' : '') +
+            (c.tipo ? '<small>📡 Tipo: ' + c.tipo + '</small>' : '') +
+            (c.operatore_it ? '<small>🌐 Operatore: ' + c.operatore_it + '</small>' : '') +
+            (c.dispositivo ? '<small>📱 Dispositivo: ' + c.dispositivo + '</small>' : '') +
+            (c.sistema_operativo ? '<small>💻 SO: ' + c.sistema_operativo + '</small>' : '') +
+            (c.buffett ? '<small>🍔 Buffett: ' + c.buffett + '</small>' : '') +
+            (c.metodo_pagamento ? '<small>💳 Pagamento: ' + c.metodo_pagamento + '</small>' : '') +
+            '</div>';
+    }).join('');
 }
 
 function mostraToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => { t.classList.remove('show'); }, 2500);
 }
 
 document.getElementById('search').addEventListener('input', e => render(e.target.value));
