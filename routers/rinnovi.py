@@ -1,4 +1,3 @@
-
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Request
 from auth import get_current_user
@@ -10,22 +9,23 @@ router = APIRouter()
 @router.get("/api/scadenze")
 def api_scadenze(request: Request):
     """
-    Query INTELLIGENTE: mostra solo le scadenze imminenti 
-    ESCLUDENDO i nominativi che hanno già rinnovato in anticipo.
+    Query AGGIORNATA: mostra TUTTE le scadenze passate E quelle future (entro 7 gg),
+    ESCLUDENDO sempre i nominativi che hanno già rinnovato in anticipo.
     """
     get_current_user(request)
     oggi = datetime.now().date()
-    limite = oggi + timedelta(days=7)  # Finestra di 7 giorni
+    limite_futuro = oggi + timedelta(days=7) 
     
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # La clausola NOT EXISTS filtra via i vecchi record se ne esiste uno futuro
+            # Modifica qui: rimosso il limite inferiore (>= oggi)
+            # Ora prende tutto ciò che è <= limite_futuro (quindi anche mesi fa)
             cur.execute("""
                 SELECT r.id, r.scadenza, r.orario_scadenza, r.nominativo_id, n.nominativo 
                 FROM rinnovi r 
                 JOIN nominativi n ON n.id = r.nominativo_id 
-                WHERE r.scadenza::date BETWEEN %s AND %s
+                WHERE r.scadenza::date <= %s
                 AND NOT EXISTS (
                     SELECT 1 FROM rinnovi r2 
                     WHERE r2.nominativo_id = r.nominativo_id 
@@ -33,7 +33,7 @@ def api_scadenze(request: Request):
                     AND r2.scadenza::date > %s
                 )
                 ORDER BY r.scadenza ASC
-            """, (oggi.isoformat(), limite.isoformat(), oggi.isoformat()))
+            """, (limite_futuro.isoformat(), oggi.isoformat()))
             
             rows = cur.fetchall()
             out = []
