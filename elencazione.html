@@ -8,15 +8,15 @@
 <script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 600px; margin: 0 auto; }
 h2 { text-align: center; margin-top: 0; color: #333; }
 .counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
 .counter-wrapper { text-align: center; }
 .search { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; margin-bottom: 15px; }
-.item { background: #fff; padding: 15px; margin: 8px 0; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; }
+.item { background: #fff; padding: 12px 15px; margin: 8px 0; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; }
 .item-name { font-weight: bold; font-size: 16px; color: #222; flex-grow: 1; }
-.item-actions { display: flex; gap: 5px; margin-left: 10px; }
-.btn { padding: 6px 10px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold; text-align: center; white-space: nowrap; }
+.item-actions { display: flex; gap: 5px; margin-left: 10px; flex-shrink: 0; }
+.btn { padding: 6px 10px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold; text-align: center; white-space: nowrap; min-width: 32px; }
 .btn-info { background: #0088cc; color: white; }
 .btn-edit { background: #ff9800; color: white; }
 .btn-wa { background: #25d366; color: white; }
@@ -34,7 +34,13 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 .info-row { display: flex; margin-bottom: 10px; border-bottom: 1px solid #f9f9f9; padding-bottom: 5px; }
 .info-label { font-weight: bold; color: #666; width: 110px; font-size: 13px; flex-shrink: 0; }
 .info-value { color: #222; font-size: 14px; word-break: break-word; }
-.close-modal { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 20px; color: #999; cursor: pointer; }
+.close-modal { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; color: #999; cursor: pointer; line-height: 1; }
+.row { display: flex; gap: 8px; }
+.row > div { flex: 1; }
+label { display: block; font-weight: bold; margin: 10px 0 4px; color: #333; font-size: 13px; }
+input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; font-family: inherit; }
+textarea { resize: vertical; min-height: 60px; }
+.section-title { font-size: 12px; color: #0088cc; font-weight: bold; margin: 14px 0 6px; text-transform: uppercase; border-bottom: 1px solid #e0e0e0; padding-bottom: 3px; }
 </style>
 </head>
 <body>
@@ -54,9 +60,10 @@ h2 { text-align: center; margin-top: 0; color: #333; }
     </div>
 </div>
 
-<!-- Modal Modifica (Mantenuto per funzionalità esistente) -->
+<!-- Modal Modifica -->
 <div class="modal-overlay" id="editModal">
 <div class="modal" style="max-width: 500px;">
+<button class="close-modal" onclick="chiudiEdit()">×</button>
 <h3>✏️ Modifica Contatto</h3>
 <div id="modal_form"></div>
 <div style="display:flex; gap:10px; margin-top:15px;">
@@ -164,7 +171,7 @@ function render(filter) {
         return '<div class="item">' +
             '<div class="item-name">' + (c.nominativo || '') + '</div>' +
             '<div class="item-actions">' +
-            '<button class="btn btn-info" onclick="apriInfo(' + c.id + ')">ℹ️ Info</button>' +
+            '<button class="btn btn-info" onclick="apriInfo(' + c.id + ')">ℹ️</button>' +
             '<button class="btn btn-edit" onclick="apriModifica(' + c.id + ')">✏️</button>' +
             '<button class="btn btn-wa" onclick="whatsapp(\'' + (c.nominativo || '').replace(/'/g,"\\'") + '\')">💬</button>' +
             '<button class="btn btn-del" onclick="cancella(' + c.id + ', \'' + (c.nominativo || '').replace(/'/g,"\\'") + '\')">🗑️</button>' +
@@ -215,7 +222,7 @@ function chiudiInfo() {
     document.getElementById('infoModal').classList.remove('active');
 }
 
-// --- FUNZIONI MODIFICA (MANTENUTE) ---
+// --- FUNZIONI MODIFICA ---
 function apriModifica(id) {
     const c = contatti.find(x => x.id === id);
     if (!c) return;
@@ -224,22 +231,22 @@ function apriModifica(id) {
     let html = '';
     html += '<label>Nominativo:</label><input type="text" id="m_nominativo" value="' + (c.nominativo || '') + '">';
     html += '<label>Tipo:</label><select id="m_tipo">' + optSelectTipo(c.tipo) + '</select>';
-    html += '<div class="row" style="display:flex;gap:8px;"><div style="flex:1"><label>Prezzo (€):</label><input type="number" id="m_prezzo" step="0.01" value="' + (c.prezzo || 0) + '"></div>';
-    html += '<div style="flex:1"><label>Cadenza:</label><select id="m_cadenza">' + optSelectStatic(cadenzeList, '--', c.cadenza) + '</select></div></div>';
+    html += '<div class="row"><div><label>Prezzo (€):</label><input type="number" id="m_prezzo" step="0.01" value="' + (c.prezzo || 0) + '"></div>';
+    html += '<div><label>Cadenza:</label><select id="m_cadenza">' + optSelectStatic(cadenzeList, '--', c.cadenza) + '</select></div></div>';
     html += '<label>Tipo Linea:</label><select id="m_tipo_linea">' + optSelectStatic(tipiLineaList, '--', c.tipo_linea || c.tipo) + '</select>';
     html += '<label>Operatore IT:</label><select id="m_operatore_it">' + optSelect(dropdowns.operatoriIt, '--', 'nome', c.operatore_it) + '</select>';
     
-    html += '<div style="font-size:12px;color:#0088cc;font-weight:bold;margin:14px 0 6px;text-transform:uppercase;border-bottom:1px solid #e0e0e0;padding-bottom:3px;">Server / Reseller</div>';
+    html += '<div class="section-title">Server / Reseller</div>';
     html += '<label>Server:</label><select id="m_server">' + optSelect(dropdowns.servers, '--', 'nominativo', c.server) + '</select>';
     html += '<label>Reseller:</label><select id="m_reseller">' + optSelect(dropdowns.resellers, '--', 'nominativo', c.reseller) + '</select>';
     
-    html += '<div style="font-size:12px;color:#0088cc;font-weight:bold;margin:14px 0 6px;text-transform:uppercase;border-bottom:1px solid #e0e0e0;padding-bottom:3px;">Dettagli tecnici</div>';
+    html += '<div class="section-title">Dettagli tecnici</div>';
     html += '<label>Dispositivo:</label><select id="m_dispositivo">' + optSelect(dropdowns.dispositivi, '--', 'nome', c.dispositivo) + '</select>';
     html += '<label>Sistema Operativo:</label><select id="m_sistema_operativo">' + optSelect(dropdowns.sistemiOp, '--', 'nome', c.sistema_operativo) + '</select>';
     html += '<label>Buffett:</label><select id="m_buffett">' + optSelect(dropdowns.buffetts, '--', 'nome', c.buffett) + '</select>';
     html += '<label>Metodo Pagamento:</label><select id="m_metodo_pagamento">' + optSelect(dropdowns.metodiPag, '--', 'nome', c.metodo_pagamento) + '</select>';
     
-    html += '<div style="font-size:12px;color:#0088cc;font-weight:bold;margin:14px 0 6px;text-transform:uppercase;border-bottom:1px solid #e0e0e0;padding-bottom:3px;">Contatti</div>';
+    html += '<div class="section-title">Contatti</div>';
     html += '<label>Num Cellulare:</label><input type="tel" id="m_cellulare" value="' + (c.cellulare || '') + '">';
     html += '<label>Procuratore:</label><select id="m_procuratore">' + optSelect(dropdowns.procuratori, '--', 'nominativo', c.procuratore) + '</select>';
     html += '<label>APK Utilizzata:</label><select id="m_apk_utilizzata">';
@@ -249,14 +256,14 @@ function apriModifica(id) {
         html += '<option value="' + apkList[i] + '" ' + sel + '>' + apkList[i] + '</option>';
     }
     html += '</select>';
-    html += '<div class="row" style="display:flex;gap:8px;"><div style="flex:1"><label>Uso VPN:</label><select id="m_uso_vpn"><option value="0" ' + (c.uso_vpn == 0 ? 'selected' : '') + '>No</option><option value="1" ' + (c.uso_vpn == 1 ? 'selected' : '') + '>Sì</option></select></div>';
-    html += '<div style="flex:1"><label>Quale VPN:</label><input type="text" id="m_quale_vpn" value="' + (c.quale_vpn || '') + '"></div></div>';
+    html += '<div class="row"><div><label>Uso VPN:</label><select id="m_uso_vpn"><option value="0" ' + (c.uso_vpn == 0 ? 'selected' : '') + '>No</option><option value="1" ' + (c.uso_vpn == 1 ? 'selected' : '') + '>Sì</option></select></div>';
+    html += '<div><label>Quale VPN:</label><input type="text" id="m_quale_vpn" value="' + (c.quale_vpn || '') + '"></div></div>';
     html += '<label>Città:</label><input type="text" id="m_citta" value="' + (c.citta || '') + '">';
     
-    html += '<div style="font-size:12px;color:#0088cc;font-weight:bold;margin:14px 0 6px;text-transform:uppercase;border-bottom:1px solid #e0e0e0;padding-bottom:3px;">Date e note</div>';
-    html += '<div class="row" style="display:flex;gap:8px;"><div style="flex:1"><label>Data Iscrizione:</label><input type="date" id="m_data_iscrizione" value="' + (c.data_iscrizione || '') + '"></div>';
-    html += '<div style="flex:1"><label>Data Fine:</label><input type="date" id="m_data_fine" value="' + (c.data_fine || '') + '"></div></div>';
-    html += '<label>Informazioni:</label><textarea id="m_informazioni" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;resize:vertical;min-height:60px;">' + (c.informazioni || '') + '</textarea>';
+    html += '<div class="section-title">Date e note</div>';
+    html += '<div class="row"><div><label>Data Iscrizione:</label><input type="date" id="m_data_iscrizione" value="' + (c.data_iscrizione || '') + '"></div>';
+    html += '<div><label>Data Fine:</label><input type="date" id="m_data_fine" value="' + (c.data_fine || '') + '"></div></div>';
+    html += '<label>Informazioni:</label><textarea id="m_informazioni">' + (c.informazioni || '') + '</textarea>';
     
     document.getElementById('modal_form').innerHTML = html;
     document.getElementById('editModal').classList.add('active');
