@@ -8,30 +8,66 @@
 <script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 500px; margin: 0 auto; }
 h2 { text-align: center; margin-top: 0; color: #333; }
-label { display: block; font-weight: bold; margin: 12px 0 4px; color: #333; font-size: 14px; }
-input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; font-family: inherit; }
-input[readonly] { background: #f0f0f0; color: #555; cursor: not-allowed; }
-textarea { resize: vertical; min-height: 80px; }
-.row { display: flex; gap: 10px; }
+label { display: block; font-weight: bold; margin: 10px 0 4px; color: #333; font-size: 13px; }
+input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; font-family: inherit; }
+.row { display: flex; gap: 8px; }
 .row > div { flex: 1; }
-.btn { width: 100%; padding: 14px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 15px; background: #4caf50; color: white; }
-.btn:active { background: #388e3c; }
-.section-title { font-size: 13px; color: #0088cc; font-weight: bold; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
-.hint { font-size: 12px; color: #888; margin-top: 4px; font-style: italic; }
+.section-title { font-size: 12px; color: #0088cc; font-weight: bold; margin: 14px 0 6px; text-transform: uppercase; border-bottom: 1px solid #e0e0e0; padding-bottom: 3px; }
+.btn-save { width: 100%; background: #4caf50; color: white; border: none; padding: 12px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+.btn-save:hover { background: #43a047; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
 .toast.show { opacity: 1; }
+small { color: #666; display: block; margin-top: 4px; font-size: 12px; }
 </style>
 </head>
 <body>
 <div class="container">
 <h2>🔄 Nuovo Rinnovo</h2>
-<div id="form"><div style="text-align:center;color:#888;padding:30px;">Caricamento...</div></div>
+
+<label>Nominativo:</label>
+<select id="r_nominativo_id"><option value="">-- Caricamento --</option></select>
+
+<div class="section-title">Dettagli Rinnovo</div>
+<div class="row">
+    <div><label>Tipo:</label><select id="r_tipo"><option value="rinnovo">🔄 Rinnovo</option><option value="nuovo">🆕 Nuovo</option><option value="omaggio">🎁 Omaggio</option></select></div>
+    <div><label>Data Operazione:</label><input type="date" id="r_data_operazione"></div>
 </div>
+
+<div class="row">
+    <div><label>Mesi:</label><input type="number" id="r_mesi" value="12"></div>
+    <div><label>Scadenza:</label><input type="text" id="r_scadenza" placeholder="DD/MM/YYYY"></div>
+</div>
+
+<div class="row">
+    <div><label>Importo Acconto (€):</label><input type="number" step="0.01" id="r_importo_acconto" value="0"></div>
+    <div><label>Importo Saldo (€):</label><input type="number" step="0.01" id="r_importo_saldo" value="0"></div>
+</div>
+
+<div class="section-title">🎫 Utilizzo Credito</div>
+<label>Credito da utilizzare:</label>
+<select id="r_credito_id">
+    <option value="">-- Nessun credito --</option>
+</select>
+<small>Seleziona se usare saldo storico o nuovo acquisto</small>
+
+<div class="row">
+    <div><label>Num Crediti Richiesti:</label><input type="number" id="r_num_credito_rich" value="0"></div>
+    <div><label>Valore Singolo NC (€):</label><input type="number" step="0.01" id="r_val_singolo_nc_rich" value="0"></div>
+</div>
+
+<label>Note:</label>
+<textarea id="r_note" style="min-height: 60px;"></textarea>
+
+<button class="btn-save" onclick="salvaRinnovo()">💾 Salva Rinnovo</button>
+</div>
+
 <div class="toast" id="toast"></div>
+
 <script>
-const tg = window.Telegram.WebApp; tg.expand();
+const tg = window.Telegram.WebApp;
+tg.expand();
 
 function getHeaders(contentType) {
     const headers = {};
@@ -41,105 +77,54 @@ function getHeaders(contentType) {
     return headers;
 }
 
-let nominativi = [];
-const urlParams = new URLSearchParams(window.location.search);
-const preselectId = urlParams.get('nominativo_id');
-
-async function carica() {
+async function init() {
+    // Carica Nominativi
     try {
         const res = await fetch('/api/nominativi', { headers: getHeaders() });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        nominativi = await res.json();
-        mostraForm();
-    } catch (e) {
-        document.getElementById('form').innerHTML = '<div style="text-align:center;color:#c62828;padding:30px;">Errore: ' + e.message + '</div>';
-    }
+        const noms = await res.json();
+        const sel = document.getElementById('r_nominativo_id');
+        sel.innerHTML = '<option value="">-- Seleziona --</option>';
+        noms.forEach(n => {
+            sel.innerHTML += `<option value="${n.id}">${n.nominativo}</option>`;
+        });
+    } catch(e) { console.error(e); }
+
+    // Imposta data odierna
+    document.getElementById('r_data_operazione').value = new Date().toISOString().split('T')[0];
+
+    // Carica Crediti Disponibili
+    try {
+        const res = await fetch('/api/crediti_disponibili', { headers: getHeaders() });
+        if (!res.ok) return;
+        const crediti = await res.json();
+        const sel = document.getElementById('r_credito_id');
+        crediti.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = `${c.tipo} - Qta: ${c.quantita} (€${c.valore}) - ${c.data_ref}`;
+            sel.appendChild(opt);
+        });
+    } catch(e) { console.error('Errore caricamento crediti:', e); }
 }
 
-function mostraForm() {
-    const oggi = new Date().toISOString().split('T')[0];
-    let html = '';
-    
-    html += '<label>Nominativo:</label>';
-    html += '<select id="nominativo_id">';
-    html += '<option value="">-- Seleziona --</option>';
-    nominativi.forEach(n => {
-        const selected = (preselectId && n.id == preselectId) ? 'selected' : '';
-        html += '<option value="' + n.id + '" ' + selected + '>' + n.nominativo + '</option>';
-    });
-    html += '</select>';
-    
-    html += '<div class="section-title">Dettagli Rinnovo</div>';
-    html += '<div class="row"><div><label>Tipo:</label><select id="tipo"><option value="rinnovo">Rinnovo</option><option value="nuovo">Nuovo</option><option value="omaggio">Omaggio</option></select></div>';
-    html += '<div><label>Mesi:</label><input type="number" id="mesi" value="1" min="1"></div></div>';
-    
-    html += '<div class="row"><div><label>Data Operazione:</label><input type="date" id="data_operazione" value="' + oggi + '"></div>';
-    html += '<div><label>Scadenza:</label><input type="date" id="scadenza"></div></div>';
-    
-    html += '<label>Orario Scadenza:</label>';
-    html += '<input type="time" id="orario_scadenza" placeholder="es. 14:30">';
-    
-    html += '<div class="section-title">Pagamenti</div>';
-    html += '<label>Importo Saldo (€):</label>';
-    html += '<input type="number" id="importo_saldo" step="0.01" value="0" oninput="calcolaValoreSingolo()">';
-    
-    html += '<div class="section-title">Crediti</div>';
-    html += '<div class="row"><div><label>Crediti Richiesti:</label><input type="number" id="num_credito_rich" value="0"></div>';
-    html += '<div><label>Crediti Dati:</label><input type="number" id="num_credito_dato" value="0" oninput="calcolaValoreSingolo()"></div></div>';
-    
-    html += '<label>Valore Singolo NC (€):</label>';
-    html += '<input type="number" id="val_singolo_nc_rich" step="0.01" value="0" readonly>';
-    html += '<div class="hint">Calcolato automaticamente: Importo Saldo ÷ Crediti Dati</div>';
-    
-    html += '<div class="row"><div><label>Data Credito Rinnovo Rich:</label><input type="date" id="data_credito_rinnovo_rich"></div></div>';
-    
-    html += '<label>Note:</label>';
-    html += '<textarea id="note" placeholder="Note aggiuntive..."></textarea>';
-    
-    html += '<button class="btn" onclick="invia()">💾 Salva Rinnovo</button>';
-    
-    document.getElementById('form').innerHTML = html;
-}
+async function salvaRinnovo() {
+    const nominativo_id = document.getElementById('r_nominativo_id').value;
+    if (!nominativo_id) { mostraToast('⚠️ Seleziona un nominativo'); return; }
 
-function calcolaValoreSingolo() {
-    const importoSaldo = parseFloat(document.getElementById('importo_saldo').value) || 0;
-    const creditiDati = parseInt(document.getElementById('num_credito_dato').value) || 0;
-    let valoreSingolo = 0;
-    if (creditiDati > 0) {
-        valoreSingolo = importoSaldo / creditiDati;
-    }
-    document.getElementById('val_singolo_nc_rich').value = valoreSingolo.toFixed(2);
-}
-
-function mostraToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-async function invia() {
-    const nominativoId = parseInt(document.getElementById('nominativo_id').value);
-    if (!nominativoId) {
-        mostraToast('⚠️ Seleziona un nominativo');
-        return;
-    }
-    
     const dati = {
-        nominativo_id: nominativoId,
-        tipo: document.getElementById('tipo').value,
-        data_operazione: document.getElementById('data_operazione').value,
-        mesi: parseInt(document.getElementById('mesi').value) || 1,
-        scadenza: document.getElementById('scadenza').value,
-        orario_scadenza: document.getElementById('orario_scadenza').value,
-        importo_saldo: parseFloat(document.getElementById('importo_saldo').value) || 0,
-        num_credito_rich: parseInt(document.getElementById('num_credito_rich').value) || 0,
-        num_credito_dato: parseInt(document.getElementById('num_credito_dato').value) || 0,
-        val_singolo_nc_rich: parseFloat(document.getElementById('val_singolo_nc_rich').value) || 0,
-        data_credito_rinnovo_rich: document.getElementById('data_credito_rinnovo_rich').value,
-        note: document.getElementById('note').value.trim()
+        nominativo_id: parseInt(nominativo_id),
+        tipo: document.getElementById('r_tipo').value,
+        data_operazione: document.getElementById('r_data_operazione').value,
+        mesi: parseInt(document.getElementById('r_mesi').value) || 12,
+        scadenza: document.getElementById('r_scadenza').value,
+        importo_acconto: parseFloat(document.getElementById('r_importo_acconto').value) || 0,
+        importo_saldo: parseFloat(document.getElementById('r_importo_saldo').value) || 0,
+        num_credito_rich: parseInt(document.getElementById('r_num_credito_rich').value) || 0,
+        val_singolo_nc_rich: parseFloat(document.getElementById('r_val_singolo_nc_rich').value) || 0,
+        credito_id: document.getElementById('r_credito_id').value ? parseInt(document.getElementById('r_credito_id').value) : null,
+        note: document.getElementById('r_note').value.trim()
     };
-    
+
     try {
         const res = await fetch('/api/rinnovo', {
             method: 'POST',
@@ -147,14 +132,19 @@ async function invia() {
             body: JSON.stringify({ dati: dati })
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        mostraToast('✅ Rinnovo salvato con successo!');
-        setTimeout(() => tg.close(), 1500);
-    } catch (e) {
-        mostraToast('❌ Errore: ' + e.message);
-    }
+        mostraToast('✅ Rinnovo salvato!');
+        setTimeout(() => { tg.close(); }, 1000);
+    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
 }
 
-carica();
+function mostraToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => { t.classList.remove('show'); }, 2500);
+}
+
+init();
 </script>
 </body>
 </html>
