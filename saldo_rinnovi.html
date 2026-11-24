@@ -4,9 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<title>Saldo Rinnovi v3</title>
+<title>Saldo Rinnovi Debug</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js?v=9999"></script>
 <style>
@@ -19,8 +17,8 @@
     select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
     .btn-add { background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
     
-    /* NUOVO ID PER FORZARE REFRESH */
-    #lista-v2 { min-height: 200px; }
+    /* ID UNICO V2 */
+    #lista-v2 { min-height: 200px; position: relative; }
     
     .item { background: #fff; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
     .item-info { flex-grow: 1; overflow: hidden; margin-right: 10px; }
@@ -32,7 +30,8 @@
     .btn-del { background: #f44336; color: white; }
     
     .empty { text-align: center; color: #888; padding: 30px; }
-    .error-msg { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; word-break: break-word; }
+    .error-box { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; border: 1px solid #ef9a9a; }
+    .loading-spinner { text-align: center; color: #0088cc; padding: 30px; font-weight: bold; }
 
     /* Modal Styles */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
@@ -68,9 +67,9 @@
         <button class="btn-add" onclick="apriModal()">➕ Aggiungi</button>
     </div>
 
-    <!-- CAMBIATO ID DA "lista" A "lista-v2" PER BYPASSARE CACHE -->
+    <!-- CONTENITORE LISTA V2 -->
     <div id="lista-v2">
-        <div class="empty">Caricamento...</div>
+        <div class="loading-spinner">⏳ Caricamento dati in corso...</div>
     </div>
 </div>
 
@@ -120,7 +119,6 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// VERSIONE SCRIPT: 3.0 - NO TEMPLATE STRINGS, SOLO DOM MANUALE + ID UNICI
 const tg = window.Telegram.WebApp;
 tg.expand();
 
@@ -134,185 +132,188 @@ function getHeaders(t) {
 let datiRinnovi = [];
 
 async function caricaDati() {
-    // Usiamo l'ID nuovo
     const container = document.getElementById('lista-v2');
+    
+    // TIMEOUT DI SICUREZZA: Se dopo 8 secondi non ha risposto, mostra errore
+    const timeoutId = setTimeout(() => {
+        if(container.querySelector('.loading-spinner')) {
+            container.innerHTML = '<div class="error-box">⚠️ Il server non risponde da troppo tempo.<br>Verifica la connessione o riavvia il bot.</div>';
+        }
+    }, 8000);
+
     try {
-        // FIX CACHE DRASTICO: Timestamp + Random + Header No-Cache
-        const uniqueId = Date.now() + Math.random();
+        const uniqueId = Date.now();
         const res = await fetch('/api/elenco_rinnovi?nocache=' + uniqueId, { 
             headers: getHeaders(),
             cache: 'no-store' 
         });
         
+        clearTimeout(timeoutId); // Ferma il timeout se la risposta arriva
+        
         if (!res.ok) {
             const errText = await res.text();
-            throw new Error(`HTTP ${res.status}: ${errText}`);
+            throw new Error(`Server Error ${res.status}: ${errText.substring(0, 100)}`);
         }
         
-        datiRinnovi = await res.json();
-        
-        // DEBUG CONSOLE: Fondamentale per capire cosa arriva dal server
-        console.log("=== DATI RICEVUTI DAL SERVER ===");
-        console.log("Totale record:", datiRinnovi.length);
-        if(datiRinnovi.length > 0) {
-            console.log("STRUTTURA PRIMO RECORD:", JSON.stringify(datiRinnovi[0]));
-        } else {
-            console.warn("Nessun dato ricevuto!");
+        const jsonText = await res.text();
+        let parsedData;
+        try {
+            parsedData = JSON.parse(jsonText);
+        } catch(e) {
+            throw new Error("Risposta non JSON valida dal server");
         }
         
-        // Aggiorna contatore
+        datiRinnovi = Array.isArray(parsedData) ? parsedData : [];
+        
+        console.log("DATI CARICATI:", datiRinnovi.length, "record");
+        if(datiRinnovi.length > 0) console.log("PRIMO RECORD:", datiRinnovi[0]);
+        
         document.getElementById('counter').textContent = "Totale: " + datiRinnovi.length;
         
-        // Popola select filtro
+        // Popola filtro
         const sel = document.getElementById('nominativo-filter');
         sel.innerHTML = '<option value="">-- Seleziona Rinnovo --</option>';
-        
-        // Estrai nominativi unici
-        const nomiUnici = [];
-        for(let i=0; i<datiRinnovi.length; i++) {
-            const n = datiRinnovi[i].nominativo;
-            if(n && nomiUnici.indexOf(n) === -1) {
-                nomiUnici.push(n);
-            }
-        }
-        nomiUnici.sort();
-        for(let i=0; i<nomiUnici.length; i++) {
+        const nomiUnici = [...new Set(datiRinnovi.map(r => r.nominativo).filter(n => n))].sort();
+        nomiUnici.forEach(n => {
             const opt = document.createElement('option');
-            opt.value = nomiUnici[i];
-            opt.textContent = nomiUnici[i];
+            opt.value = n; opt.textContent = n;
             sel.appendChild(opt);
-        }
+        });
         
-        // Chiama la nuova funzione di rendering
         disegnaListaV2();
+        
     } catch(e) {
-        console.error("Errore caricamento:", e);
-        container.innerHTML = '<div class="error-msg"><strong>Errore Server:</strong><br>' + e.message + '</div>';
+        clearTimeout(timeoutId);
+        console.error("ERRORE FATALE:", e);
+        container.innerHTML = '<div class="error-box"><strong>Errore di Caricamento:</strong><br>' + e.message + '</div>';
     }
 }
 
-// NUOVA FUNZIONE DI RENDERING CON NOME DIVERSO PER EVITARE CACHE JS
 function disegnaListaV2(filtro) {
     const container = document.getElementById('lista-v2');
-    container.innerHTML = ''; // Pulizia totale
+    container.innerHTML = ''; 
     
-    let listaDaMostrare = datiRinnovi;
-    if(filtro) {
-        listaDaMostrare = [];
-        for(let i=0; i<datiRinnovi.length; i++) {
-            if(datiRinnovi[i].nominativo === filtro) {
-                listaDaMostrare.push(datiRinnovi[i]);
-            }
-        }
-    }
+    let lista = datiRinnovi;
+    if(filtro) lista = datiRinnovi.filter(r => r.nominativo === filtro);
     
-    if (listaDaMostrare.length === 0) {
+    if (lista.length === 0) {
         container.innerHTML = '<div class="empty">Nessun rinnovo trovato.</div>';
         return;
     }
     
-    for(let i=0; i<listaDaMostrare.length; i++) {
-        const r = listaDaMostrare[i];
+    for(let i=0; i<lista.length; i++) {
+        const r = lista[i];
         
-        // 1. Crea contenitore principale
         const itemDiv = document.createElement('div');
         itemDiv.className = 'item';
         
-        // 2. Crea sezione info (sinistra)
         const infoDiv = document.createElement('div');
         infoDiv.className = 'item-info';
         
         const nameDiv = document.createElement('div');
         nameDiv.className = 'item-name';
-        // Usa textContent per sicurezza assoluta contro XSS e interpretazione errata
-        nameDiv.textContent = r.nominativo ? r.nominativo : ("ID: " + r.nominativo_id);
+        nameDiv.textContent = r.nominativo || ("ID: " + r.nominativo_id);
         
         const subDiv = document.createElement('div');
         subDiv.className = 'item-sub';
         
-        // Estrai valori con fallback esplicito a 0
-        // USIAMO CONCATENAZIONE BASE (+) INVECE DI TEMPLATE LITERALS ($)
-        const valRich = (r.num_credito_rich !== null && r.num_credito_rich !== undefined) ? r.num_credito_rich : 0;
-        const valDato = (r.num_credito_dato !== null && r.num_credito_dato !== undefined) ? r.num_credito_dato : 0;
-        const valSaldo = (r.num_credito_dare !== null && r.num_credito_dare !== undefined) ? r.num_credito_dare : 0;
+        // LETTURA VALORI SICURA
+        const vRich = (r.num_credito_rich != null) ? r.num_credito_rich : 0;
+        const vDato = (r.num_credito_dato != null) ? r.num_credito_dato : 0;
+        const vSaldo = (r.num_credito_dare != null) ? r.num_credito_dare : 0;
         
-        // Costruisci stringa finale in modo sicuro
-        subDiv.textContent = "Rich: " + valRich + " | Dato: " + valDato + " | Saldo: " + valSaldo;
+        subDiv.textContent = "Rich: " + vRich + " | Dato: " + vDato + " | Saldo: " + vSaldo;
         
         infoDiv.appendChild(nameDiv);
         infoDiv.appendChild(subDiv);
         
-        // 3. Crea sezione azioni (destra)
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'item-actions';
         
         const btnEdit = document.createElement('button');
         btnEdit.className = 'btn-edit';
         btnEdit.textContent = '✏️';
-        // Closure sicura per passare l'ID
-        btnEdit.onclick = (function(idCorrente) {
-            return function() { apriEdit(idCorrente); };
-        })(r.id);
+        btnEdit.onclick = (() => { const id = r.id; return () => apriEdit(id); })();
         
         const btnDel = document.createElement('button');
         btnDel.className = 'btn-del';
         btnDel.textContent = '🗑️';
-        btnDel.onclick = (function(idCorrente) {
-            return function() { elimina(idCorrente); };
-        })(r.id);
+        btnDel.onclick = (() => { const id = r.id; return () => elimina(id); })();
         
         actionsDiv.appendChild(btnEdit);
         actionsDiv.appendChild(btnDel);
         
-        // 4. Assembla tutto
         itemDiv.appendChild(infoDiv);
         itemDiv.appendChild(actionsDiv);
         container.appendChild(itemDiv);
     }
 }
 
-// Filtro select
 document.getElementById('nominativo-filter').addEventListener('change', function(e) {
     disegnaListaV2(e.target.value);
 });
 
-function apriModal() {
-    alert("Per aggiungere un nuovo saldo, usa il modulo 'Nuovo Rinnovo'.");
-}
+function apriModal() { alert("Usa il modulo 'Nuovo Rinnovo' per aggiungere."); }
 
 function apriEdit(id) {
-    let r = null;
-    for(let i=0; i<datiRinnovi.length; i++) {
-        if(datiRinnovi[i].id === id) {
-            r = datiRinnovi[i];
-            break;
-        }
-    }
+    const r = datiRinnovi.find(x => x.id === id);
     if (!r) return;
     
     document.getElementById('m_id').value = r.id;
     document.getElementById('m_nominativo').value = r.nominativo || '';
-    
-    // Impostazione valori manuali
-    document.getElementById('m_num_rich').value = (r.num_credito_rich !== null && r.num_credito_rich !== undefined) ? r.num_credito_rich : 0;
-    document.getElementById('m_num_dato').value = (r.num_credito_dato !== null && r.num_credito_dato !== undefined) ? r.num_credito_dato : 0;
-    document.getElementById('m_num_saldo').value = (r.num_credito_dare !== null && r.num_credito_dare !== undefined) ? r.num_credito_dare : 0; 
-    
+    document.getElementById('m_num_rich').value = (r.num_credito_rich != null) ? r.num_credito_rich : 0;
+    document.getElementById('m_num_dato').value = (r.num_credito_dato != null) ? r.num_credito_dato : 0;
+    document.getElementById('m_num_saldo').value = (r.num_credito_dare != null) ? r.num_credito_dare : 0; 
     document.getElementById('m_data_rich').value = r.data_credito_rinnovo_rich || '';
     document.getElementById('m_data_dato').value = r.data_credito_rinnovo_dato || '';
     document.getElementById('m_data_saldo').value = r.data_saldo || '';
-    
-    document.getElementById('m_val_rich').value = (r.val_nc_rich !== null && r.val_nc_rich !== undefined) ? r.val_nc_rich : 0;
-    document.getElementById('m_val_dato').value = (r.val_nc_dato !== null && r.val_nc_dato !== undefined) ? r.val_nc_dato : 0; 
-    document.getElementById('m_val_saldo').value = (r.val_nc_saldo !== null && r.val_nc_saldo !== undefined) ? r.val_nc_saldo : 0; 
-    
+    document.getElementById('m_val_rich').value = (r.val_nc_rich != null) ? r.val_nc_rich : 0;
+    document.getElementById('m_val_dato').value = (r.val_nc_dato != null) ? r.val_nc_dato : 0; 
+    document.getElementById('m_val_saldo').value = (r.val_nc_saldo != null) ? r.val_nc_saldo : 0; 
     document.getElementById('m_note').value = r.note || '';
     
     document.getElementById('editModal').classList.add('active');
 }
 
-function chiudiModal() {
-    document.getElementById('editModal').classList.remove('active');
+function chiudiModal() { document.getElementById('editModal').classList.remove('active'); }
+
+async function salvaModifica() {
+    const id = document.getElementById('m_id').value;
+    const dati = {
+        azione: 'modifica_rinnovo', id: parseInt(id),
+        num_credito_rich: parseInt(document.getElementById('m_num_rich').value) || 0,
+        num_credito_dato: parseInt(document.getElementById('m_num_dato').value) || 0,
+        data_credito_rinnovo_rich: document.getElementById('m_data_rich').value,
+        data_credito_rinnovo_dato: document.getElementById('m_data_dato').value,
+        val_nc_rich: parseFloat(document.getElementById('m_val_rich').value) || 0,
+        num_credito_dare: parseInt(document.getElementById('m_num_saldo').value) || 0,
+        data_saldo: document.getElementById('m_data_saldo').value,
+        val_nc_dato: parseFloat(document.getElementById('m_val_dato').value) || 0,
+        val_nc_saldo: parseFloat(document.getElementById('m_val_saldo').value) || 0,
+        note: document.getElementById('m_note').value
+    };
+    
+    try {
+        const res = await fetch('/api/rinnovo', { method: 'POST', headers: getHeaders('application/json'), body: JSON.stringify({ dati: dati }) });
+        if (!res.ok) throw new Error('Errore salvataggio');
+        showToast("✅ Salvato!"); chiudiModal(); caricaDati();
+    } catch(e) { alert("❌ Errore: " + e.message); }
 }
 
-async function salvaModifica
+async function elimina(id) {
+    if (!confirm("Eliminare questo rinnovo?")) return;
+    try {
+        await fetch('/api/rinnovo/' + id, { method: 'DELETE', headers: getHeaders() });
+        showToast("🗑️ Eliminato"); caricaDati();
+    } catch(e) { alert("Errore eliminazione"); }
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+caricaDati();
+</script>
+</body>
+</html>
