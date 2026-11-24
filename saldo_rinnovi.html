@@ -128,7 +128,8 @@ let datiRinnovi = [];
 async function caricaDati() {
     const container = document.getElementById('lista');
     try {
-        const res = await fetch('/api/elenco_rinnovi', { headers: getHeaders() });
+        // Aggiungiamo timestamp per forzare refresh cache
+        const res = await fetch('/api/elenco_rinnovi?t=' + Date.now(), { headers: getHeaders() });
         
         if (!res.ok) {
             const errText = await res.text();
@@ -136,6 +137,12 @@ async function caricaDati() {
         }
         
         datiRinnovi = await res.json();
+        
+        // DEBUG: Stampa in console il primo record per verificare struttura dati
+        console.log("DATI RICEVUTI DAL SERVER:", datiRinnovi);
+        if(datiRinnovi.length > 0) {
+            console.log("PRIMO RECORD:", JSON.stringify(datiRinnovi[0]));
+        }
         
         // Aggiorna contatore
         document.getElementById('counter').textContent = `Totale: ${datiRinnovi.length}`;
@@ -162,9 +169,11 @@ async function caricaDati() {
     }
 }
 
-// FIX CRITICO: Corretta l'interpolazione delle variabili nella stringa HTML
+// FIX DEFINITIVO: Usiamo createElement invece di template string per evitare problemi di cache/interpolazione
 function renderLista(filtro = '') {
     const container = document.getElementById('lista');
+    container.innerHTML = ''; // Pulisce completamente
+    
     const filtrati = filtro ? datiRinnovi.filter(r => r.nominativo === filtro) : datiRinnovi;
     
     if (filtrati.length === 0) {
@@ -172,25 +181,49 @@ function renderLista(filtro = '') {
         return;
     }
     
-    container.innerHTML = filtrati.map(r => {
-        // Gestione sicura dei valori nulli/undefined
-        const rich = r.num_credito_rich ?? 0;
-        const dato = r.num_credito_dato ?? 0;
-        const saldo = r.num_credito_dare ?? 0;
-        const nome = r.nominativo || `ID: ${r.nominativo_id}`;
+    filtrati.forEach(r => {
+        // Creazione elemento DOM sicuro
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'item';
         
-        return `
-        <div class="item">
-            <div class="item-info">
-                <div class="item-name">${nome}</div>
-                <div class="item-sub">Rich: ${rich} | Dato: ${dato} | Saldo: ${saldo}</div>
-            </div>
-            <div class="item-actions">
-                <button class="btn-edit" onclick="apriEdit(${r.id})">✏️</button>
-                <button class="btn-del" onclick="elimina(${r.id})">🗑️</button>
-            </div>
-        </div>`;
-    }).join('');
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'item-info';
+        
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'item-name';
+        nameDiv.textContent = r.nominativo || `ID: ${r.nominativo_id}`;
+        
+        const subDiv = document.createElement('div');
+        subDiv.className = 'item-sub';
+        // Lettura esplicita dei valori con fallback
+        const rich = r.num_credito_rich !== undefined && r.num_credito_rich !== null ? r.num_credito_rich : 0;
+        const dato = r.num_credito_dato !== undefined && r.num_credito_dato !== null ? r.num_credito_dato : 0;
+        const saldo = r.num_credito_dare !== undefined && r.num_credito_dare !== null ? r.num_credito_dare : 0;
+        subDiv.textContent = `Rich: ${rich} | Dato: ${dato} | Saldo: ${saldo}`;
+        
+        infoDiv.appendChild(nameDiv);
+        infoDiv.appendChild(subDiv);
+        
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'item-actions';
+        
+        const btnEdit = document.createElement('button');
+        btnEdit.className = 'btn-edit';
+        btnEdit.textContent = '✏️';
+        btnEdit.onclick = () => apriEdit(r.id);
+        
+        const btnDel = document.createElement('button');
+        btnDel.className = 'btn-del';
+        btnDel.textContent = '🗑️';
+        btnDel.onclick = () => elimina(r.id);
+        
+        actionsDiv.appendChild(btnEdit);
+        actionsDiv.appendChild(btnDel);
+        
+        itemDiv.appendChild(infoDiv);
+        itemDiv.appendChild(actionsDiv);
+        container.appendChild(itemDiv);
+    });
 }
 
 // Filtro select
@@ -209,10 +242,10 @@ function apriEdit(id) {
     document.getElementById('m_id').value = r.id;
     document.getElementById('m_nominativo').value = r.nominativo || '';
     
-    // Usa ?? 0 per gestire null/undefined nei campi numerici
-    document.getElementById('m_num_rich').value = r.num_credito_rich ?? 0;
-    document.getElementById('m_num_dato').value = r.num_credito_dato ?? 0;
-    document.getElementById('m_num_saldo').value = r.num_credito_dare ?? 0; 
+    // Usa controllo esplicito per null/undefined
+    document.getElementById('m_num_rich').value = (r.num_credito_rich !== null && r.num_credito_rich !== undefined) ? r.num_credito_rich : 0;
+    document.getElementById('m_num_dato').value = (r.num_credito_dato !== null && r.num_credito_dato !== undefined) ? r.num_credito_dato : 0;
+    document.getElementById('m_num_saldo').value = (r.num_credito_dare !== null && r.num_credito_dare !== undefined) ? r.num_credito_dare : 0; 
     
     // Date
     document.getElementById('m_data_rich').value = r.data_credito_rinnovo_rich || '';
@@ -220,9 +253,9 @@ function apriEdit(id) {
     document.getElementById('m_data_saldo').value = r.data_saldo || '';
     
     // Valori
-    document.getElementById('m_val_rich').value = r.val_nc_rich ?? 0;
-    document.getElementById('m_val_dato').value = r.val_nc_dato ?? 0; 
-    document.getElementById('m_val_saldo').value = r.val_nc_saldo ?? 0; 
+    document.getElementById('m_val_rich').value = (r.val_nc_rich !== null && r.val_nc_rich !== undefined) ? r.val_nc_rich : 0;
+    document.getElementById('m_val_dato').value = (r.val_nc_dato !== null && r.val_nc_dato !== undefined) ? r.val_nc_dato : 0; 
+    document.getElementById('m_val_saldo').value = (r.val_nc_saldo !== null && r.val_nc_saldo !== undefined) ? r.val_nc_saldo : 0; 
     
     document.getElementById('m_note').value = r.note || '';
     
