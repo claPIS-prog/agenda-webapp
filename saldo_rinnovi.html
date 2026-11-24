@@ -3,50 +3,54 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Meta tag drastici per uccidere la cache -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Saldo Rinnovi v2</title>
+<title>Saldo Rinnovi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="/auth.js?v=999"></script>
+<script src="/auth.js?v=9999"></script> <!-- Versione auth forzata -->
 <style>
-body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 600px; margin: 0 auto; }
-h2 { text-align: center; color: #333; margin-top: 0; }
-.counter-wrapper { text-align: center; margin-bottom: 15px; }
-.counter { display: inline-block; background: #0088cc; color: white; padding: 6px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; }
-.controls { display: flex; gap: 10px; margin-bottom: 15px; }
-select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
-.btn-add { background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-.list-container { min-height: 200px; }
-.item { background: #fff; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-.item-info { flex-grow: 1; overflow: hidden; }
-.item-name { font-weight: bold; font-size: 15px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.item-sub { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.4; }
-.item-actions { display: flex; gap: 5px; margin-left: 10px; flex-shrink: 0; }
-.item-actions button { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-.btn-edit { background: #ff9800; color: white; }
-.btn-del { background: #f44336; color: white; }
-.empty { text-align: center; color: #888; padding: 30px; }
-.error-msg { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; word-break: break-word; }
+    body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+    .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 600px; margin: 0 auto; }
+    h2 { text-align: center; color: #333; margin-top: 0; }
+    .counter-wrapper { text-align: center; margin-bottom: 15px; }
+    .counter { display: inline-block; background: #0088cc; color: white; padding: 6px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; }
+    .controls { display: flex; gap: 10px; margin-bottom: 15px; }
+    select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    .btn-add { background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .list-container { min-height: 200px; }
+    
+    /* Stile Item Lista */
+    .item { background: #fff; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .item-info { flex-grow: 1; overflow: hidden; margin-right: 10px; }
+    .item-name { font-weight: bold; font-size: 15px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-sub { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.4; word-break: break-word; }
+    .item-actions { display: flex; gap: 5px; flex-shrink: 0; }
+    .item-actions button { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-edit { background: #ff9800; color: white; }
+    .btn-del { background: #f44336; color: white; }
+    
+    .empty { text-align: center; color: #888; padding: 30px; }
+    .error-msg { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; word-break: break-word; }
 
-/* Modal Styles */
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
-.modal-overlay.active { display: flex; }
-.modal { background: white; border-radius: 10px; padding: 20px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; position: relative; }
-.modal h3 { text-align: center; margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-.close-modal { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
-.form-group { margin-bottom: 12px; }
-.form-group label { display: block; font-weight: bold; font-size: 12px; margin-bottom: 4px; color: #555; }
-.form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
-.form-row { display: flex; gap: 10px; }
-.form-row > div { flex: 1; }
-.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-.modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
-.btn-cancel { background: #9e9e9e; color: white; }
-.btn-save { background: #4caf50; color: white; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 6px; opacity: 0; transition: 0.3s; z-index: 200; }
-.toast.show { opacity: 1; }
+    /* Modal Styles */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: white; border-radius: 10px; padding: 20px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; position: relative; }
+    .modal h3 { text-align: center; margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    .close-modal { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-weight: bold; font-size: 12px; margin-bottom: 4px; color: #555; }
+    .form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+    .form-row { display: flex; gap: 10px; }
+    .form-row > div { flex: 1; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+    .btn-cancel { background: #9e9e9e; color: white; }
+    .btn-save { background: #4caf50; color: white; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 6px; opacity: 0; transition: 0.3s; z-index: 200; }
+    .toast.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -115,7 +119,7 @@ select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font
 <div class="toast" id="toast"></div>
 
 <script>
-// VERSIONE SCRIPT: 2.0 - FIX DEFINITIVO CACHE TELEGRAM
+// VERSIONE SCRIPT: 3.0 - NO TEMPLATE STRINGS, SOLO DOM MANUALE
 const tg = window.Telegram.WebApp;
 tg.expand();
 
@@ -131,11 +135,11 @@ let datiRinnovi = [];
 async function caricaDati() {
     const container = document.getElementById('lista');
     try {
-        // FIX CACHE: Aggiungiamo timestamp unico ad ogni richiesta
+        // FIX CACHE DRASTICO: Timestamp + Random + Header No-Cache
         const uniqueId = Date.now() + Math.random();
         const res = await fetch('/api/elenco_rinnovi?nocache=' + uniqueId, { 
             headers: getHeaders(),
-            cache: 'no-store' // Forza nessuna cache
+            cache: 'no-store' 
         });
         
         if (!res.ok) {
@@ -145,111 +149,122 @@ async function caricaDati() {
         
         datiRinnovi = await res.json();
         
-        // DEBUG: Stampa struttura dati in console
-        console.log("=== DATI RICEVUTI ===");
-        console.log("Numero record:", datiRinnovi.length);
+        // DEBUG CONSOLE: Fondamentale per capire cosa arriva dal server
+        console.log("=== DATI RICEVUTI DAL SERVER ===");
+        console.log("Totale record:", datiRinnovi.length);
         if(datiRinnovi.length > 0) {
-            console.log("PRIMO RECORD COMPLETO:", JSON.stringify(datiRinnovi[0], null, 2));
-            console.log("Chiavi disponibili:", Object.keys(datiRinnovi[0]));
+            console.log("STRUTTURA PRIMO RECORD:", JSON.stringify(datiRinnovi[0]));
+        } else {
+            console.warn("Nessun dato ricevuto!");
         }
         
         // Aggiorna contatore
-        document.getElementById('counter').textContent = `Totale: ${datiRinnovi.length}`;
+        document.getElementById('counter').textContent = "Totale: " + datiRinnovi.length;
         
         // Popola select filtro
         const sel = document.getElementById('nominativo-filter');
         sel.innerHTML = '<option value="">-- Seleziona Rinnovo --</option>';
         
         // Estrai nominativi unici
-        const unici = [...new Set(datiRinnovi.map(r => r.nominativo).filter(n => n))];
-        unici.sort().forEach(n => {
-            sel.innerHTML += `<option value="${n}">${n}</option>`;
-        });
+        const nomiUnici = [];
+        for(let i=0; i<datiRinnovi.length; i++) {
+            const n = datiRinnovi[i].nominativo;
+            if(n && nomiUnici.indexOf(n) === -1) {
+                nomiUnici.push(n);
+            }
+        }
+        nomiUnici.sort();
+        for(let i=0; i<nomiUnici.length; i++) {
+            const opt = document.createElement('option');
+            opt.value = nomiUnici[i];
+            opt.textContent = nomiUnici[i];
+            sel.appendChild(opt);
+        }
         
         renderLista();
     } catch(e) {
         console.error("Errore caricamento:", e);
-        container.innerHTML = `
-            <div class="error-msg">
-                <strong>Errore Server:</strong><br>
-                ${e.message}<br><br>
-                <small>Verifica che il backend sia attivo e le colonne DB esistano.</small>
-            </div>`;
+        container.innerHTML = '<div class="error-msg"><strong>Errore Server:</strong><br>' + e.message + '</div>';
     }
 }
 
-// FIX DEFINITIVO: Funzione di rendering completamente riscritta
-// Usa createElement invece di innerHTML per evitare problemi di cache JS
-function renderLista(filtro = '') {
+// FIX DEFINITIVO: Costruzione manuale del DOM. ZERO template strings.
+function renderLista(filtro) {
     const container = document.getElementById('lista');
-    container.innerHTML = ''; // Pulisce completamente il contenitore
+    container.innerHTML = ''; // Pulizia totale
     
-    const filtrati = filtro ? datiRinnovi.filter(r => r.nominativo === filtro) : datiRinnovi;
+    let listaDaMostrare = datiRinnovi;
+    if(filtro) {
+        listaDaMostrare = [];
+        for(let i=0; i<datiRinnovi.length; i++) {
+            if(datiRinnovi[i].nominativo === filtro) {
+                listaDaMostrare.push(datiRinnovi[i]);
+            }
+        }
+    }
     
-    if (filtrati.length === 0) {
+    if (listaDaMostrare.length === 0) {
         container.innerHTML = '<div class="empty">Nessun rinnovo trovato.</div>';
         return;
     }
     
-    filtrati.forEach(function(r) {
-        // Creazione elemento DOM sicuro
-        var itemDiv = document.createElement('div');
+    for(let i=0; i<listaDaMostrare.length; i++) {
+        const r = listaDaMostrare[i];
+        
+        // 1. Crea contenitore principale
+        const itemDiv = document.createElement('div');
         itemDiv.className = 'item';
         
-        var infoDiv = document.createElement('div');
+        // 2. Crea sezione info (sinistra)
+        const infoDiv = document.createElement('div');
         infoDiv.className = 'item-info';
         
-        var nameDiv = document.createElement('div');
+        const nameDiv = document.createElement('div');
         nameDiv.className = 'item-name';
-        nameDiv.textContent = r.nominativo || ('ID: ' + r.nominativo_id);
+        // Usa textContent per sicurezza assoluta contro XSS e interpretazione errata
+        nameDiv.textContent = r.nominativo ? r.nominativo : ("ID: " + r.nominativo_id);
         
-        var subDiv = document.createElement('div');
+        const subDiv = document.createElement('div');
         subDiv.className = 'item-sub';
         
-        // Lettura esplicita dei valori con fallback sicuro
-        var rich = 0;
-        var dato = 0;
-        var saldo = 0;
+        // Estrai valori con fallback esplicito a 0
+        const valRich = (r.num_credito_rich !== null && r.num_credito_rich !== undefined) ? r.num_credito_rich : 0;
+        const valDato = (r.num_credito_dato !== null && r.num_credito_dato !== undefined) ? r.num_credito_dato : 0;
+        const valSaldo = (r.num_credito_dare !== null && r.num_credito_dare !== undefined) ? r.num_credito_dare : 0;
         
-        if (r.num_credito_rich !== undefined && r.num_credito_rich !== null) {
-            rich = r.num_credito_rich;
-        }
-        if (r.num_credito_dato !== undefined && r.num_credito_dato !== null) {
-            dato = r.num_credito_dato;
-        }
-        if (r.num_credito_dare !== undefined && r.num_credito_dare !== null) {
-            saldo = r.num_credito_dare;
-        }
-        
-        subDiv.textContent = 'Rich: ' + rich + ' | Dato: ' + dato + ' | Saldo: ' + saldo;
+        // Costruisci stringa finale in modo sicuro
+        subDiv.textContent = "Rich: " + valRich + " | Dato: " + valDato + " | Saldo: " + valSaldo;
         
         infoDiv.appendChild(nameDiv);
         infoDiv.appendChild(subDiv);
         
-        var actionsDiv = document.createElement('div');
+        // 3. Crea sezione azioni (destra)
+        const actionsDiv = document.createElement('div');
         actionsDiv.className = 'item-actions';
         
-        var btnEdit = document.createElement('button');
+        const btnEdit = document.createElement('button');
         btnEdit.className = 'btn-edit';
         btnEdit.textContent = '✏️';
-        btnEdit.onclick = (function(id) {
-            return function() { apriEdit(id); };
+        // Closure sicura per passare l'ID
+        btnEdit.onclick = (function(idCorrente) {
+            return function() { apriEdit(idCorrente); };
         })(r.id);
         
-        var btnDel = document.createElement('button');
+        const btnDel = document.createElement('button');
         btnDel.className = 'btn-del';
         btnDel.textContent = '🗑️';
-        btnDel.onclick = (function(id) {
-            return function() { elimina(id); };
+        btnDel.onclick = (function(idCorrente) {
+            return function() { elimina(idCorrente); };
         })(r.id);
         
         actionsDiv.appendChild(btnEdit);
         actionsDiv.appendChild(btnDel);
         
+        // 4. Assembla tutto
         itemDiv.appendChild(infoDiv);
         itemDiv.appendChild(actionsDiv);
         container.appendChild(itemDiv);
-    });
+    }
 }
 
 // Filtro select
@@ -262,23 +277,27 @@ function apriModal() {
 }
 
 function apriEdit(id) {
-    var r = datiRinnovi.find(function(x) { return x.id === id; });
+    let r = null;
+    for(let i=0; i<datiRinnovi.length; i++) {
+        if(datiRinnovi[i].id === id) {
+            r = datiRinnovi[i];
+            break;
+        }
+    }
     if (!r) return;
     
     document.getElementById('m_id').value = r.id;
     document.getElementById('m_nominativo').value = r.nominativo || '';
     
-    // Impostazione valori con controllo esplicito
+    // Impostazione valori manuali
     document.getElementById('m_num_rich').value = (r.num_credito_rich !== null && r.num_credito_rich !== undefined) ? r.num_credito_rich : 0;
     document.getElementById('m_num_dato').value = (r.num_credito_dato !== null && r.num_credito_dato !== undefined) ? r.num_credito_dato : 0;
     document.getElementById('m_num_saldo').value = (r.num_credito_dare !== null && r.num_credito_dare !== undefined) ? r.num_credito_dare : 0; 
     
-    // Date
     document.getElementById('m_data_rich').value = r.data_credito_rinnovo_rich || '';
     document.getElementById('m_data_dato').value = r.data_credito_rinnovo_dato || '';
     document.getElementById('m_data_saldo').value = r.data_saldo || '';
     
-    // Valori
     document.getElementById('m_val_rich').value = (r.val_nc_rich !== null && r.val_nc_rich !== undefined) ? r.val_nc_rich : 0;
     document.getElementById('m_val_dato').value = (r.val_nc_dato !== null && r.val_nc_dato !== undefined) ? r.val_nc_dato : 0; 
     document.getElementById('m_val_saldo').value = (r.val_nc_saldo !== null && r.val_nc_saldo !== undefined) ? r.val_nc_saldo : 0; 
@@ -293,8 +312,8 @@ function chiudiModal() {
 }
 
 async function salvaModifica() {
-    var id = document.getElementById('m_id').value;
-    var dati = {
+    const id = document.getElementById('m_id').value;
+    const dati = {
         azione: 'modifica_rinnovo',
         id: parseInt(id),
         num_credito_rich: parseInt(document.getElementById('m_num_rich').value) || 0,
@@ -310,7 +329,7 @@ async function salvaModifica() {
     };
     
     try {
-        var res = await fetch('/api/rinnovo', {
+        const res = await fetch('/api/rinnovo', {
             method: 'POST',
             headers: getHeaders('application/json'),
             body: JSON.stringify({ dati: dati })
@@ -337,7 +356,7 @@ async function elimina(id) {
 }
 
 function showToast(msg) {
-    var t = document.getElementById('toast');
+    const t = document.getElementById('toast');
     t.textContent = msg;
     t.classList.add('show');
     setTimeout(function() { t.classList.remove('show'); }, 2000);
