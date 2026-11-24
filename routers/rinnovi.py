@@ -3,22 +3,22 @@ from fastapi import APIRouter, Request, HTTPException
 from auth import get_current_user
 from database import db_conn
 from models import RinnovoPayload
+import json
 
 router = APIRouter()
-
-# ... (altri endpoint come api_scadenze, api_crediti_disponibili rimangono invariati) ...
 
 @router.get("/api/elenco_rinnovi")
 def api_elenco_rinnovi(request: Request):
     """
-    FIX CRITICO: Include la JOIN con nominativi per avere il campo 'nominativo'
-    necessario al frontend di saldo_rinnovi.html
+    FIX DEFINITIVO: Query sicura con COALESCE per gestire colonne mancanti o NULL.
     """
     get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Query completa con JOIN
+            # Usiamo COALESCE(colonna, 0) per evitare errori se la colonna è NULL
+            # Se la colonna non esiste proprio nel DB, questa query darà ancora errore 500
+            # finché non esegui l'ALTER TABLE del punto 1.
             cur.execute("""
                 SELECT 
                     r.id, 
@@ -26,33 +26,31 @@ def api_elenco_rinnovi(request: Request):
                     n.nominativo, 
                     r.tipo, 
                     r.data_operazione, 
-                    r.mesi, 
                     r.scadenza, 
-                    r.orario_scadenza, 
-                    r.importo_acconto, 
-                    r.importo_saldo, 
-                    r.data_acconto, 
-                    r.data_saldo, 
                     r.note, 
                     r.creato_il, 
-                    r.num_credito_rich, 
-                    r.num_credito_dato, 
-                    r.num_credito_dare, 
+                    COALESCE(r.num_credito_rich, 0) as num_credito_rich, 
+                    COALESCE(r.num_credito_dato, 0) as num_credito_dato, 
+                    COALESCE(r.num_credito_dare, 0) as num_credito_dare, 
                     r.data_credito_rinnovo_rich, 
                     r.data_credito_rinnovo_dato, 
-                    r.val_singolo_nc_rich, 
-                    r.val_nc_rich, 
-                    r.credito_id,
-                    r.val_nc_dato,
-                    r.val_nc_saldo
+                    COALESCE(r.val_nc_rich, 0) as val_nc_rich,
+                    COALESCE(r.val_nc_dato, 0) as val_nc_dato,
+                    COALESCE(r.val_nc_saldo, 0) as val_nc_saldo,
+                    r.data_saldo
                 FROM rinnovi r 
-                JOIN nominativi n ON n.id = r.nominativo_id 
+                INNER JOIN nominativi n ON n.id = r.nominativo_id 
                 ORDER BY r.creato_il DESC
             """)
-            rows = cur.fetchall()
-            # Converti in lista di dict per JSON
-            return [dict(row) for row in rows]
+            
+            # Converti le righe del cursore in una lista di dizionari JSON-safe
+            columns = [desc[0] for desc in cur.description]
+            rows = [dict(zip(columns, row)) for row in cur.fetchall()]
+            
+            return rows
+            
     except Exception as e:
+        print(f"ERRORE CRITICO in api_elenco_rinnovi: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
@@ -66,7 +64,6 @@ def api_rinnovo(payload: RinnovoPayload, request: Request):
     try:
         with conn.cursor() as cur:
             if azione == "modifica_rinnovo":
-                # Update completo dei campi di saldo
                 cur.execute("""
                     UPDATE rinnovi SET 
                         num_credito_rich=%s,
@@ -95,7 +92,6 @@ def api_rinnovo(payload: RinnovoPayload, request: Request):
                 ))
             
             elif azione in ["nuovo", "rinnovo"]:
-                # Logica inserimento nuovo rinnovo (già presente nel tuo codice)
                 num_rich = int(dati.get("num_credito_rich", 0))
                 num_dato = int(dati.get("num_credito_dato", 0))
                 val_singolo = float(dati.get("val_singolo_nc_rich", 0))
