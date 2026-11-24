@@ -63,7 +63,6 @@ let creds = [];
 function getH(t){const h={};if(t)h['Content-Type']=t;if(tg.initData)h['X-Telegram-Init-Data']=tg.initData;return h;}
 
 async function init(){
-    // Nominativi
     try{
         const r=await fetch('/api/nominativi',{headers:getH()});
         const n=await r.json();
@@ -71,12 +70,10 @@ async function init(){
         n.forEach(x=> s.innerHTML+=`<option value="${x.id}">${x.nominativo}</option>`);
     }catch(e){console.error(e)}
     
-    // Date default
     const today=new Date().toISOString().split('T')[0];
     document.getElementById('r_data').value=today;
     document.getElementById('r_scad').value=today;
 
-    // Crediti Disponibili
     try{
         const r=await fetch('/api/crediti_disponibili',{headers:getH()});
         creds=await r.json();
