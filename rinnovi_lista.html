@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- Meta tag per forzare il no-cache automatico -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -30,8 +29,6 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 .error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
 .toast.show { opacity: 1; }
-
-/* Modal Styles */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
 .modal-overlay.active { display: flex; }
 .modal { background: white; border-radius: 12px; padding: 25px; width: 90%; max-width: 450px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative; }
@@ -110,17 +107,14 @@ async function carica() {
 
 function aggiornaContatore(totale) { document.getElementById('counter').textContent = 'Totale: ' + totale; }
 
-// --- FUNZIONE RENDER CON CONTATORE E BOTTONI (PUNTO A) ---
+// --- RENDER CON CONTATORE ---
 function render(filter) {
     filter = (filter || '').toLowerCase();
     const f = rinnovi.filter(r => (r.nominativo || '').toLowerCase().includes(filter));
-    
     if (f.length === 0) {
         document.getElementById('lista').innerHTML = '<div class="empty">Nessun rinnovo trovato.</div>';
         return;
     }
-    
-    // Aggiunta contatore progressivo e tutti i bottoni richiesti
     document.getElementById('lista').innerHTML = f.map((r, index) => {
         return '<div class="item">' +
             '<div class="item-name">' + 
@@ -137,64 +131,59 @@ function render(filter) {
     }).join('');
 }
 
-// --- FUNZIONI INFO MODAL ---
 function apriInfo(id) {
     const r = rinnovi.find(x => x.id === id);
     if (!r) return;
-
     const v = (val) => val ? val : '-';
     const tipiLabel = { "rinnovo": "🔄 Rinnovo", "nuovo": "🆕 Nuovo", "omaggio": "🎁 Omaggio" };
     const tipoDisplay = tipiLabel[r.tipo] || r.tipo || '-';
-
     let html = '<div class="info-grid">';
-    
     html += '<div class="info-section-title">Generale</div>';
     html += `<div class="info-row"><div class="info-label">Nominativo:</div><div class="info-value">${v(r.nominativo)}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Tipo:</div><div class="info-value">${tipoDisplay}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Data Operazione:</div><div class="info-value">${v(r.data_operazione)}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Scadenza:</div><div class="info-value">${v(r.scadenza)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Orario Scadenza:</div><div class="info-value">${v(r.orario_scadenza)}</div></div>`;
-    
     html += '<div class="info-section-title">Importi</div>';
     html += `<div class="info-row"><div class="info-label">Acconto:</div><div class="info-value">€ ${r.importo_acconto || 0}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Saldo:</div><div class="info-value">€ ${r.importo_saldo || 0}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Data Acconto:</div><div class="info-value">${v(r.data_acconto)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Data Saldo:</div><div class="info-value">${v(r.data_saldo)}</div></div>`;
-    
     html += '<div class="info-section-title">Crediti</div>';
     html += `<div class="info-row"><div class="info-label">NC Richiesti:</div><div class="info-value">${r.num_credito_rich || 0}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">NC Dati:</div><div class="info-value">${r.num_credito_dato || 0}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Valore NC:</div><div class="info-value">€ ${r.val_nc_rich || 0}</div></div>`;
-    
     html += '<div class="info-section-title">Note</div>';
     html += `<div class="info-row" style="flex-direction:column;"><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;">${v(r.note)}</div></div>`;
-
     html += '</div>';
-
     document.getElementById('infoContent').innerHTML = html;
     document.getElementById('infoModal').classList.add('active');
 }
 
-function chiudiInfo() {
-    document.getElementById('infoModal').classList.remove('active');
-}
+function chiudiInfo() { document.getElementById('infoModal').classList.remove('active'); }
 
-// --- FUNZIONI MODIFICA (B) INCLUSI USERID E PASSWORD ---
+// --- FUNZIONI MODIFICA (PUNTO E: SCADENZA COME DATE) ---
 function apriModifica(id) {
     const r = rinnovi.find(x => x.id === id);
     if (!r) return;
     idModifica = id;
     
+    // Helper per convertire DD/MM/YYYY in YYYY-MM-DD per input type="date"
+    const toDateInput = (dateStr) => {
+        if (!dateStr) return '';
+        const parts = dateStr.split('/');
+        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        return dateStr; // Se è già in formato ISO o altro
+    };
+
     let html = '';
     html += '<label>Nominativo ID:</label><input type="number" id="m_nominativo_id" value="' + (r.nominativo_id || '') + '">';
     html += '<label>Tipo:</label><select id="m_tipo"><option value="rinnovo" ' + (r.tipo=='rinnovo'?'selected':'') + '>🔄 Rinnovo</option><option value="nuovo" ' + (r.tipo=='nuovo'?'selected':'') + '>🆕 Nuovo</option><option value="omaggio" ' + (r.tipo=='omaggio'?'selected':'') + '>🎁 Omaggio</option></select>';
-    html += '<div class="row"><div><label>Data Operazione:</label><input type="date" id="m_data_operazione" value="' + (r.data_operazione || '') + '"></div>';
-    html += '<div><label>Scadenza:</label><input type="text" id="m_scadenza" value="' + (r.scadenza || '') + '"></div></div>';
+    
+    // FIX PUNTO E: Entrambi i campi sono ora type="date"
+    html += '<div class="row"><div><label>Data Operazione:</label><input type="date" id="m_data_operazione" value="' + toDateInput(r.data_operazione) + '"></div>';
+    html += '<div><label>Scadenza:</label><input type="date" id="m_scadenza" value="' + toDateInput(r.scadenza) + '"></div></div>';
+    
     html += '<div class="row"><div><label>Importo Acconto:</label><input type="number" step="0.01" id="m_importo_acconto" value="' + (r.importo_acconto || 0) + '"></div>';
     html += '<div><label>Importo Saldo:</label><input type="number" step="0.01" id="m_importo_saldo" value="' + (r.importo_saldo || 0) + '"></div></div>';
     html += '<label>Note:</label><textarea id="m_note">' + (r.note || '') + '</textarea>';
     
-    // (B) Campi UserId e Password aggiunti al form di modifica
     html += '<div class="section-title">Accesso (B)</div>';
     html += '<label>User ID:</label><input type="text" id="m_user_id" value="' + (r.user_id || '') + '">';
     html += '<label>Password:</label><input type="text" id="m_password" value="' + (r.password || '') + '">';
@@ -203,51 +192,36 @@ function apriModifica(id) {
     document.getElementById('editModal').classList.add('active');
 }
 
-function chiudiEdit() {
-    document.getElementById('editModal').classList.remove('active');
-    idModifica = null;
-}
+function chiudiEdit() { document.getElementById('editModal').classList.remove('active'); idModifica = null; }
 
 async function salvaModifica() {
     if (!idModifica) return;
-    
     const dati = {
         azione: 'modifica_rinnovo',
         id: idModifica,
         nominativo_id: parseInt(document.getElementById('m_nominativo_id').value),
         tipo: document.getElementById('m_tipo').value,
         data_operazione: document.getElementById('m_data_operazione').value,
-        scadenza: document.getElementById('m_scadenza').value,
+        scadenza: document.getElementById('m_scadenza').value, // Ora invia YYYY-MM-DD
         importo_acconto: parseFloat(document.getElementById('m_importo_acconto').value) || 0,
         importo_saldo: parseFloat(document.getElementById('m_importo_saldo').value) || 0,
         note: document.getElementById('m_note').value.trim(),
-        user_id: document.getElementById('m_user_id').value.trim(), // (B)
-        password: document.getElementById('m_password').value.trim() // (B)
+        user_id: document.getElementById('m_user_id').value.trim(),
+        password: document.getElementById('m_password').value.trim()
     };
-    
     try {
-        const res = await fetch('/api/rinnovo', {
-            method: 'POST',
-            headers: getHeaders('application/json'),
-            body: JSON.stringify({ dati: dati })
-        });
+        const res = await fetch('/api/rinnovo', { method: 'POST', headers: getHeaders('application/json'), body: JSON.stringify({ dati: dati }) });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        chiudiEdit();
-        mostraToast('✅ Rinnovo modificato!');
-        await carica();
+        chiudiEdit(); mostraToast('✅ Rinnovo modificato!'); await carica();
     } catch (e) { mostraToast('❌ Errore: ' + e.message); }
 }
 
 async function cancella(id, nome) {
     if (!confirm('Cancellare il rinnovo di "' + nome + '"?\n\nQuesta azione è irreversibile.')) return;
     try {
-        const res = await fetch('/api/rinnovo/' + id, {
-            method: 'DELETE',
-            headers: getHeaders()
-        });
+        const res = await fetch('/api/rinnovo/' + id, { method: 'DELETE', headers: getHeaders() });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        mostraToast('🗑️ Rinnovo cancellato');
-        await carica();
+        mostraToast('🗑️ Rinnovo cancellato'); await carica();
     } catch (e) { mostraToast('❌ Errore: ' + e.message); }
 }
 
@@ -257,9 +231,7 @@ function whatsapp(nome) {
 }
 
 function mostraToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
+    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
     setTimeout(() => { t.classList.remove('show'); }, 2500);
 }
 
