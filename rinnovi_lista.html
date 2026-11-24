@@ -94,6 +94,30 @@ function getHeaders(contentType) {
 let rinnovi = [];
 let idModifica = null;
 
+// Helper per convertire YYYY-MM-DD o DD/MM/YYYY in GG/MM/AAAA per visualizzazione
+const formatItalianDate = (dateStr) => {
+    if (!dateStr) return '-';
+    // Se è già in formato ISO (YYYY-MM-DD)
+    if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    // Se è già in formato italiano
+    return dateStr;
+};
+
+// Helper per convertire qualsiasi formato in YYYY-MM-DD per input type="date"
+const toDateInputValue = (dateStr) => {
+    if (!dateStr) return '';
+    // Se è in formato italiano DD/MM/YYYY
+    if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    // Se è già ISO
+    return dateStr;
+};
+
 async function carica() {
     const box = document.getElementById('lista');
     try {
@@ -116,11 +140,13 @@ function render(filter) {
         return;
     }
     document.getElementById('lista').innerHTML = f.map((r, index) => {
+        // Visualizza scadenza in formato italiano nella lista
+        const scadenzaIt = formatItalianDate(r.scadenza);
         return '<div class="item">' +
             '<div class="item-name">' + 
                 '<span style="color:#888; font-size:12px; margin-right:8px;">' + (index + 1) + ' -</span> ' + 
                 (r.nominativo || '') + 
-                '<div class="item-sub">' + (r.scadenza || '') + '</div>' +
+                '<div class="item-sub">📅 ' + scadenzaIt + '</div>' +
             '</div>' +
             '<div class="item-actions">' +
             '<button class="btn btn-info" onclick="apriInfo(' + r.id + ')">ℹ️</button>' +
@@ -137,48 +163,46 @@ function apriInfo(id) {
     const v = (val) => val ? val : '-';
     const tipiLabel = { "rinnovo": "🔄 Rinnovo", "nuovo": "🆕 Nuovo", "omaggio": "🎁 Omaggio" };
     const tipoDisplay = tipiLabel[r.tipo] || r.tipo || '-';
+    
     let html = '<div class="info-grid">';
     html += '<div class="info-section-title">Generale</div>';
     html += `<div class="info-row"><div class="info-label">Nominativo:</div><div class="info-value">${v(r.nominativo)}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Tipo:</div><div class="info-value">${tipoDisplay}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Data Operazione:</div><div class="info-value">${v(r.data_operazione)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Scadenza:</div><div class="info-value">${v(r.scadenza)}</div></div>`;
+    // FIX: Formatta le date in italiano nella maschera info
+    html += `<div class="info-row"><div class="info-label">Data Operazione:</div><div class="info-value">${formatItalianDate(r.data_operazione)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Scadenza:</div><div class="info-value">${formatItalianDate(r.scadenza)}</div></div>`;
+    
     html += '<div class="info-section-title">Importi</div>';
     html += `<div class="info-row"><div class="info-label">Acconto:</div><div class="info-value">€ ${r.importo_acconto || 0}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Saldo:</div><div class="info-value">€ ${r.importo_saldo || 0}</div></div>`;
+    
     html += '<div class="info-section-title">Crediti</div>';
     html += `<div class="info-row"><div class="info-label">NC Richiesti:</div><div class="info-value">${r.num_credito_rich || 0}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Valore NC:</div><div class="info-value">€ ${r.val_nc_rich || 0}</div></div>`;
+    
     html += '<div class="info-section-title">Note</div>';
     html += `<div class="info-row" style="flex-direction:column;"><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;">${v(r.note)}</div></div>`;
     html += '</div>';
+    
     document.getElementById('infoContent').innerHTML = html;
     document.getElementById('infoModal').classList.add('active');
 }
 
 function chiudiInfo() { document.getElementById('infoModal').classList.remove('active'); }
 
-// --- FUNZIONI MODIFICA (PUNTO E: SCADENZA COME DATE) ---
+// --- FUNZIONI MODIFICA (PUNTO E: SCADENZA COME DATE INPUT) ---
 function apriModifica(id) {
     const r = rinnovi.find(x => x.id === id);
     if (!r) return;
     idModifica = id;
-    
-    // Helper per convertire DD/MM/YYYY in YYYY-MM-DD per input type="date"
-    const toDateInput = (dateStr) => {
-        if (!dateStr) return '';
-        const parts = dateStr.split('/');
-        if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-        return dateStr; // Se è già in formato ISO o altro
-    };
 
     let html = '';
     html += '<label>Nominativo ID:</label><input type="number" id="m_nominativo_id" value="' + (r.nominativo_id || '') + '">';
     html += '<label>Tipo:</label><select id="m_tipo"><option value="rinnovo" ' + (r.tipo=='rinnovo'?'selected':'') + '>🔄 Rinnovo</option><option value="nuovo" ' + (r.tipo=='nuovo'?'selected':'') + '>🆕 Nuovo</option><option value="omaggio" ' + (r.tipo=='omaggio'?'selected':'') + '>🎁 Omaggio</option></select>';
     
-    // FIX PUNTO E: Entrambi i campi sono ora type="date"
-    html += '<div class="row"><div><label>Data Operazione:</label><input type="date" id="m_data_operazione" value="' + toDateInput(r.data_operazione) + '"></div>';
-    html += '<div><label>Scadenza:</label><input type="date" id="m_scadenza" value="' + toDateInput(r.scadenza) + '"></div></div>';
+    // FIX PUNTO E: Entrambi i campi sono type="date" ma usano il valore ISO per funzionare
+    html += '<div class="row"><div><label>Data Operazione:</label><input type="date" id="m_data_operazione" value="' + toDateInputValue(r.data_operazione) + '"></div>';
+    html += '<div><label>Scadenza:</label><input type="date" id="m_scadenza" value="' + toDateInputValue(r.scadenza) + '"></div></div>';
     
     html += '<div class="row"><div><label>Importo Acconto:</label><input type="number" step="0.01" id="m_importo_acconto" value="' + (r.importo_acconto || 0) + '"></div>';
     html += '<div><label>Importo Saldo:</label><input type="number" step="0.01" id="m_importo_saldo" value="' + (r.importo_saldo || 0) + '"></div></div>';
@@ -201,8 +225,8 @@ async function salvaModifica() {
         id: idModifica,
         nominativo_id: parseInt(document.getElementById('m_nominativo_id').value),
         tipo: document.getElementById('m_tipo').value,
-        data_operazione: document.getElementById('m_data_operazione').value,
-        scadenza: document.getElementById('m_scadenza').value, // Ora invia YYYY-MM-DD
+        data_operazione: document.getElementById('m_data_operazione').value, // Invia YYYY-MM-DD al backend
+        scadenza: document.getElementById('m_scadenza').value, // Invia YYYY-MM-DD al backend
         importo_acconto: parseFloat(document.getElementById('m_importo_acconto').value) || 0,
         importo_saldo: parseFloat(document.getElementById('m_importo_saldo').value) || 0,
         note: document.getElementById('m_note').value.trim(),
