@@ -3,108 +3,70 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Saldo Rinnovi</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Saldo Iniziale Crediti</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-h2 { text-align: center; margin-top: 0; color: #333; }
-.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
-.counter-wrapper { text-align: center; }
-.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; }
-.item strong { color: #222; font-size: 15px; display: block; margin-bottom: 4px; }
-.item small { color: #666; display: block; font-size: 13px; margin: 2px 0; }
-.item-actions { display: flex; gap: 6px; margin-top: 8px; }
-.btn { padding: 6px 10px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; flex: 1; text-align: center; text-decoration: none; display: inline-block; }
-.btn-del { background: #f44336; color: white; }
-.btn-edit { background: #ff9800; color: white; }
-.empty { text-align: center; color: #888; padding: 30px; }
-.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 500px; margin: 0 auto; }
+h2 { text-align: center; color: #333; }
+label { display: block; font-weight: bold; margin: 10px 0 4px; font-size: 13px; }
+input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+.row { display: flex; gap: 8px; } .row > div { flex: 1; }
+.btn-save { width: 100%; background: #0088cc; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px; border-radius: 6px; opacity: 0; transition: 0.3s; }
 .toast.show { opacity: 1; }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>📊 Saldo Rinnovi</h2>
-<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
-<div id="lista"><div class="empty">Caricamento...</div></div>
+<h2>📦 Saldo Iniziale Crediti</h2>
+<p style="font-size:12px; color:#666; text-align:center;">Inserisci lo stock di partenza. Verrà assegnato ID #1.</p>
+
+<div class="row">
+    <div><label>Data Riferimento:</label><input type="date" id="s_data"></div>
+    <div><label>Quantità Totale:</label><input type="number" id="s_qta" value="0" oninput="calcUnit()"></div>
+</div>
+<div class="row">
+    <div><label>Valore Totale (€):</label><input type="number" step="0.01" id="s_tot" value="0" oninput="calcUnit()"></div>
+    <div><label>Prezzo Unitario (€):</label><input type="number" step="0.01" id="s_unit" readonly></div>
+</div>
+<label>Note:</label>
+<textarea id="s_note" rows="3"></textarea>
+
+<button class="btn-save" onclick="salva()">💾 Salva Saldo Iniziale</button>
 </div>
 <div class="toast" id="toast"></div>
+
 <script>
 const tg = window.Telegram.WebApp; tg.expand();
+function getHeaders(t) { const h={}; if(t) h['Content-Type']=t; if(tg.initData) h['X-Telegram-Init-Data']=tg.initData; return h; }
 
-function getHeaders(contentType) {
-    const headers = {};
-    if (contentType) headers['Content-Type'] = contentType;
-    const initData = tg.initData;
-    if (initData) headers['X-Telegram-Init-Data'] = initData;
-    return headers;
+document.getElementById('s_data').value = new Date().toISOString().split('T')[0];
+
+function calcUnit() {
+    const q = parseFloat(document.getElementById('s_qta').value) || 0;
+    const t = parseFloat(document.getElementById('s_tot').value) || 0;
+    document.getElementById('s_unit').value = q > 0 ? (t/q).toFixed(2) : "0.00";
 }
 
-let saldi = [];
-
-async function carica() {
-    const box = document.getElementById('lista');
+async function salva() {
+    const d = {
+        data_acquisto: document.getElementById('s_data').value,
+        quantita: parseInt(document.getElementById('s_qta').value) || 0,
+        valore_totale: parseFloat(document.getElementById('s_tot').value) || 0,
+        valore_singolo: parseFloat(document.getElementById('s_unit').value) || 0,
+        note: document.getElementById('s_note').value
+    };
     try {
-        const res = await fetch('/api/saldo_rinnovi', { headers: getHeaders() });
-        if (!res.ok) {
-            if (res.status === 403) box.innerHTML = '<div class="error">⛔ Permesso negato.</div>';
-            else box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>';
-            return;
-        }
-        saldi = await res.json();
-        aggiornaContatore(saldi.length);
-        render();
-    } catch (e) {
-        box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
-    }
+        const r = await fetch('/api/saldo_iniziale', { method:'POST', headers:getHeaders('application/json'), body:JSON.stringify({dati:d}) });
+        if(!r.ok) throw new Error('Errore server');
+        document.getElementById('toast').textContent = "✅ Saldo iniziale aggiornato!";
+        document.getElementById('toast').classList.add('show');
+        setTimeout(() => tg.close(), 1500);
+    } catch(e) { alert(e.message); }
 }
-
-function aggiornaContatore(totale) {
-    document.getElementById('counter').textContent = 'Totale: ' + totale;
-}
-
-function render() {
-    if (saldi.length === 0) {
-        document.getElementById('lista').innerHTML = '<div class="empty">Nessun saldo registrato.</div>';
-        return;
-    }
-    document.getElementById('lista').innerHTML = saldi.map(s => {
-        const data = s.creato_il ? new Date(s.creato_il).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
-        return '<div class="item">' +
-            '<strong>' + (s.nominativo || '') + '</strong>' +
-            '<small>🎫 Crediti Saldo: ' + (s.num_credito_saldo || 0) + '</small>' +
-            '<small>💰 Valore NC Dato: €' + (s.val_nc_dato || 0) + ' | Valore NC Saldo: €' + (s.val_nc_saldo || 0) + '</small>' +
-            '<small>📅 Data: ' + data + '</small>' +
-            (s.informazioni_note ? '<small>📝 Note: ' + s.informazioni_note + '</small>' : '') +
-            '<div class="item-actions">' +
-            '<button class="btn btn-del" onclick="cancella(' + s.id + ')">🗑️ Cancella</button>' +
-            '</div></div>';
-    }).join('');
-}
-
-function mostraToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-async function cancella(id) {
-    if (!confirm('Sei sicuro di voler cancellare questo saldo?')) return;
-    try {
-        const res = await fetch('/api/saldo_rinnovo/' + id, { method: 'DELETE', headers: getHeaders() });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        mostraToast('🗑️ Saldo cancellato');
-        await carica();
-    } catch (e) {
-        mostraToast('❌ Errore: ' + e.message);
-    }
-}
-
-carica();
 </script>
 </body>
 </html>
