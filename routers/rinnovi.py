@@ -10,71 +10,76 @@ router = APIRouter()
 @router.get("/api/elenco_rinnovi")
 def api_elenco_rinnovi(request: Request):
     """
-    FIX DEFINITIVO: Query diretta su rinnovi SENZA JOIN.
-    Gestisce il nominativo in modo sicuro fallback su ID.
+    FIX DEFINITIVO: Query dinamica basata sulle colonne REALI esistenti nel DB.
     """
     conn = None
     try:
         conn = db_conn()
         with conn.cursor() as cur:
-            # Query DIRETTA su rinnovi. Nessuna JOIN che possa fallire.
-            # Usiamo COALESCE per gestire i NULL direttamente nel DB
+            # 1. Ottieni TUTTE le colonne reali della tabella rinnovi
             cur.execute("""
-                SELECT 
-                    r.id,
-                    r.nominativo_id,
-                    -- Fallback sicuro: se non abbiamo il nome, usiamo l'ID
-                    COALESCE(
-                        (SELECT n.nominativo FROM nominativi n WHERE n.id = r.nominativo_id LIMIT 1),
-                        'ID:' || r.nominativo_id::text
-                    ) as nominativo,
-                    COALESCE(r.num_credito_rich, 0) as num_credito_rich,
-                    COALESCE(r.num_credito_dato, 0) as num_credito_dato,
-                    COALESCE(r.num_credito_dare, 0) as num_credito_dare,
-                    r.data_credito_rinnovo_rich,
-                    r.data_credito_rinnovo_dato,
-                    COALESCE(r.val_nc_rich, 0) as val_nc_rich,
-                    COALESCE(r.val_nc_dato, 0) as val_nc_dato,
-                    COALESCE(r.val_nc_saldo, 0) as val_nc_saldo,
-                    r.data_saldo,
-                    r.note,
-                    r.creato_il
-                FROM rinnovi r
-                ORDER BY r.creato_il DESC
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'rinnovi'
             """)
+            existing_cols = [row[0] for row in cur.fetchall()]
+            print(f"[DEBUG] Colonne esistenti in 'rinnovi': {existing_cols}")
+            
+            # 2. Costruisci la query SOLO con le colonne che esistono
+            select_parts = ["r.id", "r.nominativo_id"]
+            
+            # Mappatura sicura: se la colonna esiste, includila
+            col_map = {
+                'nominativo': "(SELECT n.nominativo FROM nominativi n WHERE n.id = r.nominativo_id LIMIT 1)",
+                'num_credito_rich': "COALESCE(r.num_credito_rich, 0)",
+                'num_credito_dato': "COALESCE(r.num_credito_dato, 0)",
+                'num_credito_dare': "COALESCE(r.num_credito_dare, 0)",
+                'data_credito_rinnovo_rich': "r.data_credito_rinnovo_rich",
+                'data_credito_rinnovo_dato': "r.data_credito_rinnovo_dato",
+                'val_nc_rich': "COALESCE(r.val_nc_rich, 0)",
+                'val_nc_dato': "COALESCE(r.val_nc_dato, 0)",
+                'val_nc_saldo': "COALESCE(r.val_nc_saldo, 0)",
+                'data_saldo': "r.data_saldo",
+                'note': "r.note",
+                'creato_il': "r.creato_il"
+            }
+            
+            for col_name, sql_expr in col_map.items():
+                if col_name in existing_cols:
+                    select_parts.append(f"{sql_expr} as {col_name}")
+                else:
+                    print(f"[WARNING] Colonna '{col_name}' NON ESISTE, saltata")
+            
+            query = f"SELECT {', '.join(select_parts)} FROM rinnovi r ORDER BY r.creato_il DESC"
+            print(f"[DEBUG] Query eseguita: {query[:200]}...")
+            
+            cur.execute(query)
             
             col_names = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
             
-            print(f"[DB SUCCESS] Trovate {len(rows)} righe grezze")
+            print(f"[DB SUCCESS] Trovate {len(rows)} righe")
             
             result = []
             for row in rows:
                 record = {}
                 for idx, col_name in enumerate(col_names):
                     val = row[idx]
-                    # Gestione NULL robusta
                     if val is None:
-                        if 'num_' in col_name or 'val_' in col_name:
-                            val = 0
-                        else:
-                            val = ""
+                        val = 0 if 'num_' in col_name or 'val_' in col_name else ""
                     record[col_name] = val
                 result.append(record)
                 
-            print(f"[API SUCCESS] Restituiti {len(result)} record al frontend")
-            if result:
-                print(f"[API DEBUG] Primo record: ID={result[0]['id']}, Nom={result[0]['nominativo']}")
-            
+            print(f"[API SUCCESS] Restituiti {len(result)} record")
             return result
             
     except Exception as e:
-        print(f"[ERRORE CRITICO API] {e}")
+        print(f"[ERRORE CRITICO] {e}")
         import traceback
         traceback.print_exc()
-        return [] # Fallback sicuro
+        return []
     finally:
         if conn:
             conn.close()
 
-# ... (mantieni gli altri endpoint post/delete invariati) ...
+# ... (mantieni gli altri endpoint invariati) ...
