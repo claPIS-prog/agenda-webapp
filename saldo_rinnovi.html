@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- Meta tag drastici per uccidere la cache -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Saldo Rinnovi</title>
+<title>Saldo Rinnovi v3</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="/auth.js?v=9999"></script> <!-- Versione auth forzata -->
+<script src="/auth.js?v=9999"></script>
 <style>
     body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
     .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 600px; margin: 0 auto; }
@@ -19,9 +18,10 @@
     .controls { display: flex; gap: 10px; margin-bottom: 15px; }
     select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
     .btn-add { background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-    .list-container { min-height: 200px; }
     
-    /* Stile Item Lista */
+    /* NUOVO ID PER FORZARE REFRESH */
+    #lista-v2 { min-height: 200px; }
+    
     .item { background: #fff; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
     .item-info { flex-grow: 1; overflow: hidden; margin-right: 10px; }
     .item-name { font-weight: bold; font-size: 15px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -68,7 +68,8 @@
         <button class="btn-add" onclick="apriModal()">➕ Aggiungi</button>
     </div>
 
-    <div class="list-container" id="lista">
+    <!-- CAMBIATO ID DA "lista" A "lista-v2" PER BYPASSARE CACHE -->
+    <div id="lista-v2">
         <div class="empty">Caricamento...</div>
     </div>
 </div>
@@ -119,7 +120,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// VERSIONE SCRIPT: 3.0 - NO TEMPLATE STRINGS, SOLO DOM MANUALE
+// VERSIONE SCRIPT: 3.0 - NO TEMPLATE STRINGS, SOLO DOM MANUALE + ID UNICI
 const tg = window.Telegram.WebApp;
 tg.expand();
 
@@ -133,7 +134,8 @@ function getHeaders(t) {
 let datiRinnovi = [];
 
 async function caricaDati() {
-    const container = document.getElementById('lista');
+    // Usiamo l'ID nuovo
+    const container = document.getElementById('lista-v2');
     try {
         // FIX CACHE DRASTICO: Timestamp + Random + Header No-Cache
         const uniqueId = Date.now() + Math.random();
@@ -181,16 +183,17 @@ async function caricaDati() {
             sel.appendChild(opt);
         }
         
-        renderLista();
+        // Chiama la nuova funzione di rendering
+        disegnaListaV2();
     } catch(e) {
         console.error("Errore caricamento:", e);
         container.innerHTML = '<div class="error-msg"><strong>Errore Server:</strong><br>' + e.message + '</div>';
     }
 }
 
-// FIX DEFINITIVO: Costruzione manuale del DOM. ZERO template strings.
-function renderLista(filtro) {
-    const container = document.getElementById('lista');
+// NUOVA FUNZIONE DI RENDERING CON NOME DIVERSO PER EVITARE CACHE JS
+function disegnaListaV2(filtro) {
+    const container = document.getElementById('lista-v2');
     container.innerHTML = ''; // Pulizia totale
     
     let listaDaMostrare = datiRinnovi;
@@ -228,6 +231,7 @@ function renderLista(filtro) {
         subDiv.className = 'item-sub';
         
         // Estrai valori con fallback esplicito a 0
+        // USIAMO CONCATENAZIONE BASE (+) INVECE DI TEMPLATE LITERALS ($)
         const valRich = (r.num_credito_rich !== null && r.num_credito_rich !== undefined) ? r.num_credito_rich : 0;
         const valDato = (r.num_credito_dato !== null && r.num_credito_dato !== undefined) ? r.num_credito_dato : 0;
         const valSaldo = (r.num_credito_dare !== null && r.num_credito_dare !== undefined) ? r.num_credito_dare : 0;
@@ -269,7 +273,7 @@ function renderLista(filtro) {
 
 // Filtro select
 document.getElementById('nominativo-filter').addEventListener('change', function(e) {
-    renderLista(e.target.value);
+    disegnaListaV2(e.target.value);
 });
 
 function apriModal() {
