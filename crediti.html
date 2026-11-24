@@ -3,81 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Crediti</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Nuovo Credito</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 500px; margin: 0 auto; }
 h2 { text-align: center; margin-top: 0; color: #333; }
-.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
-.counter-wrapper { text-align: center; }
 label { display: block; font-weight: bold; margin: 10px 0 4px; color: #333; font-size: 13px; }
-input, select, textarea { width: 100%; padding: 9px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 14px; font-family: inherit; }
-textarea { resize: vertical; min-height: 50px; }
+input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; font-family: inherit; }
 .row { display: flex; gap: 8px; }
 .row > div { flex: 1; }
-.btn { width: 100%; padding: 13px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; color: white; }
-.btn:active { opacity: 0.8; }
-.btn-save { background: #4caf50; }
-.section-title { font-size: 13px; color: white; font-weight: bold; margin: 18px 0 10px; padding: 8px 12px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; background: #607d8b; }
-.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #4caf50; }
-.item strong { color: #222; font-size: 14px; display: block; margin-bottom: 4px; }
-.item small { color: #666; display: block; font-size: 12px; margin: 2px 0; }
-.item-actions { display: flex; gap: 6px; margin-top: 8px; }
-.btn-edit { background: #ff9800; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; }
-.btn-del { background: #f44336; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; }
-.summary-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 12px; border-radius: 6px; margin: 15px 0; }
-.summary-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
-.summary-item strong { color: #2e7d32; }
-.empty { text-align: center; color: #888; padding: 30px; }
-.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
+.section-title { font-size: 12px; color: #0088cc; font-weight: bold; margin: 14px 0 6px; text-transform: uppercase; border-bottom: 1px solid #e0e0e0; padding-bottom: 3px; }
+.btn-save { width: 100%; background: #4caf50; color: white; border: none; padding: 12px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
 .toast.show { opacity: 1; }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>🎫 Crediti</h2>
-<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
-
-<!-- FORM -->
-<div class="section-title">📝 Nuovo Acquisto</div>
-<label>Data Acquisto:</label>
-<input type="date" id="data_acquisto">
+<h2>💳 Nuovo Acquisto Credito</h2>
 
 <label>Fornitore:</label>
-<select id="fornitore">
-    <option value="">-- Seleziona --</option>
-    <option value="Pierino">Pierino</option>
-    <option value="Xy">Xy</option>
-</select>
+<input type="text" id="c_fornitore" placeholder="Nome fornitore">
 
-<label>Modalità di Pagamento:</label>
-<select id="modalita_pagamento"><option value="">-- Seleziona --</option></select>
+<div class="section-title">Dettagli Acquisto</div>
+<div class="row">
+    <div><label>Data Acquisto:</label><input type="date" id="c_data_acquisto"></div>
+    <div><label>Contatore (Qta):</label><input type="number" id="c_quantita" value="1" min="1"></div>
+</div>
 
 <div class="row">
-    <div><label>Quantità:</label><input type="number" id="quantita" value="0" min="0"></div>
-    <div><label>Valore (€):</label><input type="number" id="valore" step="0.01" value="0"></div>
+    <div><label>Valore Totale (€):</label><input type="number" step="0.01" id="c_valore_totale" value="0"></div>
+    <div><label>Valore Singolo (€):</label><input type="number" step="0.01" id="c_valore_singolo" value="0"></div>
 </div>
 
-<label>Note/Info:</label>
-<textarea id="note" placeholder="Note aggiuntive..."></textarea>
+<label>Note:</label>
+<textarea id="c_note" style="min-height: 60px;"></textarea>
 
-<button class="btn btn-save" onclick="salva()">💾 Salva Acquisto</button>
+<button class="btn-save" onclick="salvaCredito()">💾 Salva Acquisto</button>
+</div>
 
-<!-- LISTA -->
-<div class="section-title">📜 Acquisti Registrati</div>
-<div class="summary-box" id="summary_box" style="display:none;">
-    <div class="summary-item"><span>Totale Quantità:</span><strong id="sum_qta">0</strong></div>
-    <div class="summary-item"><span>Totale Valore:</span><strong id="sum_val">€ 0.00</strong></div>
-</div>
-<div id="lista"><div class="empty">Caricamento...</div></div>
-</div>
 <div class="toast" id="toast"></div>
 
 <script>
-const tg = window.Telegram.WebApp; tg.expand();
+const tg = window.Telegram.WebApp;
+tg.expand();
 
 function getHeaders(contentType) {
     const headers = {};
@@ -87,122 +61,56 @@ function getHeaders(contentType) {
     return headers;
 }
 
-let crediti = [];
-let idModifica = null;
-
-async function caricaPagamenti() {
-    try {
-        const res = await fetch('/api/metodi_pagamento', { headers: getHeaders() });
-        if (!res.ok) return;
-        const pagamenti = await res.json();
-        const sel = document.getElementById('modalita_pagamento');
-        pagamenti.forEach(p => { sel.innerHTML += '<option value="' + p.nome + '">' + p.nome + '</option>'; });
-    } catch (e) { console.error(e); }
+async function init() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('c_data_acquisto').value = today;
+    
+    // Calcolo automatico valore singolo quando cambia totale o quantità
+    document.getElementById('c_valore_totale').addEventListener('input', calcolaSingolo);
+    document.getElementById('c_quantita').addEventListener('input', calcolaSingolo);
 }
 
-async function caricaLista() {
-    const box = document.getElementById('lista');
+function calcolaSingolo() {
+    const totale = parseFloat(document.getElementById('c_valore_totale').value) || 0;
+    const qta = parseInt(document.getElementById('c_quantita').value) || 1;
+    if (qta > 0) {
+        document.getElementById('c_valore_singolo').value = (totale / qta).toFixed(2);
+    }
+}
+
+async function salvaCredito() {
+    const fornitore = document.getElementById('c_fornitore').value.trim();
+    if (!fornitore) { mostraToast('⚠️ Inserisci il fornitore'); return; }
+
+    const dati = {
+        fornitore: fornitore,
+        data_acquisto: document.getElementById('c_data_acquisto').value,
+        quantita: parseInt(document.getElementById('c_quantita').value) || 1, // PUNTO C: Contatore
+        valore_totale: parseFloat(document.getElementById('c_valore_totale').value) || 0,
+        valore_singolo: parseFloat(document.getElementById('c_valore_singolo').value) || 0,
+        note: document.getElementById('c_note').value.trim()
+    };
+
     try {
-        const res = await fetch('/api/crediti', { headers: getHeaders() });
-        if (!res.ok) { box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>'; return; }
-        crediti = await res.json();
-        document.getElementById('counter').textContent = 'Totale: ' + crediti.length;
-        
-        if (crediti.length === 0) { box.innerHTML = '<div class="empty">Nessun acquisto registrato.</div>'; document.getElementById('summary_box').style.display = 'none'; return; }
-        
-        let totQta = 0, totVal = 0;
-        crediti.forEach(c => { totQta += parseInt(c.quantita || 0); totVal += parseFloat(c.valore || 0); });
-        document.getElementById('sum_qta').textContent = totQta;
-        document.getElementById('sum_val').textContent = '€ ' + totVal.toFixed(2);
-        document.getElementById('summary_box').style.display = 'block';
-        
-        box.innerHTML = crediti.map(c => {
-            const data = c.data_acquisto ? new Date(c.data_acquisto).toLocaleDateString('it-IT') : 'N/D';
-            return '<div class="item">' +
-                '<strong>🎫 ' + (c.fornitore || 'N/D') + ' - ' + data + '</strong>' +
-                '<small>💳 Pagamento: ' + (c.modalita_pagamento || 'N/D') + '</small>' +
-                '<small>📦 Quantità: ' + (c.quantita || 0) + ' | 💰 Valore: € ' + parseFloat(c.valore || 0).toFixed(2) + '</small>' +
-                (c.note ? '<small>📝 ' + c.note + '</small>' : '') +
-                '<div class="item-actions">' +
-                '<button class="btn-edit" onclick="apriModifica(' + c.id + ')">✏️ Modifica</button>' +
-                '<button class="btn-del" onclick="cancella(' + c.id + ')">🗑️ Cancella</button>' +
-                '</div></div>';
-        }).join('');
-    } catch (e) { box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>'; }
+        const res = await fetch('/api/credito', {
+            method: 'POST',
+            headers: getHeaders('application/json'),
+            body: JSON.stringify({ dati: dati })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        mostraToast('✅ Acquisto salvato!');
+        setTimeout(() => { tg.close(); }, 1000);
+    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
 }
 
 function mostraToast(msg) {
     const t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => { t.classList.remove('show'); }, 2500);
 }
 
-async function salva() {
-    const data = document.getElementById('data_acquisto').value;
-    const fornitore = document.getElementById('fornitore').value;
-    if (!data || !fornitore) { mostraToast('⚠️ Data e Fornitore obbligatori'); return; }
-    
-    const dati = {
-        data_acquisto: data,
-        fornitore: fornitore,
-        modalita_pagamento: document.getElementById('modalita_pagamento').value,
-        quantita: parseInt(document.getElementById('quantita').value) || 0,
-        valore: parseFloat(document.getElementById('valore').value) || 0,
-        note: document.getElementById('note').value.trim()
-    };
-    
-    try {
-        let url = '/api/crediti';
-        let method = 'POST';
-        if (idModifica) {
-            url = '/api/crediti/' + idModifica;
-            method = 'PUT';
-        }
-        const res = await fetch(url, { method: method, headers: getHeaders('application/json'), body: JSON.stringify({ dati: dati }) });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        mostraToast(idModifica ? '✅ Acquisto modificato!' : '✅ Acquisto salvato!');
-        resetForm();
-        await caricaLista();
-    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
-}
-
-function apriModifica(id) {
-    const c = crediti.find(x => x.id === id);
-    if (!c) return;
-    idModifica = id;
-    document.getElementById('data_acquisto').value = c.data_acquisto || '';
-    document.getElementById('fornitore').value = c.fornitore || '';
-    document.getElementById('modalita_pagamento').value = c.modalita_pagamento || '';
-    document.getElementById('quantita').value = c.quantita || 0;
-    document.getElementById('valore').value = c.valore || 0;
-    document.getElementById('note').value = c.note || '';
-    document.querySelector('.btn-save').textContent = '💾 Aggiorna Acquisto';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function resetForm() {
-    idModifica = null;
-    document.getElementById('data_acquisto').value = '';
-    document.getElementById('fornitore').value = '';
-    document.getElementById('modalita_pagamento').value = '';
-    document.getElementById('quantita').value = 0;
-    document.getElementById('valore').value = 0;
-    document.getElementById('note').value = '';
-    document.querySelector('.btn-save').textContent = '💾 Salva Acquisto';
-}
-
-async function cancella(id) {
-    if (!confirm('Cancellare questo acquisto?')) return;
-    try {
-        const res = await fetch('/api/crediti/' + id, { method: 'DELETE', headers: getHeaders() });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        mostraToast('🗑️ Cancellato');
-        await caricaLista();
-    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
-}
-
-caricaPagamenti();
-caricaLista();
+init();
 </script>
 </body>
 </html>

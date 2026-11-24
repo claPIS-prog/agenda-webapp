@@ -39,7 +39,6 @@ small { color: #666; display: block; margin-top: 4px; font-size: 12px; }
 
 <div class="row">
     <div><label>Mesi:</label><input type="number" id="r_mesi" value="12"></div>
-    <!-- (E) Formato data uguale a data operazione -->
     <div><label>Scadenza:</label><input type="date" id="r_scadenza"></div>
 </div>
 
@@ -48,9 +47,10 @@ small { color: #666; display: block; margin-top: 4px; font-size: 12px; }
     <div><label>Importo Saldo (€):</label><input type="number" step="0.01" id="r_importo_saldo" value="0"></div>
 </div>
 
+<!-- PUNTO C: SELETTORE CREDITI -->
 <div class="section-title">🎫 Utilizzo Credito</div>
 <label>Credito da utilizzare:</label>
-<select id="r_credito_id">
+<select id="r_credito_id" onchange="aggiornaDatiCredito()">
     <option value="">-- Nessun credito --</option>
 </select>
 <small>Seleziona se usare saldo storico o nuovo acquisto</small>
@@ -80,6 +80,8 @@ function getHeaders(contentType) {
     return headers;
 }
 
+let creditiDisponibili = [];
+
 async function init() {
     // Carica Nominativi
     try {
@@ -92,24 +94,40 @@ async function init() {
         });
     } catch(e) { console.error(e); }
 
-    // Imposta data odierna per entrambi i campi data
+    // Imposta data odierna
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('r_data_operazione').value = today;
     document.getElementById('r_scadenza').value = today; 
 
-    // Carica Crediti Disponibili
+    // PUNTO C: Carica Crediti Disponibili
     try {
         const res = await fetch('/api/crediti_disponibili', { headers: getHeaders() });
         if (!res.ok) return;
-        const crediti = await res.json();
+        creditiDisponibili = await res.json();
         const sel = document.getElementById('r_credito_id');
-        crediti.forEach(c => {
+        creditiDisponibili.forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id;
             opt.textContent = `${c.tipo} - Qta: ${c.quantita} (€${c.valore}) - ${c.data_ref}`;
             sel.appendChild(opt);
         });
     } catch(e) { console.error('Errore caricamento crediti:', e); }
+}
+
+// PUNTO C: Aggiorna automaticamente i campi quando si seleziona un credito
+function aggiornaDatiCredito() {
+    const idCredito = document.getElementById('r_credito_id').value;
+    if (!idCredito) {
+        document.getElementById('r_num_credito_rich').value = 0;
+        document.getElementById('r_val_singolo_nc_rich').value = 0;
+        return;
+    }
+    
+    const credito = creditiDisponibili.find(c => c.id == idCredito);
+    if (credito) {
+        document.getElementById('r_num_credito_rich').value = credito.quantita || 0;
+        document.getElementById('r_val_singolo_nc_rich').value = credito.valore || 0;
+    }
 }
 
 async function salvaRinnovo() {
