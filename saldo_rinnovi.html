@@ -3,19 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Saldo Rinnovi TEST</title>
+<title>Saldo Rinnovi - FIXED</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-.container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
-h2 { text-align: center; }
-#debug { background: #000; color: #0f0; padding: 15px; margin: 15px 0; font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; }
-.item { background: #fff; border: 1px solid #ddd; padding: 10px; margin: 8px 0; border-radius: 4px; }
-.item-name { font-weight: bold; }
+.container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+h2 { text-align: center; color: #333; }
+#debug { background: #1e1e1e; color: #00ff00; padding: 15px; margin: 15px 0; font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; border-radius: 4px; }
+.item { background: #fff; border: 1px solid #ddd; padding: 12px; margin: 8px 0; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+.item-info { flex-grow: 1; }
+.item-name { font-weight: bold; font-size: 15px; color: #333; }
 .item-data { font-size: 12px; color: #666; margin-top: 4px; }
-.btn { padding: 5px 10px; margin: 2px; border: none; border-radius: 3px; cursor: pointer; color: white; }
+.btn { padding: 6px 12px; margin-left: 5px; border: none; border-radius: 4px; cursor: pointer; color: white; font-size: 13px; }
 .btn-edit { background: #ff9800; }
 .btn-del { background: #f44336; }
+.error-box { color: #c62828; background: #ffebee; padding: 15px; border-radius: 6px; margin-top: 10px; text-align: center; }
 </style>
 </head>
 <body>
@@ -46,7 +48,7 @@ async function carica() {
         log('2. Status: ' + res.status);
         
         const text = await res.text();
-        log('3. Raw response (' + text.length + ' chars): ' + text.substring(0, 500));
+        log('3. Raw response (' + text.length + ' chars): ' + text.substring(0, 300));
         
         let data;
         try {
@@ -56,8 +58,18 @@ async function carica() {
             throw new Error('JSON invalid: ' + e.message);
         }
         
+        // FIX: Gestione esplicita risposta non-array
         if (!Array.isArray(data)) {
-            throw new Error('Non è un array! Tipo: ' + typeof data);
+            log('✗ ERRORE: Il server ha restituito un oggetto invece di un array!');
+            log('Contenuto: ' + JSON.stringify(data));
+            
+            // Se è un oggetto error di FastAPI, mostralo
+            if (data.detail) {
+                lista.innerHTML = '<div class="error-box"><strong>Errore Backend:</strong><br>' + data.detail + '</div>';
+            } else {
+                lista.innerHTML = '<div class="error-box"><strong>Errore Formato Dati:</strong><br>Il server non ha restituito un array valido.</div>';
+            }
+            return;
         }
         
         log('5. Record ricevuti: ' + data.length);
@@ -65,37 +77,47 @@ async function carica() {
         if (data.length > 0) {
             const first = data[0];
             log('6. Chiavi primo record: ' + Object.keys(first).join(', '));
-            log('7. Primo record completo: ' + JSON.stringify(first, null, 2));
+            log('7. Primo record: ' + JSON.stringify(first));
             
-            // TEST: prova ad accedere alle proprietà
-            log('8. Test accesso proprietà:');
-            log('   first.id = ' + first.id);
-            log('   first.nominativo = ' + first.nominativo);
-            log('   first.num_credito_rich = ' + first.num_credito_rich);
-            log('   typeof first.num_credito_rich = ' + typeof first.num_credito_rich);
+            // Test accesso proprietà
+            log('8. Test valori:');
+            log('   id=' + first.id + ' (' + typeof first.id + ')');
+            log('   nominativo=' + first.nominativo + ' (' + typeof first.nominativo + ')');
+            log('   num_credito_rich=' + first.num_credito_rich + ' (' + typeof first.num_credito_rich + ')');
         }
         
-        // RENDERING MINIMALISTA
+        // RENDERING
         lista.innerHTML = '';
-        for (let i = 0; i < Math.min(data.length, 5); i++) {
+        if (data.length === 0) {
+            lista.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Nessun dato trovato.</div>';
+            return;
+        }
+        
+        for (let i = 0; i < data.length; i++) {
             const r = data[i];
             
             const item = document.createElement('div');
             item.className = 'item';
             
+            const info = document.createElement('div');
+            info.className = 'item-info';
+            
             const name = document.createElement('div');
             name.className = 'item-name';
-            name.textContent = 'ID: ' + r.id + ' - ' + (r.nominativo || 'N/A');
+            name.textContent = (r.nominativo || 'ID:' + r.nominativo_id);
             
             const dataDiv = document.createElement('div');
             dataDiv.className = 'item-data';
             
-            // Lettura valori con controllo tipo
+            // Lettura sicura valori
             const rich = (typeof r.num_credito_rich === 'number') ? r.num_credito_rich : 0;
             const dato = (typeof r.num_credito_dato === 'number') ? r.num_credito_dato : 0;
             const saldo = (typeof r.num_credito_dare === 'number') ? r.num_credito_dare : 0;
             
             dataDiv.textContent = 'Rich: ' + rich + ' | Dato: ' + dato + ' | Saldo: ' + saldo;
+            
+            info.appendChild(name);
+            info.appendChild(dataDiv);
             
             const actions = document.createElement('div');
             const btnE = document.createElement('button');
@@ -110,7 +132,7 @@ async function carica() {
                 if (confirm('Eliminare ID ' + r.id + '?')) {
                     try {
                         await fetch('/api/rinnovo/' + r.id, { method: 'DELETE' });
-                        log('✓ Eliminato ID ' + r.id);
+                        log('✓ Eliminato');
                         carica();
                     } catch(e) {
                         log('✗ Errore delete: ' + e.message);
@@ -121,8 +143,7 @@ async function carica() {
             actions.appendChild(btnE);
             actions.appendChild(btnD);
             
-            item.appendChild(name);
-            item.appendChild(dataDiv);
+            item.appendChild(info);
             item.appendChild(actions);
             lista.appendChild(item);
         }
@@ -131,7 +152,7 @@ async function carica() {
         
     } catch(e) {
         log('✗ ERRORE FATALE: ' + e.message);
-        lista.innerHTML = '<div style="color:red;padding:20px;">' + e.message + '</div>';
+        lista.innerHTML = '<div class="error-box">' + e.message + '</div>';
     }
 }
 
