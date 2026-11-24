@@ -169,13 +169,16 @@ function optSelectTipo(selected) {
 function render(filter) {
     filter = (filter || '').toLowerCase();
     const f = contatti.filter(c => (c.nominativo || '').toLowerCase().includes(filter));
+    
     if (f.length === 0) {
         document.getElementById('lista').innerHTML = '<div class="empty">Nessun contatto trovato.</div>';
         return;
     }
-    document.getElementById('lista').innerHTML = f.map(c => {
+    
+    // Aggiunta del contatore progressivo (index + 1)
+    document.getElementById('lista').innerHTML = f.map((c, index) => {
         return '<div class="item">' +
-            '<div class="item-name">' + (c.nominativo || '') + '</div>' +
+            '<div class="item-name"><span style="color:#888; font-size:12px; margin-right:8px;">' + (index + 1) + ' -</span> ' + (c.nominativo || '') + '</div>' +
             '<div class="item-actions">' +
             '<button class="btn btn-info" onclick="apriInfo(' + c.id + ')">ℹ️</button>' +
             '<button class="btn btn-edit" onclick="apriModifica(' + c.id + ')">✏️</button>' +
