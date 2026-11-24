@@ -4,54 +4,100 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>Saldo Iniziale Crediti</title>
+<!-- TITOLO CORRETTO -->
+<title>Saldo Rinnovi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 500px; margin: 0 auto; }
-h2 { text-align: center; color: #333; }
+/* TITOLO CORRETTO NELLO STILE */
+h2 { text-align: center; color: #333; margin-top:0; }
+h3 { text-align: center; font-size: 16px; color: #444; margin: 20px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
 label { display: block; font-weight: bold; margin: 10px 0 4px; font-size: 13px; }
 input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
 .row { display: flex; gap: 8px; } .row > div { flex: 1; }
-.btn-save { width: 100%; background: #0088cc; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; margin-top: 20px; cursor: pointer; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px; border-radius: 6px; opacity: 0; transition: 0.3s; }
+.btn-save { width: 100%; background: #4caf50; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+.btn-saldo { background: #0088cc !important; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px; border-radius: 6px; opacity: 0; transition: 0.3s; z-index:9999;}
 .toast.show { opacity: 1; }
+.alert-warning { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; font-size: 12px; margin-bottom: 15px; text-align: center; border: 1px solid #ffeeba; }
+.readonly-field { background-color: #f0f0f0; color: #666; cursor: not-allowed; }
+hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>📦 Saldo Iniziale Crediti</h2>
-<p style="font-size:12px; color:#666; text-align:center;">Inserisci lo stock di partenza. Verrà assegnato ID #1.</p>
+<!-- TITOLO VISIBILE CORRETTO -->
+<h2>📊 Saldo Rinnovi</h2>
 
-<div class="row">
-    <div><label>Data Riferimento:</label><input type="date" id="s_data"></div>
-    <div><label>Quantità Totale:</label><input type="number" id="s_qta" value="0" oninput="calcUnit()"></div>
+<!-- SEZIONE SALDO INIZIALE -->
+<div id="saldo-section">
+    <div class="alert-warning">⚠️ IMPOSTA SALDO INIZIALE (Stock di partenza)</div>
+    
+    <label>Data Riferimento:</label>
+    <input type="date" id="s_data">
+    
+    <div class="row">
+        <div><label>Quantità Stock:</label><input type="number" id="s_qta" value="0" oninput="calcUnit('s')"></div>
+        <div><label>Valore Totale (€):</label><input type="number" step="0.01" id="s_tot" value="0" oninput="calcUnit('s')"></div>
+    </div>
+    <div class="row">
+        <div><label>Prezzo Unitario (€):</label><input type="number" step="0.01" id="s_unit" readonly class="readonly-field"></div>
+    </div>
+    <label>Info / Note:</label>
+    <textarea id="s_note" rows="2" placeholder="Es: Stock iniziale magazzino"></textarea>
+    
+    <button class="btn-save btn-saldo" onclick="salvaSaldo()">💾 Salva Saldo Iniziale</button>
 </div>
-<div class="row">
-    <div><label>Valore Totale (€):</label><input type="number" step="0.01" id="s_tot" value="0" oninput="calcUnit()"></div>
-    <div><label>Prezzo Unitario (€):</label><input type="number" step="0.01" id="s_unit" readonly></div>
-</div>
-<label>Note:</label>
-<textarea id="s_note" rows="3"></textarea>
 
-<button class="btn-save" onclick="salva()">💾 Salva Saldo Iniziale</button>
+<hr>
+
+<!-- SEZIONE NUOVO ACQUISTO -->
+<div id="acquisto-section">
+    <h3>Nuovo Acquisto Credito</h3>
+    
+    <label>Fornitore:</label>
+    <input type="text" id="c_forn" placeholder="Nome fornitore">
+    
+    <div class="row">
+        <div><label>Data Acquisto:</label><input type="date" id="c_data"></div>
+        <div><label>Quantità:</label><input type="number" id="c_qta" value="1" min="1" oninput="calcUnit('c')"></div>
+    </div>
+    <div class="row">
+        <div><label>Valore Totale (€):</label><input type="number" step="0.01" id="c_tot" value="0" oninput="calcUnit('c')"></div>
+        <div><label>Prezzo Unitario (€):</label><input type="number" step="0.01" id="c_unit" readonly class="readonly-field"></div>
+    </div>
+    <label>Note:</label>
+    <textarea id="c_note" rows="2"></textarea>
+    
+    <button class="btn-save" onclick="salvaAcquisto()">💾 Salva Nuovo Acquisto</button>
 </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-const tg = window.Telegram.WebApp; tg.expand();
-function getHeaders(t) { const h={}; if(t) h['Content-Type']=t; if(tg.initData) h['X-Telegram-Init-Data']=tg.initData; return h; }
+const tg = window.Telegram.WebApp; 
+tg.expand();
 
-document.getElementById('s_data').value = new Date().toISOString().split('T')[0];
-
-function calcUnit() {
-    const q = parseFloat(document.getElementById('s_qta').value) || 0;
-    const t = parseFloat(document.getElementById('s_tot').value) || 0;
-    document.getElementById('s_unit').value = q > 0 ? (t/q).toFixed(2) : "0.00";
+function getHeaders(t) { 
+    const h = {}; 
+    if(t) h['Content-Type'] = t; 
+    if(tg.initData) h['X-Telegram-Init-Data'] = tg.initData; 
+    return h; 
 }
 
-async function salva() {
+document.getElementById('s_data').value = new Date().toISOString().split('T')[0];
+document.getElementById('c_data').value = new Date().toISOString().split('T')[0];
+
+function calcUnit(prefix) {
+    const q = parseFloat(document.getElementById(prefix+'_qta').value) || 0;
+    const t = parseFloat(document.getElementById(prefix+'_tot').value) || 0;
+    document.getElementById(prefix+'_unit').value = q > 0 ? (t/q).toFixed(2) : "0.00";
+}
+
+async function salvaSaldo() {
     const d = {
         data_acquisto: document.getElementById('s_data').value,
         quantita: parseInt(document.getElementById('s_qta').value) || 0,
@@ -59,13 +105,61 @@ async function salva() {
         valore_singolo: parseFloat(document.getElementById('s_unit').value) || 0,
         note: document.getElementById('s_note').value
     };
+    
     try {
-        const r = await fetch('/api/saldo_iniziale', { method:'POST', headers:getHeaders('application/json'), body:JSON.stringify({dati:d}) });
-        if(!r.ok) throw new Error('Errore server');
-        document.getElementById('toast').textContent = "✅ Saldo iniziale aggiornato!";
-        document.getElementById('toast').classList.add('show');
+        const r = await fetch('/api/saldo_iniziale', { 
+            method:'POST', 
+            headers:getHeaders('application/json'), 
+            body:JSON.stringify({dati:d}) 
+        });
+        
+        if(!r.ok) {
+            const errText = await r.text();
+            throw new Error(errText || 'Errore server');
+        }
+        
+        showToast("✅ Saldo Iniziale impostato!");
+    } catch(e) { 
+        alert("❌ Errore 500: " + e.message); 
+    }
+}
+
+async function salvaAcquisto() {
+    if(!document.getElementById('c_forn').value.trim()) {
+        alert("⚠️ Inserisci il nome del fornitore");
+        return;
+    }
+    
+    const d = {
+        fornitore: document.getElementById('c_forn').value.trim(),
+        data_acquisto: document.getElementById('c_data').value,
+        quantita: parseInt(document.getElementById('c_qta').value) || 1,
+        valore_totale: parseFloat(document.getElementById('c_tot').value) || 0,
+        valore_singolo: parseFloat(document.getElementById('c_unit').value) || 0,
+        note: document.getElementById('c_note').value
+    };
+    
+    try {
+        const r = await fetch('/api/credito', { 
+            method:'POST', 
+            headers:getHeaders('application/json'), 
+            body:JSON.stringify({dati:d}) 
+        });
+        if(!r.ok) throw new Error('Errore server: ' + r.status);
+        
+        const res = await r.json();
+        showToast(`✅ Acquisto #${res.id} salvato!`);
         setTimeout(() => tg.close(), 1500);
-    } catch(e) { alert(e.message); }
+    } catch(e) { 
+        alert("❌ Errore: " + e.message); 
+    }
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
 }
 </script>
 </body>
