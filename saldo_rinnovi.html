@@ -7,6 +7,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js?v=9999"></script>
 <style>
+/* Stili identici alla versione precedente per coerenza */
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; max-width: 600px; margin: 0 auto; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
 h2 { text-align: center; color: #333; margin-top: 0; }
@@ -15,9 +16,7 @@ h2 { text-align: center; color: #333; margin-top: 0; }
 .controls { display: flex; gap: 10px; margin-bottom: 15px; }
 select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
 .btn-add { background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-
 #lista-v2 { min-height: 200px; }
-
 .item { background: #fff; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
 .item-info { flex-grow: 1; overflow: hidden; margin-right: 10px; }
 .item-name { font-weight: bold; font-size: 15px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -26,10 +25,10 @@ select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
 .item-actions button { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
 .btn-edit { background: #ff9800; color: white; }
 .btn-del { background: #f44336; color: white; }
-
 .empty { text-align: center; color: #888; padding: 30px; }
 .error-box { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; border: 1px solid #ef9a9a; word-break: break-all; font-size: 12px; }
 .loading { text-align: center; color: #0088cc; padding: 30px; font-weight: bold; }
+.debug-mini { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px; font-size: 11px; font-family: monospace; display: none; white-space: pre-wrap; }
 
 /* Modal Styles */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
@@ -59,6 +58,7 @@ select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         <button class="btn-add" onclick="apriModal()">➕ Aggiungi</button>
     </div>
     
+    <div id="debug-mini" class="debug-mini"></div>
     <div id="lista-v2"><div class="loading">⏳ Caricamento...</div></div>
 </div>
 
@@ -99,14 +99,26 @@ const tg = window.Telegram.WebApp; tg.expand();
 function getHeaders(t) { const h={}; if(t) h['Content-Type']=t; if(tg.initData) h['X-Telegram-Init-Data']=tg.initData; return h; }
 let datiRinnovi = [];
 
+function logDebug(msg) {
+    const d = document.getElementById('debug-mini');
+    d.style.display = 'block';
+    d.textContent += msg + '\n';
+    console.log(msg);
+}
+
 async function caricaDati() {
     const container = document.getElementById('lista-v2');
+    logDebug('=== INIZIO CARICAMENTO ===');
     
     try {
+        logDebug('Chiamata API...');
+        // Aggiungiamo timestamp per evitare cache
         const res = await fetch('/api/elenco_rinnovi?nocache=' + Date.now(), { 
             headers: getHeaders(), 
             cache: 'no-store' 
         });
+        
+        logDebug(`Status HTTP: ${res.status}`);
         
         if (!res.ok) {
             const errText = await res.text();
@@ -114,19 +126,29 @@ async function caricaDati() {
         }
         
         const rawText = await res.text();
+        logDebug(`Raw Response Length: ${rawText.length}`);
+        
         let parsed;
         try { 
             parsed = JSON.parse(rawText); 
+            logDebug(`✓ JSON parsato. IsArray: ${Array.isArray(parsed)}, Length: ${parsed.length}`);
         } catch(e) { 
             throw new Error("JSON Invalido: " + rawText.substring(0, 200)); 
         }
         
         if (!Array.isArray(parsed)) {
-            throw new Error("Il server non ha restituito un array. Tipo: " + typeof parsed);
+            throw new Error("Il server non ha restituito un array! Tipo: " + typeof parsed);
         }
         
         datiRinnovi = parsed;
         document.getElementById('counter').textContent = "Totale: " + datiRinnovi.length;
+        
+        if(datiRinnovi.length > 0) {
+            logDebug(`Primo record keys: ${Object.keys(datiRinnovi[0]).join(', ')}`);
+            logDebug(`Primo record sample: ${JSON.stringify(datiRinnovi[0]).substring(0, 300)}`);
+        } else {
+            logDebug('⚠️ Array vuoto ricevuto dal server!');
+        }
         
         const sel = document.getElementById('nominativo-filter');
         sel.innerHTML = '<option value="">-- Seleziona Rinnovo --</option>';
@@ -134,9 +156,10 @@ async function caricaDati() {
         unici.forEach(n => { const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
         
         disegnaListaV2();
+        logDebug('✓ Rendering completato');
         
     } catch(e) {
-        console.error(e);
+        logDebug(`✗ ERRORE FATALE: ${e.message}`);
         container.innerHTML = '<div class="error-box"><strong>Errore:</strong><br>' + e.message + '</div>';
     }
 }
@@ -151,14 +174,18 @@ function disegnaListaV2(filtro) {
         return; 
     }
     
+    logDebug(`Rendering ${lista.length} elementi...`);
+    
     for(let i=0; i<lista.length; i++) {
         const r = lista[i];
         
-        // Lettura valori con controllo esplicito
+        // Lettura valori sicura
         const rich = (typeof r.num_credito_rich === 'number') ? r.num_credito_rich : 0;
         const dato = (typeof r.num_credito_dato === 'number') ? r.num_credito_dato : 0;
         const saldo = (typeof r.num_credito_dare === 'number') ? r.num_credito_dare : 0;
         const nome = r.nominativo || ("ID:" + r.nominativo_id);
+        
+        if(i===0) logDebug(`Sample Render: nome="${nome}", rich=${rich}(${typeof r.num_credito_rich})`);
         
         const item = document.createElement('div'); item.className='item';
         
@@ -179,6 +206,7 @@ function disegnaListaV2(filtro) {
         item.appendChild(info); item.appendChild(actions);
         container.appendChild(item);
     }
+    logDebug('✓ Lista renderizzata');
 }
 
 document.getElementById('nominativo-filter').addEventListener('change', e => disegnaListaV2(e.target.value));
@@ -216,18 +244,20 @@ async function salvaModifica() {
         val_nc_saldo: parseFloat(document.getElementById('m_val_saldo').value)||0,
         note: document.getElementById('m_note').value };
     try {
+        logDebug('Salvataggio...');
         const res = await fetch('/api/rinnovo', { method:'POST', headers:getHeaders('application/json'), body:JSON.stringify({dati}) });
         if(!res.ok) {
             const err = await res.text();
             throw new Error(`HTTP ${res.status}: ${err}`);
         }
         showToast("✅ Salvato!"); chiudiModal(); caricaDati();
-    } catch(e) { alert("❌ "+e.message); }
+    } catch(e) { logDebug('Errore save: '+e.message); alert("❌ "+e.message); }
 }
 
 async function elimina(id) {
     if(!confirm("Eliminare questo record?")) return;
     try { 
+        logDebug('Eliminazione record '+id+'...');
         const res = await fetch('/api/rinnovo/'+id, {method:'DELETE', headers:getHeaders()});
         if(!res.ok) {
             const err = await res.text();
@@ -235,7 +265,7 @@ async function elimina(id) {
         }
         showToast("🗑️ Eliminato"); caricaDati(); 
     }
-    catch(e) { alert("Errore: "+e.message); }
+    catch(e) { logDebug('Errore delete: '+e.message); alert("Errore: "+e.message); }
 }
 function showToast(m) { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
 
