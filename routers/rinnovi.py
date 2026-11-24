@@ -1,4 +1,3 @@
-
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Request
 from auth import get_current_user
@@ -9,6 +8,7 @@ router = APIRouter()
 
 @router.get("/api/scadenze")
 def api_scadenze(request: Request):
+    """FIX ERRORE 500: Query robusta che gestisce formati data misti"""
     get_current_user(request)
     oggi = datetime.now().date()
     limite_futuro = oggi + timedelta(days=7) 
@@ -16,6 +16,8 @@ def api_scadenze(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
+            # Prende tutte le scadenze <= limite futuro (incluse quelle passate)
+            # Esclude chi ha già rinnovato in anticipo
             cur.execute("""
                 SELECT r.id, r.scadenza, r.orario_scadenza, r.nominativo_id, n.nominativo 
                 FROM rinnovi r 
@@ -34,6 +36,7 @@ def api_scadenze(request: Request):
             out = []
             for r in rows:
                 scad_date = None
+                # Gestione sicura formati DD/MM/YYYY e YYYY-MM-DD
                 for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
                     try:
                         scad_date = datetime.strptime(r["scadenza"], fmt).date()
@@ -63,7 +66,6 @@ def api_crediti_disponibili(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Unione tra saldo storico e nuovi acquisti non usati
             cur.execute("""
                 SELECT id, 'Saldo Storico' as tipo, quantita, valore, data_acquisto as data_ref 
                 FROM crediti WHERE quantita > 0
@@ -131,3 +133,23 @@ def api_rinnovo_cancella(id: int, request: Request):
     finally:
         conn.close()
     return {"ok": True}
+
+@router.get("/api/pagamenti_sospesi")
+def api_pagamenti_sospesi(request: Request):
+    """(F) Calcola pagamenti sospesi: Differenza tra Importo Acconto e Saldo"""
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT r.id, n.nominativo, r.data_operazione, r.data_acconto, 
+                       r.importo_acconto, r.importo_saldo, 
+                       (r.importo_saldo - r.importo_acconto) as sospeso
+                FROM rinnovi r
+                JOIN nominativi n ON n.id = r.nominativo_id
+                WHERE r.importo_saldo > r.importo_acconto
+                ORDER BY r.data_operazione DESC
+            """)
+            return cur.fetchall()
+    finally:
+        conn.close()
