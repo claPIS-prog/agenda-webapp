@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Lista Rinnovi</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="/auth.js?v=9999"></script>
+<style>
+    body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+    .container { max-width: 600px; margin: 0 auto; }
+    
+    /* Barra di ricerca stile Lista Contatti */
+    .search-box { 
+        background: white; 
+        padding: 10px; 
+        border-radius: 8px; 
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+        margin-bottom: 15px; 
+        position: sticky; 
+        top: 10px; 
+        z-index: 10;
+    }
+    .search-input { 
+        width: 100%; 
+        padding: 10px; 
+        border: 1px solid #ddd; 
+        border-radius: 6px; 
+        font-size: 16px; 
+        box-sizing: border-box; 
+        outline: none;
+    }
+    .search-input:focus { border-color: #0088cc; }
+
+    /* Lista Items */
+    .list-item { 
+        background: white; 
+        padding: 15px; 
+        margin-bottom: 8px; 
+        border-radius: 8px; 
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05); 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+        cursor: pointer;
+        transition: transform 0.1s;
+    }
+    .list-item:active { transform: scale(0.98); background: #f9f9f9; }
+    
+    .item-main { flex-grow: 1; overflow: hidden; }
+    .item-name { font-weight: 600; font-size: 15px; color: #333; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-sub { font-size: 13px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    .item-badge { 
+        background: #e3f2fd; 
+        color: #1565c0; 
+        padding: 4px 8px; 
+        border-radius: 12px; 
+        font-size: 11px; 
+        font-weight: bold; 
+        margin-left: 10px; 
+        white-space: nowrap;
+    }
+    .badge-rinnovo { background: #e8f5e9; color: #2e7d32; }
+    .badge-nuovo { background: #fff3e0; color: #ef6c00; }
+
+    .empty-state { text-align: center; color: #888; padding: 40px 20px; font-size: 14px; }
+    .loading { text-align: center; color: #0088cc; padding: 40px; font-weight: bold; }
+    .error-msg { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 8px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="container">
+    <!-- Barra Ricerca -->
+    <div class="search-box">
+        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Cerca nominativo...">
+    </div>
+
+    <!-- Contenitore Lista -->
+    <div id="listaContainer">
+        <div class="loading">⏳ Caricamento rinnovi...</div>
+    </div>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+
+function getHeaders(t) {
+    const h = {};
+    if(t) h['Content-Type'] = t;
+    if(tg.initData) h['X-Telegram-Init-Data'] = tg.initData;
+    return h;
+}
+
+let tuttiRinnovi = [];
+
+async function caricaDati() {
+    const container = document.getElementById('listaContainer');
+    
+    try {
+        const res = await fetch('/api/lista_rinnovi?nocache=' + Date.now(), { 
+            headers: getHeaders(), 
+            cache: 'no-store' 
+        });
+        
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const data = await res.json();
+        if (!Array.isArray(data)) throw new Error("Formato dati non valido");
+        
+        tuttiRinnovi = data;
+        renderLista(tuttiRinnovi);
+        
+    } catch(e) {
+        container.innerHTML = `<div class="error-msg">Errore caricamento:<br>${e.message}</div>`;
+    }
+}
+
+function renderLista(lista) {
+    const container = document.getElementById('listaContainer');
+    
+    if (lista.length === 0) {
+        container.innerHTML = '<div class="empty-state">Nessun rinnovo trovato.</div>';
+        return;
+    }
+    
+    let html = '';
+    lista.forEach(r => {
+        // Formattazione dati sicuri
+        const nome = r.nominativo || 'Sconosciuto';
+        const dataOp = r.data_operazione || '-';
+        const scadenza = r.scadenza || '-';
+        const tipo = r.tipo || 'rinnovo';
+        const badgeClass = tipo === 'nuovo' ? 'badge-nuovo' : 'badge-rinnovo';
+        const badgeText = tipo === 'nuovo' ? 'NUOVO' : 'RINNOVO';
+        
+        // Sotto-testo compatto
+        const subText = `${dataOp} | Scad: ${scadenza}`;
+        
+        html += `
+        <div class="list-item" onclick="alert('ID: ${r.id}\\nNote: ${r.note || \'Nessuna\'}')">
+            <div class="item-main">
+                <div class="item-name">${nome}</div>
+                <div class="item-sub">${subText}</div>
+            </div>
+            <div class="item-badge ${badgeClass}">${badgeText}</div>
+        </div>`;
+    });
+    
+    container.innerHTML = html;
+}
+
+// Filtro Ricerca in tempo reale
+document.getElementById('searchInput').addEventListener('input', function(e) {
+    const term = e.target.value.toLowerCase();
+    const filtrati = tuttiRinnovi.filter(r => 
+        (r.nominativo && r.nominativo.toLowerCase().includes(term)) ||
+        (r.note && r.note.toLowerCase().includes(term))
+    );
+    renderLista(filtrati);
+});
+
+// Avvio
+caricaDati();
+</script>
+</body>
+</html>
