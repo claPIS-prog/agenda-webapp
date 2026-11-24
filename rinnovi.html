@@ -24,13 +24,19 @@ small { color: #666; font-size: 11px; display: block; margin-top: 2px; }
 <body>
 <div class="container">
 <h2>🔄 Nuovo Rinnovo</h2>
+
 <label>Nominativo:</label>
 <select id="r_nom"><option value="">-- Caricamento --</option></select>
 
-<div class="sec-title">Dettagli</div>
+<div class="sec-title">Dettagli Rinnovo</div>
 <div class="row">
-    <div><label>Tipo:</label><select id="r_tipo"><option value="rinnovo">Rinnovo</option><option value="nuovo">Nuovo</option></select></div>
-    <div><label>Data Op.:</label><input type="date" id="r_data"></div>
+    <div><label>Tipo:</label>
+        <select id="r_tipo">
+            <option value="rinnovo">Rinnovo</option>
+            <option value="nuovo">Nuovo</option>
+        </select>
+    </div>
+    <div><label>Data Operazione:</label><input type="date" id="r_data"></div>
 </div>
 <div class="row">
     <div><label>Mesi:</label><input type="number" id="r_mesi" value="12"></div>
@@ -43,8 +49,10 @@ small { color: #666; font-size: 11px; display: block; margin-top: 2px; }
 
 <div class="sec-title">🎫 Utilizzo Credito</div>
 <label>Seleziona Credito:</label>
-<select id="r_cred" onchange="fillCred()"><option value="">-- Nessuno --</option></select>
-<small>Compila automaticamente Qta e Valore</small>
+<select id="r_cred" onchange="fillCred()">
+    <option value="">-- Nessuno --</option>
+</select>
+<small>Compila automaticamente Qta e Valore Unitario</small>
 
 <div class="row">
     <div><label>Qta Usata:</label><input type="number" id="r_qta" value="0"></div>
@@ -53,70 +61,103 @@ small { color: #666; font-size: 11px; display: block; margin-top: 2px; }
 
 <label>Note:</label>
 <textarea id="r_note" rows="2"></textarea>
+
 <button class="btn-save" onclick="salva()">💾 Salva Rinnovo</button>
 </div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-const tg = window.Telegram.WebApp; tg.expand();
+const tg = window.Telegram.WebApp; 
+tg.expand();
 let creds = [];
-function getH(t){const h={};if(t)h['Content-Type']=t;if(tg.initData)h['X-Telegram-Init-Data']=tg.initData;return h;}
 
-async function init(){
-    try{
-        const r=await fetch('/api/nominativi',{headers:getH()});
-        const n=await r.json();
-        const s=document.getElementById('r_nom');
-        n.forEach(x=> s.innerHTML+=`<option value="${x.id}">${x.nominativo}</option>`);
-    }catch(e){console.error(e)}
-    
-    const today=new Date().toISOString().split('T')[0];
-    document.getElementById('r_data').value=today;
-    document.getElementById('r_scad').value=today;
-
-    try{
-        const r=await fetch('/api/crediti_disponibili',{headers:getH()});
-        creds=await r.json();
-        const s=document.getElementById('r_cred');
-        creds.forEach(c=>{
-            s.innerHTML+=`<option value="${c.id}">#${c.id} ${c.tipo} (Qta:${c.quantita} €${c.valore})</option>`;
-        });
-    }catch(e){console.error(e)}
+function getH(t){
+    const h = {};
+    if(t) h['Content-Type'] = t;
+    if(tg.initData) h['X-Telegram-Init-Data'] = tg.initData;
+    return h;
 }
 
+async function init(){
+    // Carica Nominativi
+    try{
+        const r = await fetch('/api/nominativi', {headers: getH()});
+        const n = await r.json();
+        const s = document.getElementById('r_nom');
+        n.forEach(x => {
+            s.innerHTML += `<option value="${x.id}">${x.nominativo}</option>`;
+        });
+    } catch(e) { console.error("Errore caricamento nominativi:", e); }
+    
+    // Imposta date default a oggi
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('r_data').value = today;
+    document.getElementById('r_scad').value = today;
+
+    // Carica Crediti Disponibili
+    try{
+        const r = await fetch('/api/crediti_disponibili', {headers: getH()});
+        creds = await r.json();
+        const s = document.getElementById('r_cred');
+        creds.forEach(c => {
+            s.innerHTML += `<option value="${c.id}">#${c.id} ${c.tipo} (Qta:${c.quantita} €${c.valore})</option>`;
+        });
+    } catch(e) { console.error("Errore caricamento crediti:", e); }
+}
+
+// Auto-compila quantità e valore quando si seleziona un credito
 function fillCred(){
-    const id=document.getElementById('r_cred').value;
-    if(!id){ document.getElementById('r_qta').value=0; document.getElementById('r_val').value=0; return; }
-    const c=creds.find(x=>x.id==id);
+    const id = document.getElementById('r_cred').value;
+    if(!id){ 
+        document.getElementById('r_qta').value = 0; 
+        document.getElementById('r_val').value = 0; 
+        return; 
+    }
+    const c = creds.find(x => x.id == id);
     if(c){
-        document.getElementById('r_qta').value=c.quantita;
-        document.getElementById('r_val').value=c.valore;
+        document.getElementById('r_qta').value = c.quantita;
+        document.getElementById('r_val').value = c.valore;
     }
 }
 
 async function salva(){
-    if(!document.getElementById('r_nom').value) return alert("Seleziona nominativo");
-    const d={
+    if(!document.getElementById('r_nom').value) {
+        alert("⚠️ Seleziona un nominativo");
+        return;
+    }
+    
+    const d = {
         nominativo_id: parseInt(document.getElementById('r_nom').value),
         tipo: document.getElementById('r_tipo').value,
         data_operazione: document.getElementById('r_data').value,
-        mesi: parseInt(document.getElementById('r_mesi').value)||12,
+        mesi: parseInt(document.getElementById('r_mesi').value) || 12,
         scadenza: document.getElementById('r_scad').value,
-        importo_acconto: parseFloat(document.getElementById('r_acc').value)||0,
-        importo_saldo: parseFloat(document.getElementById('r_sal').value)||0,
-        num_credito_rich: parseInt(document.getElementById('r_qta').value)||0,
-        val_singolo_nc_rich: parseFloat(document.getElementById('r_val').value)||0,
-        credito_id: document.getElementById('r_cred').value?parseInt(document.getElementById('r_cred').value):null,
+        importo_acconto: parseFloat(document.getElementById('r_acc').value) || 0,
+        importo_saldo: parseFloat(document.getElementById('r_sal').value) || 0,
+        num_credito_rich: parseInt(document.getElementById('r_qta').value) || 0,
+        val_singolo_nc_rich: parseFloat(document.getElementById('r_val').value) || 0,
+        credito_id: document.getElementById('r_cred').value ? parseInt(document.getElementById('r_cred').value) : null,
         note: document.getElementById('r_note').value
     };
+    
     try{
-        const r=await fetch('/api/rinnovo',{method:'POST',headers:getH('application/json'),body:JSON.stringify({dati:d})});
-        if(!r.ok) throw new Error("Errore");
-        document.getElementById('toast').textContent="✅ Salvato!";
+        const r = await fetch('/api/rinnovo', {
+            method:'POST',
+            headers: getH('application/json'),
+            body: JSON.stringify({dati: d})
+        });
+        if(!r.ok) throw new Error("Errore server: " + r.status);
+        
+        document.getElementById('toast').textContent = "✅ Rinnovo salvato!";
         document.getElementById('toast').classList.add('show');
-        setTimeout(()=>tg.close(),1000);
-    }catch(e){alert(e.message)}
+        setTimeout(() => tg.close(), 1000);
+    } catch(e) {
+        alert("❌ Errore: " + e.message);
+    }
 }
+
+// Avvia inizializzazione
 init();
 </script>
 </body>
