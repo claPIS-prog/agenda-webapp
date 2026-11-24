@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>Gestione Crediti</title>
+<title>Saldo Rinnovi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js"></script>
 <style>
@@ -16,6 +16,7 @@ label { display: block; font-weight: bold; margin: 10px 0 4px; font-size: 13px; 
 input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
 .row { display: flex; gap: 8px; } .row > div { flex: 1; }
 .btn-save { width: 100%; background: #4caf50; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; margin-top: 20px; cursor: pointer; }
+.btn-saldo { background: #0088cc !important; } /* Colore diverso per il saldo */
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px; border-radius: 6px; opacity: 0; transition: 0.3s; z-index:9999;}
 .toast.show { opacity: 1; }
 .alert-warning { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; font-size: 12px; margin-bottom: 15px; text-align: center; border: 1px solid #ffeeba; }
@@ -25,9 +26,10 @@ hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
 </head>
 <body>
 <div class="container">
-<h2>💳 Gestione Crediti</h2>
+<!-- TITOLO RINOMINATO -->
+<h2>📊 Saldo Rinnovi</h2>
 
-<!-- SEZIONE SALDO INIZIALE (SEMPRE VISIBILE) -->
+<!-- SEZIONE SALDO INIZIALE -->
 <div id="saldo-section">
     <div class="alert-warning">⚠️ IMPOSTA SALDO INIZIALE (Stock di partenza)</div>
     
@@ -44,12 +46,13 @@ hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
     <label>Info / Note:</label>
     <textarea id="s_note" rows="2" placeholder="Es: Stock iniziale magazzino"></textarea>
     
-    <button class="btn-save" style="background:#0088cc;" onclick="salvaSaldo()">💾 Imposta Saldo Iniziale</button>
+    <!-- PULSANTE RINOMINATO -->
+    <button class="btn-save btn-saldo" onclick="salvaSaldo()">💾 Salva Saldo Iniziale</button>
 </div>
 
 <hr>
 
-<!-- SEZIONE NUOVO ACQUISTO (SEMPRE VISIBILE) -->
+<!-- SEZIONE NUOVO ACQUISTO -->
 <div id="acquisto-section">
     <h3>Nuovo Acquisto Credito</h3>
     
@@ -84,11 +87,9 @@ function getHeaders(t) {
     return h; 
 }
 
-// Inizializzazione date odierne
 document.getElementById('s_data').value = new Date().toISOString().split('T')[0];
 document.getElementById('c_data').value = new Date().toISOString().split('T')[0];
 
-// Calcolo automatico prezzo unitario
 function calcUnit(prefix) {
     const q = parseFloat(document.getElementById(prefix+'_qta').value) || 0;
     const t = parseFloat(document.getElementById(prefix+'_tot').value) || 0;
@@ -99,7 +100,7 @@ async function salvaSaldo() {
     const d = {
         data_acquisto: document.getElementById('s_data').value,
         quantita: parseInt(document.getElementById('s_qta').value) || 0,
-        valore_totale: parseFloat(document.getElementById('s_tot').value) || 0,
+        valore_totale: parseFloat(document.getElementById('s_tot').value) || 0, // Inviamo comunque il dato
         valore_singolo: parseFloat(document.getElementById('s_unit').value) || 0,
         note: document.getElementById('s_note').value
     };
@@ -110,12 +111,16 @@ async function salvaSaldo() {
             headers:getHeaders('application/json'), 
             body:JSON.stringify({dati:d}) 
         });
-        if(!r.ok) throw new Error('Errore server: ' + r.status);
+        
+        if(!r.ok) {
+            const errText = await r.text();
+            throw new Error(errText || 'Errore server');
+        }
         
         showToast("✅ Saldo Iniziale impostato!");
-        // Non ricarichiamo la pagina per non perdere i dati dell'acquisto se l'utente sta compilando entrambi
     } catch(e) { 
-        alert("❌ Errore: " + e.message); 
+        // Mostriamo l'errore in un toast invece del popup del browser
+        alert("❌ Errore 500: " + e.message); 
     }
 }
 
