@@ -8,7 +8,6 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js"></script>
 <style>
-/* Stili invariati */
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 500px; margin: 0 auto; }
 h2 { text-align: center; color: #333; margin-top:0; }
@@ -21,16 +20,16 @@ input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radi
 .toast.show { opacity: 1; }
 .alert-warning { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; font-size: 12px; margin-bottom: 15px; text-align: center; border: 1px solid #ffeeba; }
 .readonly-field { background-color: #f0f0f0; color: #666; cursor: not-allowed; }
-.hidden { display: none !important; }
+hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
 </style>
 </head>
 <body>
 <div class="container">
 <h2>💳 Gestione Crediti</h2>
 
-<!-- SEZIONE SALDO INIZIALE -->
-<div id="saldo-section" class="hidden">
-    <div class="alert-warning">⚠️ Nessun Saldo Iniziale valido rilevato. Compila i dati per impostarlo.</div>
+<!-- SEZIONE SALDO INIZIALE (SEMPRE VISIBILE) -->
+<div id="saldo-section">
+    <div class="alert-warning">⚠️ IMPOSTA SALDO INIZIALE (Stock di partenza)</div>
     
     <label>Data Riferimento:</label>
     <input type="date" id="s_data">
@@ -45,10 +44,12 @@ input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radi
     <label>Info / Note:</label>
     <textarea id="s_note" rows="2" placeholder="Es: Stock iniziale magazzino"></textarea>
     
-    <button class="btn-save" onclick="salvaSaldo()">💾 Imposta Saldo Iniziale</button>
+    <button class="btn-save" style="background:#0088cc;" onclick="salvaSaldo()">💾 Imposta Saldo Iniziale</button>
 </div>
 
-<!-- SEZIONE NUOVO ACQUISTO -->
+<hr>
+
+<!-- SEZIONE NUOVO ACQUISTO (SEMPRE VISIBILE) -->
 <div id="acquisto-section">
     <h3>Nuovo Acquisto Credito</h3>
     
@@ -83,39 +84,15 @@ function getHeaders(t) {
     return h; 
 }
 
+// Inizializzazione date odierne
 document.getElementById('s_data').value = new Date().toISOString().split('T')[0];
 document.getElementById('c_data').value = new Date().toISOString().split('T')[0];
 
+// Calcolo automatico prezzo unitario
 function calcUnit(prefix) {
     const q = parseFloat(document.getElementById(prefix+'_qta').value) || 0;
     const t = parseFloat(document.getElementById(prefix+'_tot').value) || 0;
     document.getElementById(prefix+'_unit').value = q > 0 ? (t/q).toFixed(2) : "0.00";
-}
-
-// FIX LOGICA: Controlla se ID=1 esiste E ha quantità > 0
-async function checkSaldo() {
-    try {
-        // Chiediamo TUTTI i crediti, non solo quelli con qty>0, per vedere se ID=1 esiste
-        const r = await fetch('/api/crediti_disponibili', { headers: getHeaders() });
-        if (!r.ok) return;
-        const data = await r.json();
-        
-        // Cerchiamo specificamente il record ID=1
-        const saldoRecord = data.find(c => c.id === 1);
-        
-        // Mostriamo il form di inserimento SOLO se:
-        // 1. Il record ID=1 NON esiste OPPURE
-        // 2. Esiste ma ha quantità <= 0
-        if (!saldoRecord || saldoRecord.quantita <= 0) {
-            document.getElementById('saldo-section').classList.remove('hidden');
-        } else {
-            document.getElementById('saldo-section').classList.add('hidden');
-        }
-    } catch(e) { 
-        console.error("Errore verifica saldo:", e); 
-        // In caso di errore, mostriamo il form per sicurezza
-        document.getElementById('saldo-section').classList.remove('hidden');
-    }
 }
 
 async function salvaSaldo() {
@@ -136,7 +113,7 @@ async function salvaSaldo() {
         if(!r.ok) throw new Error('Errore server: ' + r.status);
         
         showToast("✅ Saldo Iniziale impostato!");
-        setTimeout(() => location.reload(), 1500);
+        // Non ricarichiamo la pagina per non perdere i dati dell'acquisto se l'utente sta compilando entrambi
     } catch(e) { 
         alert("❌ Errore: " + e.message); 
     }
@@ -179,8 +156,6 @@ function showToast(msg) {
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
 }
-
-checkSaldo();
 </script>
 </body>
 </html>
