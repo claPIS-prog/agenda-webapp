@@ -47,7 +47,6 @@ small { color: #666; display: block; margin-top: 4px; font-size: 12px; }
     <div><label>Importo Saldo (€):</label><input type="number" step="0.01" id="r_importo_saldo" value="0"></div>
 </div>
 
-<!-- PUNTO C: SELETTORE CREDITI -->
 <div class="section-title">🎫 Utilizzo Credito</div>
 <label>Credito da utilizzare:</label>
 <select id="r_credito_id" onchange="aggiornaDatiCredito()">
@@ -83,7 +82,6 @@ function getHeaders(contentType) {
 let creditiDisponibili = [];
 
 async function init() {
-    // Carica Nominativi
     try {
         const res = await fetch('/api/nominativi', { headers: getHeaders() });
         const noms = await res.json();
@@ -94,12 +92,10 @@ async function init() {
         });
     } catch(e) { console.error(e); }
 
-    // Imposta data odierna
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('r_data_operazione').value = today;
     document.getElementById('r_scadenza').value = today; 
 
-    // PUNTO C: Carica Crediti Disponibili
     try {
         const res = await fetch('/api/crediti_disponibili', { headers: getHeaders() });
         if (!res.ok) return;
@@ -108,13 +104,12 @@ async function init() {
         creditiDisponibili.forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id;
-            opt.textContent = `${c.tipo} - Qta: ${c.quantita} (€${c.valore}) - ${c.data_ref}`;
+            opt.textContent = `#${c.id} - ${c.tipo} - Qta: ${c.quantita} (€${c.valore}) - ${c.data_ref}`;
             sel.appendChild(opt);
         });
     } catch(e) { console.error('Errore caricamento crediti:', e); }
 }
 
-// PUNTO C: Aggiorna automaticamente i campi quando si seleziona un credito
 function aggiornaDatiCredito() {
     const idCredito = document.getElementById('r_credito_id').value;
     if (!idCredito) {

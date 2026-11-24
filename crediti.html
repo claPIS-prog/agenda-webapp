@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Nuovo Credito</title>
+<title>Nuovo Acquisto Credito</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js"></script>
 <style>
@@ -33,12 +33,13 @@ input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; bor
 <div class="section-title">Dettagli Acquisto</div>
 <div class="row">
     <div><label>Data Acquisto:</label><input type="date" id="c_data_acquisto"></div>
-    <div><label>Contatore (Qta):</label><input type="number" id="c_quantita" value="1" min="1"></div>
+    <!-- QUANTITÀ STANDARD (NON CONTATORE MANUALE) -->
+    <div><label>Quantità:</label><input type="number" id="c_quantita" value="1" min="1"></div>
 </div>
 
 <div class="row">
     <div><label>Valore Totale (€):</label><input type="number" step="0.01" id="c_valore_totale" value="0"></div>
-    <div><label>Valore Singolo (€):</label><input type="number" step="0.01" id="c_valore_singolo" value="0"></div>
+    <div><label>Valore Singolo (€):</label><input type="number" step="0.01" id="c_valore_singolo" value="0" readonly></div>
 </div>
 
 <label>Note:</label>
@@ -65,7 +66,7 @@ async function init() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('c_data_acquisto').value = today;
     
-    // Calcolo automatico valore singolo quando cambia totale o quantità
+    // Calcolo automatico valore singolo
     document.getElementById('c_valore_totale').addEventListener('input', calcolaSingolo);
     document.getElementById('c_quantita').addEventListener('input', calcolaSingolo);
 }
@@ -85,7 +86,7 @@ async function salvaCredito() {
     const dati = {
         fornitore: fornitore,
         data_acquisto: document.getElementById('c_data_acquisto').value,
-        quantita: parseInt(document.getElementById('c_quantita').value) || 1, // PUNTO C: Contatore
+        quantita: parseInt(document.getElementById('c_quantita').value) || 1,
         valore_totale: parseFloat(document.getElementById('c_valore_totale').value) || 0,
         valore_singolo: parseFloat(document.getElementById('c_valore_singolo').value) || 0,
         note: document.getElementById('c_note').value.trim()
