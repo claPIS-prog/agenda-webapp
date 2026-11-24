@@ -30,7 +30,7 @@
     .empty { text-align: center; color: #888; padding: 30px; }
     .error-box { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; border: 1px solid #ef9a9a; word-break: break-all; font-size: 12px; }
     .loading { text-align: center; color: #0088cc; padding: 30px; font-weight: bold; }
-    .debug-info { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px; font-size: 11px; font-family: monospace; white-space: pre-wrap; word-break: break-all; }
+    .debug-panel { background: #1e1e1e; color: #00ff00; padding: 15px; margin: 15px 0; border-radius: 6px; font-size: 11px; font-family: 'Courier New', monospace; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; border: 1px solid #333; }
 
     /* Modal Styles */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
@@ -59,7 +59,10 @@
         <select id="nominativo-filter"><option value="">-- Seleziona Rinnovo --</option></select>
         <button class="btn-add" onclick="apriModal()">➕ Aggiungi</button>
     </div>
-    <div id="debug-output" class="debug-info" style="display:none;"></div>
+    
+    <!-- PANELLO DI DEBUG VISIVO -->
+    <div id="debug-panel" class="debug-panel">In attesa di dati...</div>
+    
     <div id="lista-v2"><div class="loading">⏳ Caricamento...</div></div>
 </div>
 
@@ -100,48 +103,57 @@ const tg = window.Telegram.WebApp; tg.expand();
 function getHeaders(t) { const h={}; if(t) h['Content-Type']=t; if(tg.initData) h['X-Telegram-Init-Data']=tg.initData; return h; }
 let datiRinnovi = [];
 
+function log(msg) {
+    const panel = document.getElementById('debug-panel');
+    const time = new Date().toLocaleTimeString();
+    panel.textContent += `[${time}] ${msg}\n`;
+    panel.scrollTop = panel.scrollHeight;
+    console.log(msg);
+}
+
 async function caricaDati() {
     const container = document.getElementById('lista-v2');
-    const debugOutput = document.getElementById('debug-output');
-    debugOutput.style.display = 'block';
-    debugOutput.textContent = 'Inizio caricamento...\n';
+    const panel = document.getElementById('debug-panel');
+    panel.textContent = '=== INIZIO CARICAMENTO ===\n';
     
     try {
+        log('Chiamata a /api/elenco_rinnovi...');
         const res = await fetch('/api/elenco_rinnovi?nocache=' + Date.now(), { 
             headers: getHeaders(), 
             cache: 'no-store' 
         });
         
-        debugOutput.textContent += `Status HTTP: ${res.status}\n`;
-        
-        if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`HTTP ${res.status}: ${errText.substring(0, 200)}`);
-        }
+        log(`Status HTTP: ${res.status}`);
+        log(`Headers risposta: ${JSON.stringify(Object.fromEntries(res.headers.entries()))}`);
         
         const rawText = await res.text();
-        debugOutput.textContent += `Raw response length: ${rawText.length} chars\n`;
-        debugOutput.textContent += `First 500 chars: ${rawText.substring(0, 500)}\n`;
+        log(`Raw response (${rawText.length} chars): ${rawText.substring(0, 300)}${rawText.length > 300 ? '...' : ''}`);
+        
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${rawText.substring(0, 200)}`);
+        }
         
         let parsed;
         try { 
             parsed = JSON.parse(rawText); 
-            debugOutput.textContent += `JSON parsed successfully. Type: ${typeof parsed}, IsArray: ${Array.isArray(parsed)}\n`;
+            log(`✓ JSON parsato correttamente. Tipo: ${typeof parsed}, Array: ${Array.isArray(parsed)}`);
         } catch(e) { 
             throw new Error("JSON Invalido: " + rawText.substring(0, 200)); 
         }
         
         if (!Array.isArray(parsed)) {
-            throw new Error("Il server non ha restituito un array. Tipo ricevuto: " + typeof parsed + "\nContenuto: " + JSON.stringify(parsed).substring(0, 200));
+            throw new Error("Risposta non è un array! Tipo: " + typeof parsed + "\nContenuto: " + JSON.stringify(parsed).substring(0, 200));
         }
         
         datiRinnovi = parsed;
-        debugOutput.textContent += `Record ricevuti: ${datiRinnovi.length}\n`;
+        log(`✓ Ricevuti ${datiRinnovi.length} record`);
         
         if(datiRinnovi.length > 0) {
-            const firstRecord = datiRinnovi[0];
-            debugOutput.textContent += `Chiavi primo record: ${Object.keys(firstRecord).join(', ')}\n`;
-            debugOutput.textContent += `Primo record completo: ${JSON.stringify(firstRecord, null, 2).substring(0, 500)}\n`;
+            const first = datiRinnovi[0];
+            log(`Chiavi primo record: ${Object.keys(first).join(', ')}`);
+            log(`Primo record: ${JSON.stringify(first, null, 2).substring(0, 500)}`);
+        } else {
+            log('⚠ Nessun record trovato nel database');
         }
 
         document.getElementById('counter').textContent = "Totale: " + datiRinnovi.length;
@@ -152,11 +164,10 @@ async function caricaDati() {
         unici.forEach(n => { const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
         
         disegnaListaV2();
-        debugOutput.textContent += 'Rendering completato.\n';
+        log('✓ Rendering completato');
         
     } catch(e) {
-        console.error(e);
-        debugOutput.textContent += `ERRORE: ${e.message}\n`;
+        log(`✗ ERRORE FATALE: ${e.message}`);
         container.innerHTML = '<div class="error-box"><strong>Errore:</strong><br>' + e.message + '</div>';
     }
 }
@@ -166,29 +177,30 @@ function disegnaListaV2(filtro) {
     container.innerHTML = '';
     let lista = filtro ? datiRinnovi.filter(r => r.nominativo === filtro) : datiRinnovi;
     
-    if(lista.length === 0) { container.innerHTML = '<div class="empty">Nessun dato.</div>'; return; }
+    if(lista.length === 0) { 
+        container.innerHTML = '<div class="empty">Nessun dato trovato.</div>'; 
+        log('Lista vuota dopo filtro');
+        return; 
+    }
+    
+    log(`Rendering ${lista.length} elementi...`);
     
     for(let i=0; i<lista.length; i++) {
         const r = lista[i];
         
-        // Debug: stampiamo cosa stiamo leggendo
-        console.log(`Record ${i}:`, r);
+        // Lettura valori con controllo esplicito
+        const rich = (r.num_credito_rich !== undefined && r.num_credito_rich !== null) ? r.num_credito_rich : 0;
+        const dato = (r.num_credito_dato !== undefined && r.num_credito_dato !== null) ? r.num_credito_dato : 0;
+        const saldo = (r.num_credito_dare !== undefined && r.num_credito_dare !== null) ? r.num_credito_dare : 0;
+        const nome = r.nominativo || ("ID:" + r.nominativo_id);
         
-        // Lettura valori con controllo esistenza chiave
-        const rich = r.hasOwnProperty('num_credito_rich') ? r.num_credito_rich : 0;
-        const dato = r.hasOwnProperty('num_credito_dato') ? r.num_credito_dato : 0;
-        const saldo = r.hasOwnProperty('num_credito_dare') ? r.num_credito_dare : 0;
-        const nome = r.hasOwnProperty('nominativo') ? r.nominativo : ("ID:"+r.nominativo_id);
-        
-        console.log(`Valori estratti - Rich: ${rich}, Dato: ${dato}, Saldo: ${saldo}, Nome: ${nome}`);
+        log(`Record ${i}: nome="${nome}", rich=${rich}, dato=${dato}, saldo=${saldo}`);
         
         const item = document.createElement('div'); item.className='item';
         
         const info = document.createElement('div'); info.className='item-info';
         const nameDiv = document.createElement('div'); nameDiv.className='item-name'; nameDiv.textContent = nome;
         const subDiv = document.createElement('div'); subDiv.className='item-sub';
-        
-        // Concatenazione manuale sicura
         subDiv.textContent = "Rich: " + rich + " | Dato: " + dato + " | Saldo: " + saldo;
         
         info.appendChild(nameDiv); info.appendChild(subDiv);
@@ -203,6 +215,7 @@ function disegnaListaV2(filtro) {
         item.appendChild(info); item.appendChild(actions);
         container.appendChild(item);
     }
+    log('✓ Lista renderizzata');
 }
 
 document.getElementById('nominativo-filter').addEventListener('change', e => disegnaListaV2(e.target.value));
@@ -212,15 +225,15 @@ function apriEdit(id) {
     const r = datiRinnovi.find(x => x.id === id); if(!r) return;
     document.getElementById('m_id').value = r.id;
     document.getElementById('m_nominativo').value = r.nominativo || '';
-    document.getElementById('m_num_rich').value = r.num_credito_rich ?? 0;
-    document.getElementById('m_num_dato').value = r.num_credito_dato ?? 0;
-    document.getElementById('m_num_saldo').value = r.num_credito_dare ?? 0;
+    document.getElementById('m_num_rich').value = (r.num_credito_rich != null) ? r.num_credito_rich : 0;
+    document.getElementById('m_num_dato').value = (r.num_credito_dato != null) ? r.num_credito_dato : 0;
+    document.getElementById('m_num_saldo').value = (r.num_credito_dare != null) ? r.num_credito_dare : 0;
     document.getElementById('m_data_rich').value = r.data_credito_rinnovo_rich || '';
     document.getElementById('m_data_dato').value = r.data_credito_rinnovo_dato || '';
     document.getElementById('m_data_saldo').value = r.data_saldo || '';
-    document.getElementById('m_val_rich').value = r.val_nc_rich ?? 0;
-    document.getElementById('m_val_dato').value = r.val_nc_dato ?? 0;
-    document.getElementById('m_val_saldo').value = r.val_nc_saldo ?? 0;
+    document.getElementById('m_val_rich').value = (r.val_nc_rich != null) ? r.val_nc_rich : 0;
+    document.getElementById('m_val_dato').value = (r.val_nc_dato != null) ? r.val_nc_dato : 0;
+    document.getElementById('m_val_saldo').value = (r.val_nc_saldo != null) ? r.val_nc_saldo : 0;
     document.getElementById('m_note').value = r.note || '';
     document.getElementById('editModal').classList.add('active');
 }
@@ -240,15 +253,20 @@ async function salvaModifica() {
         val_nc_saldo: parseFloat(document.getElementById('m_val_saldo').value)||0,
         note: document.getElementById('m_note').value };
     try {
+        log('Salvataggio in corso...');
         const res = await fetch('/api/rinnovo', { method:'POST', headers:getHeaders('application/json'), body:JSON.stringify({dati}) });
-        if(!res.ok) throw new Error('Errore save');
+        if(!res.ok) {
+            const err = await res.text();
+            throw new Error(`HTTP ${res.status}: ${err}`);
+        }
         showToast("✅ Salvato!"); chiudiModal(); caricaDati();
-    } catch(e) { alert("❌ "+e.message); }
+    } catch(e) { log('Errore save: '+e.message); alert("❌ "+e.message); }
 }
 
 async function elimina(id) {
     if(!confirm("Eliminare questo record?")) return;
     try { 
+        log('Eliminazione record '+id+'...');
         const res = await fetch('/api/rinnovo/'+id, {method:'DELETE', headers:getHeaders()});
         if(!res.ok) {
             const err = await res.text();
@@ -256,7 +274,7 @@ async function elimina(id) {
         }
         showToast("🗑️ Eliminato"); caricaDati(); 
     }
-    catch(e) { alert("Errore delete: "+e.message); }
+    catch(e) { log('Errore delete: '+e.message); alert("Errore: "+e.message); }
 }
 function showToast(m) { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
 
