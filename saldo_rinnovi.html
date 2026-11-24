@@ -3,160 +3,243 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Saldo Rinnovi - FIXED</title>
+<title>Saldo Rinnovi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="/auth.js?v=9999"></script>
 <style>
-body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-.container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-h2 { text-align: center; color: #333; }
-#debug { background: #1e1e1e; color: #00ff00; padding: 15px; margin: 15px 0; font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; border-radius: 4px; }
-.item { background: #fff; border: 1px solid #ddd; padding: 12px; margin: 8px 0; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
-.item-info { flex-grow: 1; }
-.item-name { font-weight: bold; font-size: 15px; color: #333; }
-.item-data { font-size: 12px; color: #666; margin-top: 4px; }
-.btn { padding: 6px 12px; margin-left: 5px; border: none; border-radius: 4px; cursor: pointer; color: white; font-size: 13px; }
-.btn-edit { background: #ff9800; }
-.btn-del { background: #f44336; }
-.error-box { color: #c62828; background: #ffebee; padding: 15px; border-radius: 6px; margin-top: 10px; text-align: center; }
+body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+.container { background: white; border-radius: 10px; padding: 20px; max-width: 600px; margin: 0 auto; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+h2 { text-align: center; color: #333; margin-top: 0; }
+.counter-wrapper { text-align: center; margin-bottom: 15px; }
+.counter { display: inline-block; background: #0088cc; color: white; padding: 6px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; }
+.controls { display: flex; gap: 10px; margin-bottom: 15px; }
+select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+.btn-add { background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+
+#lista-v2 { min-height: 200px; }
+
+.item { background: #fff; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+.item-info { flex-grow: 1; overflow: hidden; margin-right: 10px; }
+.item-name { font-weight: bold; font-size: 15px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-sub { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.4; word-break: break-word; }
+.item-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.item-actions button { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.btn-edit { background: #ff9800; color: white; }
+.btn-del { background: #f44336; color: white; }
+
+.empty { text-align: center; color: #888; padding: 30px; }
+.error-box { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; border: 1px solid #ef9a9a; word-break: break-all; font-size: 12px; }
+.loading { text-align: center; color: #0088cc; padding: 30px; font-weight: bold; }
+
+/* Modal Styles */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: white; border-radius: 10px; padding: 20px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; position: relative; }
+.modal h3 { text-align: center; margin-top: 0; color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+.close-modal { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-weight: bold; font-size: 12px; margin-bottom: 4px; color: #555; }
+.form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+.form-row { display: flex; gap: 10px; }
+.form-row > div { flex: 1; }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+.btn-cancel { background: #9e9e9e; color: white; }
+.btn-save { background: #4caf50; color: white; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 6px; opacity: 0; transition: 0.3s; z-index: 200; }
+.toast.show { opacity: 1; }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>📊 Saldo Rinnovi - DEBUG MODE</h2>
-<div id="debug">Inizializzazione...</div>
-<div id="lista"></div>
+    <h2>📊 Saldo Rinnovi</h2>
+    <div class="counter-wrapper"><span class="counter" id="counter">Totale: 0</span></div>
+    <div class="controls">
+        <select id="nominativo-filter"><option value="">-- Seleziona Rinnovo --</option></select>
+        <button class="btn-add" onclick="apriModal()">➕ Aggiungi</button>
+    </div>
+    
+    <div id="lista-v2"><div class="loading">⏳ Caricamento...</div></div>
 </div>
 
+<!-- MODAL -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <button class="close-modal" onclick="chiudiModal()">×</button>
+        <h3>✏️ Modifica Saldo Rinnovo</h3>
+        <div class="form-group"><label>Nominativo</label><input type="text" id="m_nominativo" readonly style="background:#f0f0f0;"><input type="hidden" id="m_id"></div>
+        <div class="form-row">
+            <div class="form-group"><label>Num Credito Rich</label><input type="number" id="m_num_rich"></div>
+            <div class="form-group"><label>Num Credito Dato</label><input type="number" id="m_num_dato"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Data Credito Rich</label><input type="date" id="m_data_rich"></div>
+            <div class="form-group"><label>Data Credito Dato</label><input type="date" id="m_data_dato"></div>
+        </div>
+        <div class="form-group"><label>Val NC Rich (€)</label><input type="number" step="0.01" id="m_val_rich"></div>
+        <div class="form-row">
+            <div class="form-group"><label>Num Credito Saldo</label><input type="number" id="m_num_saldo"></div>
+            <div class="form-group"><label>Data Credito Rinnovo Saldo</label><input type="date" id="m_data_saldo"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Val NC Dato (€)</label><input type="number" step="0.01" id="m_val_dato"></div>
+            <div class="form-group"><label>Val NC Saldo (€)</label><input type="number" step="0.01" id="m_val_saldo"></div>
+        </div>
+        <div class="form-group"><label>Note</label><textarea id="m_note" rows="3"></textarea></div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="chiudiModal()">Annulla</button>
+            <button class="btn-save" onclick="salvaModifica()">💾 Salva</button>
+        </div>
+    </div>
+</div>
+<div class="toast" id="toast"></div>
+
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
+const tg = window.Telegram.WebApp; tg.expand();
+function getHeaders(t) { const h={}; if(t) h['Content-Type']=t; if(tg.initData) h['X-Telegram-Init-Data']=tg.initData; return h; }
+let datiRinnovi = [];
 
-function log(msg) {
-    const d = document.getElementById('debug');
-    d.textContent += msg + '\n';
-    d.scrollTop = d.scrollHeight;
-    console.log(msg);
-}
-
-async function carica() {
-    const lista = document.getElementById('lista');
-    log('=== INIZIO TEST ===');
+async function caricaDati() {
+    const container = document.getElementById('lista-v2');
     
     try {
-        log('1. Chiamata fetch...');
-        const res = await fetch('/api/elenco_rinnovi?test=' + Date.now());
-        log('2. Status: ' + res.status);
+        const res = await fetch('/api/elenco_rinnovi?nocache=' + Date.now(), { 
+            headers: getHeaders(), 
+            cache: 'no-store' 
+        });
         
-        const text = await res.text();
-        log('3. Raw response (' + text.length + ' chars): ' + text.substring(0, 300));
-        
-        let data;
-        try {
-            data = JSON.parse(text);
-            log('4. ✓ JSON parsato. Type: ' + typeof data + ', Array: ' + Array.isArray(data));
-        } catch(e) {
-            throw new Error('JSON invalid: ' + e.message);
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`HTTP ${res.status}: ${errText.substring(0, 200)}`);
         }
         
-        // FIX: Gestione esplicita risposta non-array
-        if (!Array.isArray(data)) {
-            log('✗ ERRORE: Il server ha restituito un oggetto invece di un array!');
-            log('Contenuto: ' + JSON.stringify(data));
-            
-            // Se è un oggetto error di FastAPI, mostralo
-            if (data.detail) {
-                lista.innerHTML = '<div class="error-box"><strong>Errore Backend:</strong><br>' + data.detail + '</div>';
-            } else {
-                lista.innerHTML = '<div class="error-box"><strong>Errore Formato Dati:</strong><br>Il server non ha restituito un array valido.</div>';
-            }
-            return;
+        const rawText = await res.text();
+        let parsed;
+        try { 
+            parsed = JSON.parse(rawText); 
+        } catch(e) { 
+            throw new Error("JSON Invalido: " + rawText.substring(0, 200)); 
         }
         
-        log('5. Record ricevuti: ' + data.length);
-        
-        if (data.length > 0) {
-            const first = data[0];
-            log('6. Chiavi primo record: ' + Object.keys(first).join(', '));
-            log('7. Primo record: ' + JSON.stringify(first));
-            
-            // Test accesso proprietà
-            log('8. Test valori:');
-            log('   id=' + first.id + ' (' + typeof first.id + ')');
-            log('   nominativo=' + first.nominativo + ' (' + typeof first.nominativo + ')');
-            log('   num_credito_rich=' + first.num_credito_rich + ' (' + typeof first.num_credito_rich + ')');
+        if (!Array.isArray(parsed)) {
+            throw new Error("Il server non ha restituito un array. Tipo: " + typeof parsed);
         }
         
-        // RENDERING
-        lista.innerHTML = '';
-        if (data.length === 0) {
-            lista.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Nessun dato trovato.</div>';
-            return;
-        }
+        datiRinnovi = parsed;
+        document.getElementById('counter').textContent = "Totale: " + datiRinnovi.length;
         
-        for (let i = 0; i < data.length; i++) {
-            const r = data[i];
-            
-            const item = document.createElement('div');
-            item.className = 'item';
-            
-            const info = document.createElement('div');
-            info.className = 'item-info';
-            
-            const name = document.createElement('div');
-            name.className = 'item-name';
-            name.textContent = (r.nominativo || 'ID:' + r.nominativo_id);
-            
-            const dataDiv = document.createElement('div');
-            dataDiv.className = 'item-data';
-            
-            // Lettura sicura valori
-            const rich = (typeof r.num_credito_rich === 'number') ? r.num_credito_rich : 0;
-            const dato = (typeof r.num_credito_dato === 'number') ? r.num_credito_dato : 0;
-            const saldo = (typeof r.num_credito_dare === 'number') ? r.num_credito_dare : 0;
-            
-            dataDiv.textContent = 'Rich: ' + rich + ' | Dato: ' + dato + ' | Saldo: ' + saldo;
-            
-            info.appendChild(name);
-            info.appendChild(dataDiv);
-            
-            const actions = document.createElement('div');
-            const btnE = document.createElement('button');
-            btnE.className = 'btn btn-edit';
-            btnE.textContent = '✏️';
-            btnE.onclick = () => log('Edit ID: ' + r.id);
-            
-            const btnD = document.createElement('button');
-            btnD.className = 'btn btn-del';
-            btnD.textContent = '🗑️';
-            btnD.onclick = async () => {
-                if (confirm('Eliminare ID ' + r.id + '?')) {
-                    try {
-                        await fetch('/api/rinnovo/' + r.id, { method: 'DELETE' });
-                        log('✓ Eliminato');
-                        carica();
-                    } catch(e) {
-                        log('✗ Errore delete: ' + e.message);
-                    }
-                }
-            };
-            
-            actions.appendChild(btnE);
-            actions.appendChild(btnD);
-            
-            item.appendChild(info);
-            item.appendChild(actions);
-            lista.appendChild(item);
-        }
+        const sel = document.getElementById('nominativo-filter');
+        sel.innerHTML = '<option value="">-- Seleziona Rinnovo --</option>';
+        const unici = [...new Set(datiRinnovi.map(r => r.nominativo).filter(n=>n))].sort();
+        unici.forEach(n => { const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
         
-        log('9. ✓ Rendering completato');
+        disegnaListaV2();
         
     } catch(e) {
-        log('✗ ERRORE FATALE: ' + e.message);
-        lista.innerHTML = '<div class="error-box">' + e.message + '</div>';
+        console.error(e);
+        container.innerHTML = '<div class="error-box"><strong>Errore:</strong><br>' + e.message + '</div>';
     }
 }
 
-carica();
+function disegnaListaV2(filtro) {
+    const container = document.getElementById('lista-v2');
+    container.innerHTML = '';
+    let lista = filtro ? datiRinnovi.filter(r => r.nominativo === filtro) : datiRinnovi;
+    
+    if(lista.length === 0) { 
+        container.innerHTML = '<div class="empty">Nessun dato trovato.</div>'; 
+        return; 
+    }
+    
+    for(let i=0; i<lista.length; i++) {
+        const r = lista[i];
+        
+        // Lettura valori con controllo esplicito
+        const rich = (typeof r.num_credito_rich === 'number') ? r.num_credito_rich : 0;
+        const dato = (typeof r.num_credito_dato === 'number') ? r.num_credito_dato : 0;
+        const saldo = (typeof r.num_credito_dare === 'number') ? r.num_credito_dare : 0;
+        const nome = r.nominativo || ("ID:" + r.nominativo_id);
+        
+        const item = document.createElement('div'); item.className='item';
+        
+        const info = document.createElement('div'); info.className='item-info';
+        const nameDiv = document.createElement('div'); nameDiv.className='item-name'; nameDiv.textContent = nome;
+        const subDiv = document.createElement('div'); subDiv.className='item-sub';
+        subDiv.textContent = "Rich: " + rich + " | Dato: " + dato + " | Saldo: " + saldo;
+        
+        info.appendChild(nameDiv); info.appendChild(subDiv);
+        
+        const actions = document.createElement('div'); actions.className='item-actions';
+        const btnE = document.createElement('button'); btnE.className='btn-edit'; btnE.textContent='✏️'; 
+        btnE.onclick = ((id)=>()=>apriEdit(id))(r.id);
+        const btnD = document.createElement('button'); btnD.className='btn-del'; btnD.textContent='🗑️';
+        btnD.onclick = ((id)=>()=>elimina(id))(r.id);
+        actions.appendChild(btnE); actions.appendChild(btnD);
+        
+        item.appendChild(info); item.appendChild(actions);
+        container.appendChild(item);
+    }
+}
+
+document.getElementById('nominativo-filter').addEventListener('change', e => disegnaListaV2(e.target.value));
+function apriModal() { alert("Usa 'Nuovo Rinnovo' per aggiungere."); }
+
+function apriEdit(id) {
+    const r = datiRinnovi.find(x => x.id === id); if(!r) return;
+    document.getElementById('m_id').value = r.id;
+    document.getElementById('m_nominativo').value = r.nominativo || '';
+    document.getElementById('m_num_rich').value = (r.num_credito_rich != null) ? r.num_credito_rich : 0;
+    document.getElementById('m_num_dato').value = (r.num_credito_dato != null) ? r.num_credito_dato : 0;
+    document.getElementById('m_num_saldo').value = (r.num_credito_dare != null) ? r.num_credito_dare : 0;
+    document.getElementById('m_data_rich').value = r.data_credito_rinnovo_rich || '';
+    document.getElementById('m_data_dato').value = r.data_credito_rinnovo_dato || '';
+    document.getElementById('m_data_saldo').value = r.data_saldo || '';
+    document.getElementById('m_val_rich').value = (r.val_nc_rich != null) ? r.val_nc_rich : 0;
+    document.getElementById('m_val_dato').value = (r.val_nc_dato != null) ? r.val_nc_dato : 0;
+    document.getElementById('m_val_saldo').value = (r.val_nc_saldo != null) ? r.val_nc_saldo : 0;
+    document.getElementById('m_note').value = r.note || '';
+    document.getElementById('editModal').classList.add('active');
+}
+function chiudiModal() { document.getElementById('editModal').classList.remove('active'); }
+
+async function salvaModifica() {
+    const id = document.getElementById('m_id').value;
+    const dati = { azione:'modifica_rinnovo', id:parseInt(id), 
+        num_credito_rich: parseInt(document.getElementById('m_num_rich').value)||0,
+        num_credito_dato: parseInt(document.getElementById('m_num_dato').value)||0,
+        data_credito_rinnovo_rich: document.getElementById('m_data_rich').value,
+        data_credito_rinnovo_dato: document.getElementById('m_data_dato').value,
+        val_nc_rich: parseFloat(document.getElementById('m_val_rich').value)||0,
+        num_credito_dare: parseInt(document.getElementById('m_num_saldo').value)||0,
+        data_saldo: document.getElementById('m_data_saldo').value,
+        val_nc_dato: parseFloat(document.getElementById('m_val_dato').value)||0,
+        val_nc_saldo: parseFloat(document.getElementById('m_val_saldo').value)||0,
+        note: document.getElementById('m_note').value };
+    try {
+        const res = await fetch('/api/rinnovo', { method:'POST', headers:getHeaders('application/json'), body:JSON.stringify({dati}) });
+        if(!res.ok) {
+            const err = await res.text();
+            throw new Error(`HTTP ${res.status}: ${err}`);
+        }
+        showToast("✅ Salvato!"); chiudiModal(); caricaDati();
+    } catch(e) { alert("❌ "+e.message); }
+}
+
+async function elimina(id) {
+    if(!confirm("Eliminare questo record?")) return;
+    try { 
+        const res = await fetch('/api/rinnovo/'+id, {method:'DELETE', headers:getHeaders()});
+        if(!res.ok) {
+            const err = await res.text();
+            throw new Error(`HTTP ${res.status}: ${err}`);
+        }
+        showToast("🗑️ Eliminato"); caricaDati(); 
+    }
+    catch(e) { alert("Errore: "+e.message); }
+}
+function showToast(m) { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
+
+caricaDati();
 </script>
 </body>
 </html>
