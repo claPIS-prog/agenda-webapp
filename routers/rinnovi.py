@@ -85,11 +85,11 @@ def api_scadenze(request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# ENDPOINT STORICO RINNOVI (Modulo Storico Rinnovi)
+# ENDPOINT STORICO RINNOVI (FIX 404)
 # -----------------------------------------------------------------------------
 @router.get("/api/rinnovi_lista")
 def api_rinnovi_lista(request: Request):
-    """Restituisce lo storico completo dei rinnovi per il modulo 'Storico Rinnovi'"""
+    """Restituisce lo storico completo dei rinnovi"""
     get_current_user(request)
     conn = db_conn()
     try:
@@ -128,6 +128,7 @@ def api_rinnovi_lista(request: Request):
             return rows
             
     except Exception as e:
+        print(f"[ERRORE /api/rinnovi_lista] {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
@@ -198,21 +199,3 @@ def api_rinnovo(payload: RinnovoPayload, request: Request):
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        conn.close()
-    return {"ok": True}
-
-@router.delete("/api/rinnovo/{id}")
-def api_rinnovo_cancella(id: int, request: Request):
-    get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM saldo_rinnovi WHERE rinnovo_id = %s", (id,))
-            cur.execute("DELETE FROM rinnovi WHERE id = %s", (id,))
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-    return {"ok": True}
