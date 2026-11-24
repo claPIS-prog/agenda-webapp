@@ -13,7 +13,7 @@ class CreditoPayload(BaseModel):
 def api_saldo_iniziale(payload: CreditoPayload, request: Request):
     """
     Salva o aggiorna il SALDO INIZIALE con ID fisso = 1.
-    FIX: Rimuovo valore_totale dalla query per evitare errori 500 se la colonna manca.
+    FIX: Include valore_singolo e valore_totale nelle query.
     """
     get_current_user(request)
     dati = payload.dati
@@ -26,13 +26,15 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
             
             qta = int(dati.get("quantita", 0))
             unitario = float(dati.get("valore_singolo", 0))
+            totale = float(dati.get("valore_totale", 0))
             
             if exists:
                 # Aggiorna il saldo esistente
                 cur.execute("""
                     UPDATE crediti SET 
                         quantita=%s, 
-                        valore_singolo=%s, 
+                        valore_singolo=%s,
+                        valore_totale=%s,
                         data_acquisto=%s, 
                         note=%s, 
                         creato_il=%s 
@@ -40,6 +42,7 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
                 """, (
                     qta,
                     unitario,
+                    totale,
                     dati.get("data_acquisto", ""),
                     dati.get("note", "Saldo Iniziale"),
                     datetime.now().isoformat()
@@ -49,14 +52,15 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
                 cur.execute("""
                     INSERT INTO crediti (
                         id, fornitore, data_acquisto, quantita, 
-                        valore_singolo, note, creato_il
+                        valore_singolo, valore_totale, note, creato_il
                     ) VALUES (
-                        1, 'SALDO INIZIALE', %s, %s, %s, 'Saldo Iniziale', %s
+                        1, 'SALDO INIZIALE', %s, %s, %s, %s, 'Saldo Iniziale', %s
                     )
                 """, (
                     dati.get("data_acquisto", ""),
                     qta,
                     unitario,
+                    totale,
                     datetime.now().isoformat()
                 ))
         conn.commit()
@@ -84,14 +88,15 @@ def api_credito(payload: CreditoPayload, request: Request):
             cur.execute("""
                 INSERT INTO crediti (
                     id, fornitore, data_acquisto, quantita, 
-                    valore_singolo, note, creato_il
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    valore_singolo, valore_totale, note, creato_il
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 nuovo_id,
                 dati.get("fornitore", ""),
                 dati.get("data_acquisto", ""),
                 int(dati.get("quantita", 1)),
                 float(dati.get("valore_singolo", 0)),
+                float(dati.get("valore_totale", 0)),
                 dati.get("note", ""),
                 datetime.now().isoformat()
             ))
