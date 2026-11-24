@@ -11,20 +11,29 @@ class CreditoPayload(BaseModel):
 
 @router.post("/api/saldo_iniziale")
 def api_saldo_iniziale(payload: CreditoPayload, request: Request):
-    """Salva/Aggiorna il SALDO INIZIALE con ID fisso = 1"""
+    """
+    Salva o aggiorna il SALDO INIZIALE con ID fisso = 1.
+    Se non esiste, lo crea. Se esiste, lo aggiorna.
+    """
     get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
         with conn.cursor() as cur:
+            # Verifica se esiste già un record con ID=1
             cur.execute("SELECT id FROM crediti WHERE id = 1 LIMIT 1")
             exists = cur.fetchone()
             
             if exists:
+                # Aggiorna il saldo esistente
                 cur.execute("""
                     UPDATE crediti SET 
-                        quantita=%s, valore_totale=%s, valore_singolo=%s, 
-                        data_acquisto=%s, note=%s, creato_il=%s 
+                        quantita=%s, 
+                        valore_totale=%s, 
+                        valore_singolo=%s, 
+                        data_acquisto=%s, 
+                        note=%s, 
+                        creato_il=%s 
                     WHERE id = 1
                 """, (
                     int(dati.get("quantita", 0)),
@@ -35,9 +44,14 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
                     datetime.now().isoformat()
                 ))
             else:
+                # Crea nuovo record con ID=1
                 cur.execute("""
-                    INSERT INTO crediti (id, fornitore, data_acquisto, quantita, valore_totale, valore_singolo, note, creato_il)
-                    VALUES (1, 'SALDO INIZIALE', %s, %s, %s, %s, 'Saldo Iniziale', %s)
+                    INSERT INTO crediti (
+                        id, fornitore, data_acquisto, quantita, 
+                        valore_totale, valore_singolo, note, creato_il
+                    ) VALUES (
+                        1, 'SALDO INIZIALE', %s, %s, %s, %s, 'Saldo Iniziale', %s
+                    )
                 """, (
                     dati.get("data_acquisto", ""),
                     int(dati.get("quantita", 0)),
@@ -52,18 +66,23 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
 
 @router.post("/api/credito")
 def api_credito(payload: CreditoPayload, request: Request):
-    """Salva NUOVO ACQUISTO con ID automatico progressivo"""
+    """
+    Salva un NUOVO ACQUISTO con ID automatico progressivo (MAX(id) + 1).
+    """
     get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
         with conn.cursor() as cur:
+            # Genera contatore automatico
             cur.execute("SELECT COALESCE(MAX(id), 1) + 1 FROM crediti")
             nuovo_id = cur.fetchone()[0]
             
             cur.execute("""
-                INSERT INTO crediti (id, fornitore, data_acquisto, quantita, valore_totale, valore_singolo, note, creato_il)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO crediti (
+                    id, fornitore, data_acquisto, quantita, 
+                    valore_totale, valore_singolo, note, creato_il
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 nuovo_id,
                 dati.get("fornitore", ""),
@@ -81,15 +100,24 @@ def api_credito(payload: CreditoPayload, request: Request):
 
 @router.get("/api/crediti_disponibili")
 def api_crediti_disponibili(request: Request):
-    """Restituisce crediti disponibili per Rinnovi"""
+    """
+    Restituisce tutti i crediti con quantità > 0 per il menu Rinnovi.
+    Etichetta ID=1 come 'Saldo Iniziale', gli altri come 'Acquisto #X'.
+    """
     get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, 
-                       CASE WHEN id = 1 THEN 'Saldo Iniziale' ELSE 'Acquisto #' || id END as tipo, 
-                       quantita, valore_singolo as valore, data_acquisto as data_ref 
+                SELECT 
+                    id, 
+                    CASE 
+                        WHEN id = 1 THEN 'Saldo Iniziale' 
+                        ELSE 'Acquisto #' || id 
+                    END as tipo, 
+                    quantita, 
+                    valore_singolo as valore, 
+                    data_acquisto as data_ref 
                 FROM crediti 
                 WHERE quantita > 0 
                 ORDER BY id ASC
