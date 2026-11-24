@@ -33,7 +33,7 @@ def api_scadenze(request: Request):
                 raw_date = r["scadenza"]
                 scad_date = None
                 
-                # PARSING SICURO IN PYTHON
+                # PARSING SICURO IN PYTHON (Gestisce DD/MM/YYYY e YYYY-MM-DD)
                 if raw_date:
                     date_str = str(raw_date).strip()
                     if '/' in date_str:
@@ -45,11 +45,12 @@ def api_scadenze(request: Request):
                             scad_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                         except ValueError: pass
                 
+                # Se la data non è valida, salta questo record
                 if not scad_date: continue
                 
                 delta = (scad_date - oggi).days
                 
-                # Escludi se esiste un rinnovo futuro attivo
+                # Escludi se esiste un rinnovo futuro attivo per lo stesso nominativo
                 has_future_renewal = False
                 for r2 in rows:
                     if (r2["nominativo_id"] == r["nominativo_id"] and 
@@ -89,4 +90,4 @@ def api_scadenze(request: Request):
     finally:
         conn.close()
 
-# ... resto del file invariato ...
+# ... resto del file invariato (crediti_disponibili, elenco_rinnovi, api_rinnovo, ecc.) ...
