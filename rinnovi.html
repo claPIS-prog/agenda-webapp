@@ -16,7 +16,6 @@ input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; bor
 .row > div { flex: 1; }
 .section-title { font-size: 12px; color: #0088cc; font-weight: bold; margin: 14px 0 6px; text-transform: uppercase; border-bottom: 1px solid #e0e0e0; padding-bottom: 3px; }
 .btn-save { width: 100%; background: #4caf50; color: white; border: none; padding: 12px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
-.btn-save:hover { background: #43a047; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
 .toast.show { opacity: 1; }
 small { color: #666; display: block; margin-top: 4px; font-size: 12px; }
@@ -37,7 +36,8 @@ small { color: #666; display: block; margin-top: 4px; font-size: 12px; }
 
 <div class="row">
     <div><label>Mesi:</label><input type="number" id="r_mesi" value="12"></div>
-    <div><label>Scadenza:</label><input type="text" id="r_scadenza" placeholder="DD/MM/YYYY"></div>
+    <!-- (E) Formato data uguale a data operazione -->
+    <div><label>Scadenza:</label><input type="date" id="r_scadenza"></div>
 </div>
 
 <div class="row">
@@ -47,6 +47,7 @@ small { color: #666; display: block; margin-top: 4px; font-size: 12px; }
 
 <div class="section-title">🎫 Utilizzo Credito</div>
 <label>Credito da utilizzare:</label>
+<!-- (C/E) Listbox che legge contatore crediti -->
 <select id="r_credito_id">
     <option value="">-- Nessun credito --</option>
 </select>
@@ -90,7 +91,9 @@ async function init() {
     } catch(e) { console.error(e); }
 
     // Imposta data odierna
-    document.getElementById('r_data_operazione').value = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('r_data_operazione').value = today;
+    document.getElementById('r_scadenza').value = today; // Default scadenza = oggi
 
     // Carica Crediti Disponibili
     try {
