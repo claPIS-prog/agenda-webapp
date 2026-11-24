@@ -4,21 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<!-- TITOLO CORRETTO -->
+<!-- TITOLO CORRETTO NEL BROWSER -->
 <title>Saldo Rinnovi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 500px; margin: 0 auto; }
-/* TITOLO CORRETTO NELLO STILE */
+/* TITOLO PRINCIPALE CORRETTO */
 h2 { text-align: center; color: #333; margin-top:0; }
 h3 { text-align: center; font-size: 16px; color: #444; margin: 20px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
 label { display: block; font-weight: bold; margin: 10px 0 4px; font-size: 13px; }
 input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
 .row { display: flex; gap: 8px; } .row > div { flex: 1; }
 .btn-save { width: 100%; background: #4caf50; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; margin-top: 20px; cursor: pointer; }
-.btn-saldo { background: #0088cc !important; }
+.btn-saldo { background: #0088cc !important; } /* Colore blu per il saldo */
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px; border-radius: 6px; opacity: 0; transition: 0.3s; z-index:9999;}
 .toast.show { opacity: 1; }
 .alert-warning { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; font-size: 12px; margin-bottom: 15px; text-align: center; border: 1px solid #ffeeba; }
@@ -31,7 +31,7 @@ hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
 <!-- TITOLO VISIBILE CORRETTO -->
 <h2>📊 Saldo Rinnovi</h2>
 
-<!-- SEZIONE SALDO INIZIALE -->
+<!-- SEZIONE SALDO INIZIALE (PRIMARIA) -->
 <div id="saldo-section">
     <div class="alert-warning">⚠️ IMPOSTA SALDO INIZIALE (Stock di partenza)</div>
     
@@ -53,7 +53,7 @@ hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
 
 <hr>
 
-<!-- SEZIONE NUOVO ACQUISTO -->
+<!-- SEZIONE NUOVO ACQUISTO (SECONDARIA) -->
 <div id="acquisto-section">
     <h3>Nuovo Acquisto Credito</h3>
     
