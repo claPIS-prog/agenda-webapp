@@ -4,9 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>Saldo Rinnovi</title>
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Saldo Rinnovi v2</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="/auth.js"></script>
+<script src="/auth.js?v=999"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 600px; margin: 0 auto; }
@@ -113,6 +115,7 @@ select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font
 <div class="toast" id="toast"></div>
 
 <script>
+// VERSIONE SCRIPT: 2.0 - FIX DEFINITIVO CACHE TELEGRAM
 const tg = window.Telegram.WebApp;
 tg.expand();
 
@@ -128,8 +131,12 @@ let datiRinnovi = [];
 async function caricaDati() {
     const container = document.getElementById('lista');
     try {
-        // Aggiungiamo timestamp per forzare refresh cache
-        const res = await fetch('/api/elenco_rinnovi?t=' + Date.now(), { headers: getHeaders() });
+        // FIX CACHE: Aggiungiamo timestamp unico ad ogni richiesta
+        const uniqueId = Date.now() + Math.random();
+        const res = await fetch('/api/elenco_rinnovi?nocache=' + uniqueId, { 
+            headers: getHeaders(),
+            cache: 'no-store' // Forza nessuna cache
+        });
         
         if (!res.ok) {
             const errText = await res.text();
@@ -138,10 +145,12 @@ async function caricaDati() {
         
         datiRinnovi = await res.json();
         
-        // DEBUG: Stampa in console il primo record per verificare struttura dati
-        console.log("DATI RICEVUTI DAL SERVER:", datiRinnovi);
+        // DEBUG: Stampa struttura dati in console
+        console.log("=== DATI RICEVUTI ===");
+        console.log("Numero record:", datiRinnovi.length);
         if(datiRinnovi.length > 0) {
-            console.log("PRIMO RECORD:", JSON.stringify(datiRinnovi[0]));
+            console.log("PRIMO RECORD COMPLETO:", JSON.stringify(datiRinnovi[0], null, 2));
+            console.log("Chiavi disponibili:", Object.keys(datiRinnovi[0]));
         }
         
         // Aggiorna contatore
@@ -169,10 +178,11 @@ async function caricaDati() {
     }
 }
 
-// FIX DEFINITIVO: Usiamo createElement invece di template string per evitare problemi di cache/interpolazione
+// FIX DEFINITIVO: Funzione di rendering completamente riscritta
+// Usa createElement invece di innerHTML per evitare problemi di cache JS
 function renderLista(filtro = '') {
     const container = document.getElementById('lista');
-    container.innerHTML = ''; // Pulisce completamente
+    container.innerHTML = ''; // Pulisce completamente il contenitore
     
     const filtrati = filtro ? datiRinnovi.filter(r => r.nominativo === filtro) : datiRinnovi;
     
@@ -181,41 +191,57 @@ function renderLista(filtro = '') {
         return;
     }
     
-    filtrati.forEach(r => {
+    filtrati.forEach(function(r) {
         // Creazione elemento DOM sicuro
-        const itemDiv = document.createElement('div');
+        var itemDiv = document.createElement('div');
         itemDiv.className = 'item';
         
-        const infoDiv = document.createElement('div');
+        var infoDiv = document.createElement('div');
         infoDiv.className = 'item-info';
         
-        const nameDiv = document.createElement('div');
+        var nameDiv = document.createElement('div');
         nameDiv.className = 'item-name';
-        nameDiv.textContent = r.nominativo || `ID: ${r.nominativo_id}`;
+        nameDiv.textContent = r.nominativo || ('ID: ' + r.nominativo_id);
         
-        const subDiv = document.createElement('div');
+        var subDiv = document.createElement('div');
         subDiv.className = 'item-sub';
-        // Lettura esplicita dei valori con fallback
-        const rich = r.num_credito_rich !== undefined && r.num_credito_rich !== null ? r.num_credito_rich : 0;
-        const dato = r.num_credito_dato !== undefined && r.num_credito_dato !== null ? r.num_credito_dato : 0;
-        const saldo = r.num_credito_dare !== undefined && r.num_credito_dare !== null ? r.num_credito_dare : 0;
-        subDiv.textContent = `Rich: ${rich} | Dato: ${dato} | Saldo: ${saldo}`;
+        
+        // Lettura esplicita dei valori con fallback sicuro
+        var rich = 0;
+        var dato = 0;
+        var saldo = 0;
+        
+        if (r.num_credito_rich !== undefined && r.num_credito_rich !== null) {
+            rich = r.num_credito_rich;
+        }
+        if (r.num_credito_dato !== undefined && r.num_credito_dato !== null) {
+            dato = r.num_credito_dato;
+        }
+        if (r.num_credito_dare !== undefined && r.num_credito_dare !== null) {
+            saldo = r.num_credito_dare;
+        }
+        
+        subDiv.textContent = 'Rich: ' + rich + ' | Dato: ' + dato + ' | Saldo: ' + saldo;
         
         infoDiv.appendChild(nameDiv);
         infoDiv.appendChild(subDiv);
         
-        const actionsDiv = document.createElement('div');
+        var actionsDiv = document.createElement('div');
         actionsDiv.className = 'item-actions';
         
-        const btnEdit = document.createElement('button');
+        var btnEdit = document.createElement('button');
         btnEdit.className = 'btn-edit';
         btnEdit.textContent = '✏️';
-        btnEdit.onclick = () => apriEdit(r.id);
+        btnEdit.onclick = (function(id) {
+            return function() { apriEdit(id); };
+        })(r.id);
         
-        const btnDel = document.createElement('button');
+        var btnDel = document.createElement('button');
         btnDel.className = 'btn-del';
         btnDel.textContent = '🗑️';
-        btnDel.onclick = () => elimina(r.id);
+        btnDel.onclick = (function(id) {
+            return function() { elimina(id); };
+        })(r.id);
         
         actionsDiv.appendChild(btnEdit);
         actionsDiv.appendChild(btnDel);
@@ -227,7 +253,7 @@ function renderLista(filtro = '') {
 }
 
 // Filtro select
-document.getElementById('nominativo-filter').addEventListener('change', (e) => {
+document.getElementById('nominativo-filter').addEventListener('change', function(e) {
     renderLista(e.target.value);
 });
 
@@ -236,13 +262,13 @@ function apriModal() {
 }
 
 function apriEdit(id) {
-    const r = datiRinnovi.find(x => x.id === id);
+    var r = datiRinnovi.find(function(x) { return x.id === id; });
     if (!r) return;
     
     document.getElementById('m_id').value = r.id;
     document.getElementById('m_nominativo').value = r.nominativo || '';
     
-    // Usa controllo esplicito per null/undefined
+    // Impostazione valori con controllo esplicito
     document.getElementById('m_num_rich').value = (r.num_credito_rich !== null && r.num_credito_rich !== undefined) ? r.num_credito_rich : 0;
     document.getElementById('m_num_dato').value = (r.num_credito_dato !== null && r.num_credito_dato !== undefined) ? r.num_credito_dato : 0;
     document.getElementById('m_num_saldo').value = (r.num_credito_dare !== null && r.num_credito_dare !== undefined) ? r.num_credito_dare : 0; 
@@ -267,8 +293,8 @@ function chiudiModal() {
 }
 
 async function salvaModifica() {
-    const id = document.getElementById('m_id').value;
-    const dati = {
+    var id = document.getElementById('m_id').value;
+    var dati = {
         azione: 'modifica_rinnovo',
         id: parseInt(id),
         num_credito_rich: parseInt(document.getElementById('m_num_rich').value) || 0,
@@ -284,10 +310,10 @@ async function salvaModifica() {
     };
     
     try {
-        const res = await fetch('/api/rinnovo', {
+        var res = await fetch('/api/rinnovo', {
             method: 'POST',
             headers: getHeaders('application/json'),
-            body: JSON.stringify({ dati })
+            body: JSON.stringify({ dati: dati })
         });
         if (!res.ok) throw new Error('Errore salvataggio');
         
@@ -302,7 +328,7 @@ async function salvaModifica() {
 async function elimina(id) {
     if (!confirm("Eliminare questo rinnovo?")) return;
     try {
-        await fetch(`/api/rinnovo/${id}`, { method: 'DELETE', headers: getHeaders() });
+        await fetch('/api/rinnovo/' + id, { method: 'DELETE', headers: getHeaders() });
         showToast("🗑️ Eliminato");
         caricaDati();
     } catch(e) {
@@ -311,10 +337,10 @@ async function elimina(id) {
 }
 
 function showToast(msg) {
-    const t = document.getElementById('toast');
+    var t = document.getElementById('toast');
     t.textContent = msg;
     t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2000);
+    setTimeout(function() { t.classList.remove('show'); }, 2000);
 }
 
 caricaDati();
