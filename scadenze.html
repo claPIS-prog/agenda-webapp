@@ -10,7 +10,6 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js"></script>
 <style>
-/* Stili identici per coerenza */
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
 .container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 600px; margin: 0 auto; }
 h2 { text-align: center; margin-top: 0; color: #333; }
@@ -43,6 +42,7 @@ h2 { text-align: center; margin-top: 0; color: #333; }
     <span class="badge badge-oggi">Oggi/Domani</span>
     <span class="badge badge-prossimi">Entro 7 gg</span>
 </div>
+<input type="text" class="search" id="search" placeholder="🔍 Cerca per nominativo..." oninput="render(this.value)">
 <div id="lista"><div class="empty">Caricamento...</div></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -59,6 +59,16 @@ function getHeaders(contentType) {
     return headers;
 }
 
+// Helper per convertire YYYY-MM-DD in GG/MM/AAAA
+const formatItalianDate = (dateStr) => {
+    if (!dateStr) return '-';
+    if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+};
+
 let scadenze = [];
 
 async function carica() {
@@ -74,22 +84,29 @@ async function carica() {
 
 function aggiornaContatore(totale) { document.getElementById('counter').textContent = 'Totale: ' + totale; }
 
-// --- RENDER CON CONTATORE ---
-function render() {
-    if (scadenze.length === 0) {
-        document.getElementById('lista').innerHTML = '<div class="empty">Nessuna scadenza nei prossimi 7 giorni. 🎉</div>';
+// --- RENDER CON CONTATORE E LAYOUT LISTA CONTATTI ---
+function render(filter) {
+    filter = (filter || '').toLowerCase();
+    const f = scadenze.filter(s => (s.nominativo || '').toLowerCase().includes(filter));
+    
+    if (f.length === 0) {
+        document.getElementById('lista').innerHTML = '<div class="empty">Nessuna scadenza trovata. 🎉</div>';
         return;
     }
-    document.getElementById('lista').innerHTML = scadenze.map((s, index) => {
+    
+    document.getElementById('lista').innerHTML = f.map((s, index) => {
         let badgeClass = s.giorni < 0 ? 'badge-scaduta' : (s.giorni <= 1 ? 'badge-oggi' : 'badge-prossimi');
         let badgeText = s.giorni < 0 ? 'Scaduta da ' + Math.abs(s.giorni) + ' giorni' : (s.giorni === 0 ? 'Scade oggi' : 'Tra ' + s.giorni + ' giorni');
+        
+        // Formatta la data in italiano per la visualizzazione
+        const scadenzaIt = formatItalianDate(s.scadenza);
         
         return '<div class="item">' +
             '<div class="item-name">' + 
                 '<span style="color:#888; font-size:12px; margin-right:8px;">' + (index + 1) + ' -</span> ' + 
                 '<span class="' + badgeClass + '">' + badgeText + '</span><br>' +
                 (s.nominativo || '') + 
-                '<div class="item-sub">📅 Scadenza: ' + (s.scadenza || '') + (s.orario_scadenza ? ' ore ' + s.orario_scadenza : '') + '</div>' +
+                '<div class="item-sub">📅 Scadenza: ' + scadenzaIt + (s.orario_scadenza ? ' ore ' + s.orario_scadenza : '') + '</div>' +
             '</div>' +
             '<div class="item-actions">' +
             '<button class="btn btn-rinnova" onclick="rinnova(' + s.nominativo_id + ', \'' + (s.nominativo || '').replace(/'/g,"\\'") + '\')">🔄 Rinnova</button>' +
@@ -99,7 +116,6 @@ function render() {
 }
 
 function rinnova(id, nome) {
-    // Logica per aprire il modulo rinnovi precompilato o redirect
     tg.showAlert('Funzione di rinnovo rapido per: ' + nome);
 }
 
