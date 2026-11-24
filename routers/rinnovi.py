@@ -7,18 +7,17 @@ import json
 
 router = APIRouter()
 
+# -----------------------------------------------------------------------------
+# ENDPOINT SCADENZE (Modulo Scadenze)
+# -----------------------------------------------------------------------------
 @router.get("/api/scadenze")
 def api_scadenze(request: Request):
-    """
-    Endpoint per le scadenze. Parsing date sicuro in Python.
-    """
     get_current_user(request)
     oggi = datetime.now().date()
     
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Query semplice senza cast ::date
             cur.execute("""
                 SELECT r.id, r.scadenza, r.orario_scadenza, r.nominativo_id, n.nominativo, r.data_operazione
                 FROM rinnovi r 
@@ -33,7 +32,6 @@ def api_scadenze(request: Request):
                 raw_date = r["scadenza"]
                 scad_date = None
                 
-                # Parsing sicuro in Python
                 if raw_date:
                     date_str = str(raw_date).strip()
                     if '/' in date_str:
@@ -47,8 +45,7 @@ def api_scadenze(request: Request):
                 
                 delta = (scad_date - oggi).days
                 
-                # Filtro logico: mostra solo scadute o entro 7 giorni
-                # Escludi se esiste un rinnovo futuro attivo per lo stesso nominativo
+                # Escludi se esiste un rinnovo futuro attivo
                 has_future_renewal = False
                 for r2 in rows:
                     if (r2["nominativo_id"] == r["nominativo_id"] and 
@@ -87,6 +84,57 @@ def api_scadenze(request: Request):
     finally:
         conn.close()
 
+# -----------------------------------------------------------------------------
+# ENDPOINT STORICO RINNOVI (Modulo Storico Rinnovi)
+# -----------------------------------------------------------------------------
+@router.get("/api/rinnovi_lista")
+def api_rinnovi_lista(request: Request):
+    """Restituisce lo storico completo dei rinnovi per il modulo 'Storico Rinnovi'"""
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 
+                    r.id, 
+                    r.nominativo_id, 
+                    n.nominativo, 
+                    r.tipo, 
+                    r.data_operazione, 
+                    r.mesi, 
+                    r.scadenza, 
+                    r.orario_scadenza, 
+                    r.importo_acconto, 
+                    r.importo_saldo, 
+                    r.data_acconto, 
+                    r.data_saldo, 
+                    r.note, 
+                    r.creato_il, 
+                    r.num_credito_rich, 
+                    r.num_credito_dato, 
+                    r.num_credito_dare, 
+                    r.data_credito_rinnovo_rich, 
+                    r.data_credito_rinnovo_dato, 
+                    r.val_singolo_nc_rich, 
+                    r.val_nc_rich, 
+                    r.credito_id
+                FROM rinnovi r 
+                JOIN nominativi n ON n.id = r.nominativo_id 
+                ORDER BY r.creato_il DESC
+            """)
+            
+            columns = [desc[0] for desc in cur.description]
+            rows = [dict(zip(columns, row)) for row in cur.fetchall()]
+            return rows
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+# -----------------------------------------------------------------------------
+# ENDPOINT GESTIONE RINNOVI (POST / DELETE)
+# -----------------------------------------------------------------------------
 @router.post("/api/rinnovo")
 def api_rinnovo(payload: RinnovoPayload, request: Request):
     get_current_user(request)
