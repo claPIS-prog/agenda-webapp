@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Saldo Rinnovi DEBUG</title>
+<title>Saldo Rinnovi v5</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js?v=9999"></script>
 <style>
@@ -30,7 +30,7 @@
     .empty { text-align: center; color: #888; padding: 30px; }
     .error-box { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; border: 1px solid #ef9a9a; word-break: break-all; font-size: 12px; }
     .loading { text-align: center; color: #0088cc; padding: 30px; font-weight: bold; }
-    .debug-panel { background: #1e1e1e; color: #00ff00; padding: 15px; margin: 15px 0; border-radius: 6px; font-size: 11px; font-family: 'Courier New', monospace; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; border: 1px solid #333; }
+    .debug-panel { background: #1e1e1e; color: #00ff00; padding: 15px; margin: 15px 0; border-radius: 6px; font-size: 11px; font-family: 'Courier New', monospace; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; border: 1px solid #333; display: none; }
 
     /* Modal Styles */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
@@ -60,8 +60,8 @@
         <button class="btn-add" onclick="apriModal()">➕ Aggiungi</button>
     </div>
     
-    <!-- PANELLO DI DEBUG VISIVO -->
-    <div id="debug-panel" class="debug-panel">In attesa di dati...</div>
+    <!-- PANELLO DI DEBUG (nascosto di default, visibile solo se ci sono errori) -->
+    <div id="debug-panel" class="debug-panel"></div>
     
     <div id="lista-v2"><div class="loading">⏳ Caricamento...</div></div>
 </div>
@@ -105,6 +105,7 @@ let datiRinnovi = [];
 
 function log(msg) {
     const panel = document.getElementById('debug-panel');
+    if(panel.style.display === 'none') panel.style.display = 'block';
     const time = new Date().toLocaleTimeString();
     panel.textContent += `[${time}] ${msg}\n`;
     panel.scrollTop = panel.scrollHeight;
@@ -113,36 +114,35 @@ function log(msg) {
 
 async function caricaDati() {
     const container = document.getElementById('lista-v2');
-    const panel = document.getElementById('debug-panel');
-    panel.textContent = '=== INIZIO CARICAMENTO ===\n';
+    log('=== INIZIO CARICAMENTO ===');
     
     try {
-        log('Chiamata a /api/elenco_rinnovi...');
+        log('Chiamata API...');
         const res = await fetch('/api/elenco_rinnovi?nocache=' + Date.now(), { 
             headers: getHeaders(), 
             cache: 'no-store' 
         });
         
-        log(`Status HTTP: ${res.status}`);
-        log(`Headers risposta: ${JSON.stringify(Object.fromEntries(res.headers.entries()))}`);
-        
-        const rawText = await res.text();
-        log(`Raw response (${rawText.length} chars): ${rawText.substring(0, 300)}${rawText.length > 300 ? '...' : ''}`);
+        log(`Status: ${res.status}`);
         
         if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${rawText.substring(0, 200)}`);
+            const errText = await res.text();
+            throw new Error(`HTTP ${res.status}: ${errText.substring(0, 200)}`);
         }
+        
+        const rawText = await res.text();
+        log(`Risposta ricevuta (${rawText.length} chars)`);
         
         let parsed;
         try { 
             parsed = JSON.parse(rawText); 
-            log(`✓ JSON parsato correttamente. Tipo: ${typeof parsed}, Array: ${Array.isArray(parsed)}`);
+            log('✓ JSON parsato');
         } catch(e) { 
             throw new Error("JSON Invalido: " + rawText.substring(0, 200)); 
         }
         
         if (!Array.isArray(parsed)) {
-            throw new Error("Risposta non è un array! Tipo: " + typeof parsed + "\nContenuto: " + JSON.stringify(parsed).substring(0, 200));
+            throw new Error("Risposta non è un array! Tipo: " + typeof parsed);
         }
         
         datiRinnovi = parsed;
@@ -150,10 +150,8 @@ async function caricaDati() {
         
         if(datiRinnovi.length > 0) {
             const first = datiRinnovi[0];
-            log(`Chiavi primo record: ${Object.keys(first).join(', ')}`);
-            log(`Primo record: ${JSON.stringify(first, null, 2).substring(0, 500)}`);
-        } else {
-            log('⚠ Nessun record trovato nel database');
+            log(`Chiavi: ${Object.keys(first).join(', ')}`);
+            log(`Primo record: ${JSON.stringify(first).substring(0, 300)}`);
         }
 
         document.getElementById('counter').textContent = "Totale: " + datiRinnovi.length;
@@ -167,11 +165,12 @@ async function caricaDati() {
         log('✓ Rendering completato');
         
     } catch(e) {
-        log(`✗ ERRORE FATALE: ${e.message}`);
+        log(`✗ ERRORE: ${e.message}`);
         container.innerHTML = '<div class="error-box"><strong>Errore:</strong><br>' + e.message + '</div>';
     }
 }
 
+// FIX DEFINITIVO: Rendering tramite DOM manipulation esplicita
 function disegnaListaV2(filtro) {
     const container = document.getElementById('lista-v2');
     container.innerHTML = '';
@@ -179,7 +178,6 @@ function disegnaListaV2(filtro) {
     
     if(lista.length === 0) { 
         container.innerHTML = '<div class="empty">Nessun dato trovato.</div>'; 
-        log('Lista vuota dopo filtro');
         return; 
     }
     
@@ -196,24 +194,45 @@ function disegnaListaV2(filtro) {
         
         log(`Record ${i}: nome="${nome}", rich=${rich}, dato=${dato}, saldo=${saldo}`);
         
-        const item = document.createElement('div'); item.className='item';
+        // Creazione elementi DOM esplicita
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'item';
         
-        const info = document.createElement('div'); info.className='item-info';
-        const nameDiv = document.createElement('div'); nameDiv.className='item-name'; nameDiv.textContent = nome;
-        const subDiv = document.createElement('div'); subDiv.className='item-sub';
-        subDiv.textContent = "Rich: " + rich + " | Dato: " + dato + " | Saldo: " + saldo;
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'item-info';
         
-        info.appendChild(nameDiv); info.appendChild(subDiv);
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'item-name';
+        nameDiv.textContent = nome;  // Usa textContent, NON innerHTML
         
-        const actions = document.createElement('div'); actions.className='item-actions';
-        const btnE = document.createElement('button'); btnE.className='btn-edit'; btnE.textContent='✏️'; 
-        btnE.onclick = ((id)=>()=>apriEdit(id))(r.id);
-        const btnD = document.createElement('button'); btnD.className='btn-del'; btnD.textContent='🗑️';
-        btnD.onclick = ((id)=>()=>elimina(id))(r.id);
-        actions.appendChild(btnE); actions.appendChild(btnD);
+        const subDiv = document.createElement('div');
+        subDiv.className = 'item-sub';
+        // Costruisci la stringa manualmente
+        const testoSub = "Rich: " + String(rich) + " | Dato: " + String(dato) + " | Saldo: " + String(saldo);
+        subDiv.textContent = testoSub;  // Usa textContent, NON innerHTML
         
-        item.appendChild(info); item.appendChild(actions);
-        container.appendChild(item);
+        infoDiv.appendChild(nameDiv);
+        infoDiv.appendChild(subDiv);
+        
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'item-actions';
+        
+        const btnEdit = document.createElement('button');
+        btnEdit.className = 'btn-edit';
+        btnEdit.textContent = '✏️';
+        btnEdit.onclick = (function(id) { return function() { apriEdit(id); }; })(r.id);
+        
+        const btnDel = document.createElement('button');
+        btnDel.className = 'btn-del';
+        btnDel.textContent = '🗑️';
+        btnDel.onclick = (function(id) { return function() { elimina(id); }; })(r.id);
+        
+        actionsDiv.appendChild(btnEdit);
+        actionsDiv.appendChild(btnDel);
+        
+        itemDiv.appendChild(infoDiv);
+        itemDiv.appendChild(actionsDiv);
+        container.appendChild(itemDiv);
     }
     log('✓ Lista renderizzata');
 }
@@ -253,7 +272,7 @@ async function salvaModifica() {
         val_nc_saldo: parseFloat(document.getElementById('m_val_saldo').value)||0,
         note: document.getElementById('m_note').value };
     try {
-        log('Salvataggio in corso...');
+        log('Salvataggio...');
         const res = await fetch('/api/rinnovo', { method:'POST', headers:getHeaders('application/json'), body:JSON.stringify({dati}) });
         if(!res.ok) {
             const err = await res.text();
