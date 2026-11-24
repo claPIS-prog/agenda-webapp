@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Saldo Rinnovi v4</title>
+<title>Saldo Rinnovi DEBUG</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js?v=9999"></script>
 <style>
@@ -28,8 +28,9 @@
     .btn-del { background: #f44336; color: white; }
     
     .empty { text-align: center; color: #888; padding: 30px; }
-    .error-box { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; border: 1px solid #ef9a9a; word-break: break-all; }
+    .error-box { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; border: 1px solid #ef9a9a; word-break: break-all; font-size: 12px; }
     .loading { text-align: center; color: #0088cc; padding: 30px; font-weight: bold; }
+    .debug-info { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px; font-size: 11px; font-family: monospace; white-space: pre-wrap; word-break: break-all; }
 
     /* Modal Styles */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
@@ -58,6 +59,7 @@
         <select id="nominativo-filter"><option value="">-- Seleziona Rinnovo --</option></select>
         <button class="btn-add" onclick="apriModal()">➕ Aggiungi</button>
     </div>
+    <div id="debug-output" class="debug-info" style="display:none;"></div>
     <div id="lista-v2"><div class="loading">⏳ Caricamento...</div></div>
 </div>
 
@@ -100,23 +102,46 @@ let datiRinnovi = [];
 
 async function caricaDati() {
     const container = document.getElementById('lista-v2');
+    const debugOutput = document.getElementById('debug-output');
+    debugOutput.style.display = 'block';
+    debugOutput.textContent = 'Inizio caricamento...\n';
+    
     try {
-        const res = await fetch('/api/elenco_rinnovi?nocache=' + Date.now(), { headers: getHeaders(), cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+        const res = await fetch('/api/elenco_rinnovi?nocache=' + Date.now(), { 
+            headers: getHeaders(), 
+            cache: 'no-store' 
+        });
+        
+        debugOutput.textContent += `Status HTTP: ${res.status}\n`;
+        
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`HTTP ${res.status}: ${errText.substring(0, 200)}`);
+        }
         
         const rawText = await res.text();
-        let parsed;
-        try { parsed = JSON.parse(rawText); } catch(e) { throw new Error("JSON Invalido: " + rawText.substring(0,100)); }
+        debugOutput.textContent += `Raw response length: ${rawText.length} chars\n`;
+        debugOutput.textContent += `First 500 chars: ${rawText.substring(0, 500)}\n`;
         
-        if (!Array.isArray(parsed)) throw new Error("Il server non ha restituito un array. Tipo: " + typeof parsed);
+        let parsed;
+        try { 
+            parsed = JSON.parse(rawText); 
+            debugOutput.textContent += `JSON parsed successfully. Type: ${typeof parsed}, IsArray: ${Array.isArray(parsed)}\n`;
+        } catch(e) { 
+            throw new Error("JSON Invalido: " + rawText.substring(0, 200)); 
+        }
+        
+        if (!Array.isArray(parsed)) {
+            throw new Error("Il server non ha restituito un array. Tipo ricevuto: " + typeof parsed + "\nContenuto: " + JSON.stringify(parsed).substring(0, 200));
+        }
         
         datiRinnovi = parsed;
+        debugOutput.textContent += `Record ricevuti: ${datiRinnovi.length}\n`;
         
-        // DEBUG CRITICO: Stampiamo le CHIAVI del primo oggetto per vedere cosa arriva
         if(datiRinnovi.length > 0) {
-            console.log("=== STRUTTURA DATI RICEVUTI ===");
-            console.log("Chiavi disponibili:", Object.keys(datiRinnovi[0]));
-            console.log("Primo record completo:", datiRinnovi[0]);
+            const firstRecord = datiRinnovi[0];
+            debugOutput.textContent += `Chiavi primo record: ${Object.keys(firstRecord).join(', ')}\n`;
+            debugOutput.textContent += `Primo record completo: ${JSON.stringify(firstRecord, null, 2).substring(0, 500)}\n`;
         }
 
         document.getElementById('counter').textContent = "Totale: " + datiRinnovi.length;
@@ -127,8 +152,11 @@ async function caricaDati() {
         unici.forEach(n => { const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
         
         disegnaListaV2();
+        debugOutput.textContent += 'Rendering completato.\n';
+        
     } catch(e) {
         console.error(e);
+        debugOutput.textContent += `ERRORE: ${e.message}\n`;
         container.innerHTML = '<div class="error-box"><strong>Errore:</strong><br>' + e.message + '</div>';
     }
 }
@@ -143,12 +171,16 @@ function disegnaListaV2(filtro) {
     for(let i=0; i<lista.length; i++) {
         const r = lista[i];
         
-        // FIX: Lettura valori con controllo esistenza chiave
-        // Se la chiave non esiste nell'oggetto, usiamo 0
+        // Debug: stampiamo cosa stiamo leggendo
+        console.log(`Record ${i}:`, r);
+        
+        // Lettura valori con controllo esistenza chiave
         const rich = r.hasOwnProperty('num_credito_rich') ? r.num_credito_rich : 0;
         const dato = r.hasOwnProperty('num_credito_dato') ? r.num_credito_dato : 0;
         const saldo = r.hasOwnProperty('num_credito_dare') ? r.num_credito_dare : 0;
         const nome = r.hasOwnProperty('nominativo') ? r.nominativo : ("ID:"+r.nominativo_id);
+        
+        console.log(`Valori estratti - Rich: ${rich}, Dato: ${dato}, Saldo: ${saldo}, Nome: ${nome}`);
         
         const item = document.createElement('div'); item.className='item';
         
@@ -215,9 +247,16 @@ async function salvaModifica() {
 }
 
 async function elimina(id) {
-    if(!confirm("Eliminare?")) return;
-    try { await fetch('/api/rinnovo/'+id, {method:'DELETE', headers:getHeaders()}); showToast("🗑️ Eliminato"); caricaDati(); }
-    catch(e) { alert("Errore delete"); }
+    if(!confirm("Eliminare questo record?")) return;
+    try { 
+        const res = await fetch('/api/rinnovo/'+id, {method:'DELETE', headers:getHeaders()});
+        if(!res.ok) {
+            const err = await res.text();
+            throw new Error(`HTTP ${res.status}: ${err}`);
+        }
+        showToast("🗑️ Eliminato"); caricaDati(); 
+    }
+    catch(e) { alert("Errore delete: "+e.message); }
 }
 function showToast(m) { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
 
