@@ -2,60 +2,126 @@ from datetime import datetime
 from fastapi import APIRouter, Request
 from auth import get_current_user
 from database import db_conn
-from models import CreditoPayload
+from pydantic import BaseModel
 
 router = APIRouter()
 
-@router.get("/api/crediti")
-def api_crediti(request: Request):
+class CreditoPayload(BaseModel):
+    dati: dict
+
+@router.post("/api/saldo_iniziale")
+def api_saldo_iniziale(payload: CreditoPayload, request: Request):
+    """
+    Salva o aggiorna il SALDO INIZIALE con ID fisso = 1.
+    Se non esiste, lo crea. Se esiste, lo aggiorna.
+    """
+    get_current_user(request)
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            # Verifica se esiste già un record con ID=1
+            cur.execute("SELECT id FROM crediti WHERE id = 1 LIMIT 1")
+            exists = cur.fetchone()
+            
+            if exists:
+                # Aggiorna il saldo esistente
+                cur.execute("""
+                    UPDATE crediti SET 
+                        quantita=%s, 
+                        valore_totale=%s, 
+                        valore_singolo=%s, 
+                        data_acquisto=%s, 
+                        note=%s, 
+                        creato_il=%s 
+                    WHERE id = 1
+                """, (
+                    int(dati.get("quantita", 0)),
+                    float(dati.get("valore_totale", 0)),
+                    float(dati.get("valore_singolo", 0)),
+                    dati.get("data_acquisto", ""),
+                    dati.get("note", "Saldo Iniziale"),
+                    datetime.now().isoformat()
+                ))
+            else:
+                # Crea nuovo record con ID=1
+                cur.execute("""
+                    INSERT INTO crediti (
+                        id, fornitore, data_acquisto, quantita, 
+                        valore_totale, valore_singolo, note, creato_il
+                    ) VALUES (
+                        1, 'SALDO INIZIALE', %s, %s, %s, %s, 'Saldo Iniziale', %s
+                    )
+                """, (
+                    dati.get("data_acquisto", ""),
+                    int(dati.get("quantita", 0)),
+                    float(dati.get("valore_totale", 0)),
+                    float(dati.get("valore_singolo", 0)),
+                    datetime.now().isoformat()
+                ))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@router.post("/api/credito")
+def api_credito(payload: CreditoPayload, request: Request):
+    """
+    Salva un NUOVO ACQUISTO con ID automatico progressivo (MAX(id) + 1).
+    """
+    get_current_user(request)
+    dati = payload.dati
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            # Genera contatore automatico
+            cur.execute("SELECT COALESCE(MAX(id), 1) + 1 FROM crediti")
+            nuovo_id = cur.fetchone()[0]
+            
+            cur.execute("""
+                INSERT INTO crediti (
+                    id, fornitore, data_acquisto, quantita, 
+                    valore_totale, valore_singolo, note, creato_il
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                nuovo_id,
+                dati.get("fornitore", ""),
+                dati.get("data_acquisto", ""),
+                int(dati.get("quantita", 1)),
+                float(dati.get("valore_totale", 0)),
+                float(dati.get("valore_singolo", 0)),
+                dati.get("note", ""),
+                datetime.now().isoformat()
+            ))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, "id": nuovo_id}
+
+@router.get("/api/crediti_disponibili")
+def api_crediti_disponibili(request: Request):
+    """
+    Restituisce tutti i crediti con quantità > 0 per il menu Rinnovi.
+    Etichetta ID=1 come 'Saldo Iniziale', gli altri come 'Acquisto #X'.
+    """
     get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM crediti ORDER BY data_acquisto DESC")
+            cur.execute("""
+                SELECT 
+                    id, 
+                    CASE 
+                        WHEN id = 1 THEN 'Saldo Iniziale' 
+                        ELSE 'Acquisto #' || id 
+                    END as tipo, 
+                    quantita, 
+                    valore_singolo as valore, 
+                    data_acquisto as data_ref 
+                FROM crediti 
+                WHERE quantita > 0 
+                ORDER BY id ASC
+            """)
             return cur.fetchall()
     finally:
         conn.close()
-
-@router.post("/api/crediti")
-def api_crediti_salva(payload: CreditoPayload, request: Request):
-    get_current_user(request)
-    d = payload.dati
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""INSERT INTO crediti (data_acquisto, fornitore, modalita_pagamento, quantita, valore, note, creato_il) 
-                VALUES (%s,%s,%s,%s,%s,%s,%s)""",
-                (d.get("data_acquisto",""), d.get("fornitore",""), d.get("modalita_pagamento",""),
-                 int(d.get("quantita",0)), float(d.get("valore",0)), d.get("note",""), datetime.now().isoformat()))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
-
-@router.put("/api/crediti/{id}")
-def api_crediti_modifica(id: int, payload: CreditoPayload, request: Request):
-    get_current_user(request)
-    d = payload.dati
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""UPDATE crediti SET data_acquisto=%s, fornitore=%s, modalita_pagamento=%s, quantita=%s, valore=%s, note=%s WHERE id=%s""",
-                (d.get("data_acquisto",""), d.get("fornitore",""), d.get("modalita_pagamento",""),
-                 int(d.get("quantita",0)), float(d.get("valore",0)), d.get("note",""), id))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
-
-@router.delete("/api/crediti/{id}")
-def api_crediti_cancella(id: int, request: Request):
-    get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM crediti WHERE id = %s", (id,))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
