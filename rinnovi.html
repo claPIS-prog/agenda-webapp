@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Nuovo Rinnovo</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js"></script>
@@ -47,7 +50,6 @@ small { color: #666; display: block; margin-top: 4px; font-size: 12px; }
 
 <div class="section-title">🎫 Utilizzo Credito</div>
 <label>Credito da utilizzare:</label>
-<!-- (C/E) Listbox che legge contatore crediti -->
 <select id="r_credito_id">
     <option value="">-- Nessun credito --</option>
 </select>
@@ -90,10 +92,10 @@ async function init() {
         });
     } catch(e) { console.error(e); }
 
-    // Imposta data odierna
+    // Imposta data odierna per entrambi i campi data
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('r_data_operazione').value = today;
-    document.getElementById('r_scadenza').value = today; // Default scadenza = oggi
+    document.getElementById('r_scadenza').value = today; 
 
     // Carica Crediti Disponibili
     try {
