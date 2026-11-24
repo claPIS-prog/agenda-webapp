@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Meta tag per forzare il no-cache automatico -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Lista Contatti</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/auth.js"></script>
@@ -181,7 +185,7 @@ function render(filter) {
     }).join('');
 }
 
-// --- FUNZIONI INFO MODAL (TUTTI I CAMPI + USERID/PASSWORD) ---
+// --- FUNZIONI INFO MODAL (ACCESSO SPOSTATO IN ALTO) ---
 function apriInfo(id) {
     const c = contatti.find(x => x.id === id);
     if (!c) return;
@@ -197,11 +201,16 @@ function apriInfo(id) {
     html += `<div class="info-row"><div class="info-label">Tipo:</div><div class="info-value">${tipoDisplay}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Prezzo:</div><div class="info-value">${c.prezzo ? '€ ' + c.prezzo : '-'}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Cadenza:</div><div class="info-value">${v(c.cadenza)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Tipo Linea:</div><div class="info-value">${v(c.tipo_linea)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Operatore IT:</div><div class="info-value">${v(c.operatore_it)}</div></div>`;
+
+    // --- SEZIONE ACCESSO (SPOSTATA QUI SUBITO DOPO GENERALE) ---
+    html += '<div class="info-section-title">Accesso</div>';
+    html += `<div class="info-row"><div class="info-label">User ID:</div><div class="info-value">${v(c.user_id)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Password:</div><div class="info-value">${v(c.password)}</div></div>`;
 
     // --- SEZIONE SERVER/RESELLER ---
     html += '<div class="info-section-title">Server & Reseller</div>';
+    html += `<div class="info-row"><div class="info-label">Tipo Linea:</div><div class="info-value">${v(c.tipo_linea)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Operatore IT:</div><div class="info-value">${v(c.operatore_it)}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Server:</div><div class="info-value">${v(c.server)}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Reseller:</div><div class="info-value">${v(c.reseller)}</div></div>`;
 
@@ -226,11 +235,6 @@ function apriInfo(id) {
     html += `<div class="info-row"><div class="info-label">Data Fine:</div><div class="info-value">${v(c.data_fine)}</div></div>`;
     html += `<div class="info-row" style="flex-direction:column;"><div class="info-label" style="width:100%;margin-bottom:4px;">Informazioni:</div><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;">${v(c.informazioni)}</div></div>`;
 
-    // --- SEZIONE ACCESSO (B) ---
-    html += '<div class="info-section-title">Accesso</div>';
-    html += `<div class="info-row"><div class="info-label">User ID:</div><div class="info-value">${v(c.user_id)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Password:</div><div class="info-value">${v(c.password)}</div></div>`;
-
     html += '</div>';
 
     document.getElementById('infoContent').innerHTML = html;
@@ -241,7 +245,7 @@ function chiudiInfo() {
     document.getElementById('infoModal').classList.remove('active');
 }
 
-// --- FUNZIONI MODIFICA (B) INCLUSI USERID E PASSWORD ---
+// --- FUNZIONI MODIFICA (ACCESSO SPOSTATO SUBITO DOPO CADENZA) ---
 function apriModifica(id) {
     const c = contatti.find(x => x.id === id);
     if (!c) return;
@@ -252,6 +256,12 @@ function apriModifica(id) {
     html += '<label>Tipo:</label><select id="m_tipo">' + optSelectTipo(c.tipo) + '</select>';
     html += '<div class="row"><div><label>Prezzo (€):</label><input type="number" id="m_prezzo" step="0.01" value="' + (c.prezzo || 0) + '"></div>';
     html += '<div><label>Cadenza:</label><select id="m_cadenza">' + optSelectStatic(cadenzeList, '--', c.cadenza) + '</select></div></div>';
+    
+    // (B) Campi UserId e Password spostati qui, subito dopo Cadenza
+    html += '<div class="section-title">Accesso (B)</div>';
+    html += '<label>User ID:</label><input type="text" id="m_user_id" value="' + (c.user_id || '') + '">';
+    html += '<label>Password:</label><input type="text" id="m_password" value="' + (c.password || '') + '">';
+
     html += '<label>Tipo Linea:</label><select id="m_tipo_linea">' + optSelectStatic(tipiLineaList, '--', c.tipo_linea || c.tipo) + '</select>';
     html += '<label>Operatore IT:</label><select id="m_operatore_it">' + optSelect(dropdowns.operatoriIt, '--', 'nome', c.operatore_it) + '</select>';
     
@@ -283,11 +293,6 @@ function apriModifica(id) {
     html += '<div class="row"><div><label>Data Iscrizione:</label><input type="date" id="m_data_iscrizione" value="' + (c.data_iscrizione || '') + '"></div>';
     html += '<div><label>Data Fine:</label><input type="date" id="m_data_fine" value="' + (c.data_fine || '') + '"></div></div>';
     html += '<label>Informazioni:</label><textarea id="m_informazioni">' + (c.informazioni || '') + '</textarea>';
-
-    // (B) Campi UserId e Password aggiunti al form di modifica
-    html += '<div class="section-title">Accesso (B)</div>';
-    html += '<label>User ID:</label><input type="text" id="m_user_id" value="' + (c.user_id || '') + '">';
-    html += '<label>Password:</label><input type="text" id="m_password" value="' + (c.password || '') + '">';
     
     document.getElementById('modal_form').innerHTML = html;
     document.getElementById('editModal').classList.add('active');
@@ -310,6 +315,8 @@ async function salvaModifica() {
         tipo: document.getElementById('m_tipo').value,
         prezzo: parseFloat(document.getElementById('m_prezzo').value) || 0,
         cadenza: document.getElementById('m_cadenza').value,
+        user_id: document.getElementById('m_user_id').value.trim(), // (B)
+        password: document.getElementById('m_password').value.trim(), // (B)
         tipo_linea: document.getElementById('m_tipo_linea').value,
         operatore_it: document.getElementById('m_operatore_it').value,
         server: document.getElementById('m_server').value,
@@ -326,9 +333,7 @@ async function salvaModifica() {
         citta: document.getElementById('m_citta').value.trim(),
         data_iscrizione: document.getElementById('m_data_iscrizione').value,
         data_fine: document.getElementById('m_data_fine').value,
-        informazioni: document.getElementById('m_informazioni').value.trim(),
-        user_id: document.getElementById('m_user_id').value.trim(), // (B)
-        password: document.getElementById('m_password').value.trim() // (B)
+        informazioni: document.getElementById('m_informazioni').value.trim()
     };
     
     try {
