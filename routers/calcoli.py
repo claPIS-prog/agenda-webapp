@@ -11,18 +11,16 @@ class CreditoPayload(BaseModel):
 
 @router.post("/api/saldo_iniziale")
 def api_saldo_iniziale(payload: CreditoPayload, request: Request):
-    """Salva il SALDO INIZIALE (Stock). Usa ID=1 o il primo disponibile se manca."""
+    """Salva/Aggiorna il SALDO INIZIALE con ID fisso = 1"""
     get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Verifica se esiste già un saldo iniziale (ID=1)
             cur.execute("SELECT id FROM crediti WHERE id = 1 LIMIT 1")
             exists = cur.fetchone()
             
             if exists:
-                # Aggiorna il saldo esistente
                 cur.execute("""
                     UPDATE crediti SET 
                         quantita=%s, valore_totale=%s, valore_singolo=%s, 
@@ -37,7 +35,6 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
                     datetime.now().isoformat()
                 ))
             else:
-                # Inserisce come nuovo record con ID=1
                 cur.execute("""
                     INSERT INTO crediti (id, fornitore, data_acquisto, quantita, valore_totale, valore_singolo, note, creato_il)
                     VALUES (1, 'SALDO INIZIALE', %s, %s, %s, %s, 'Saldo Iniziale', %s)
@@ -55,13 +52,12 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
 
 @router.post("/api/credito")
 def api_credito(payload: CreditoPayload, request: Request):
-    """Salva un NUOVO ACQUISTO. Contatore (ID) automatico MAX+1."""
+    """Salva NUOVO ACQUISTO con ID automatico progressivo"""
     get_current_user(request)
     dati = payload.dati
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Genera contatore automatico
             cur.execute("SELECT COALESCE(MAX(id), 1) + 1 FROM crediti")
             nuovo_id = cur.fetchone()[0]
             
@@ -85,7 +81,7 @@ def api_credito(payload: CreditoPayload, request: Request):
 
 @router.get("/api/crediti_disponibili")
 def api_crediti_disponibili(request: Request):
-    """Restituisce tutti i crediti con quantità > 0 per il menu Rinnovi."""
+    """Restituisce crediti disponibili per Rinnovi"""
     get_current_user(request)
     conn = db_conn()
     try:
