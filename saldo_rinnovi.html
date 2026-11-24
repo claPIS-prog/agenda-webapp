@@ -18,14 +18,15 @@ select { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font
 .btn-add { background: #4caf50; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
 .list-container { min-height: 200px; }
 .item { background: #fff; padding: 12px; margin: 8px 0; border-radius: 6px; border: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-.item-info { flex-grow: 1; }
-.item-name { font-weight: bold; font-size: 15px; color: #333; }
-.item-sub { font-size: 12px; color: #666; margin-top: 2px; }
-.item-actions button { margin-left: 5px; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.item-info { flex-grow: 1; overflow: hidden; }
+.item-name { font-weight: bold; font-size: 15px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-sub { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.4; }
+.item-actions { display: flex; gap: 5px; margin-left: 10px; flex-shrink: 0; }
+.item-actions button { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
 .btn-edit { background: #ff9800; color: white; }
 .btn-del { background: #f44336; color: white; }
 .empty { text-align: center; color: #888; padding: 30px; }
-.error-msg { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; }
+.error-msg { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; margin-top: 10px; word-break: break-word; }
 
 /* Modal Styles */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
@@ -127,7 +128,6 @@ let datiRinnovi = [];
 async function caricaDati() {
     const container = document.getElementById('lista');
     try {
-        console.log("Tentativo di caricamento da /api/elenco_rinnovi...");
         const res = await fetch('/api/elenco_rinnovi', { headers: getHeaders() });
         
         if (!res.ok) {
@@ -136,7 +136,6 @@ async function caricaDati() {
         }
         
         datiRinnovi = await res.json();
-        console.log("Dati ricevuti:", datiRinnovi.length, "record");
         
         // Aggiorna contatore
         document.getElementById('counter').textContent = `Totale: ${datiRinnovi.length}`;
@@ -145,7 +144,7 @@ async function caricaDati() {
         const sel = document.getElementById('nominativo-filter');
         sel.innerHTML = '<option value="">-- Seleziona Rinnovo --</option>';
         
-        // Estrai nominativi unici in modo sicuro
+        // Estrai nominativi unici
         const unici = [...new Set(datiRinnovi.map(r => r.nominativo).filter(n => n))];
         unici.sort().forEach(n => {
             sel.innerHTML += `<option value="${n}">${n}</option>`;
@@ -153,16 +152,17 @@ async function caricaDati() {
         
         renderLista();
     } catch(e) {
-        console.error("Errore dettagliato:", e);
+        console.error("Errore caricamento:", e);
         container.innerHTML = `
             <div class="error-msg">
                 <strong>Errore Server:</strong><br>
                 ${e.message}<br><br>
-                <small>Verifica che l'endpoint /api/elenco_rinnovi esista e restituisca dati validi.</small>
+                <small>Verifica che il backend sia attivo e le colonne DB esistano.</small>
             </div>`;
     }
 }
 
+// FIX CRITICO: Corretta l'interpolazione delle variabili nella stringa HTML
 function renderLista(filtro = '') {
     const container = document.getElementById('lista');
     const filtrati = filtro ? datiRinnovi.filter(r => r.nominativo === filtro) : datiRinnovi;
@@ -172,18 +172,25 @@ function renderLista(filtro = '') {
         return;
     }
     
-    container.innerHTML = filtrati.map(r => `
+    container.innerHTML = filtrati.map(r => {
+        // Gestione sicura dei valori nulli/undefined
+        const rich = r.num_credito_rich ?? 0;
+        const dato = r.num_credito_dato ?? 0;
+        const saldo = r.num_credito_dare ?? 0;
+        const nome = r.nominativo || `ID: ${r.nominativo_id}`;
+        
+        return `
         <div class="item">
             <div class="item-info">
-                <div class="item-name">${r.nominativo || 'N/A (ID: '+r.nominativo_id+')'}</div>
-                <div class="item-sub">Rich: ${r.num_credito_rich || 0} | Dato: ${r.num_credito_dato || 0} | Saldo: ${r.num_credito_dare || 0}</div>
+                <div class="item-name">${nome}</div>
+                <div class="item-sub">Rich: ${rich} | Dato: ${dato} | Saldo: ${saldo}</div>
             </div>
             <div class="item-actions">
                 <button class="btn-edit" onclick="apriEdit(${r.id})">✏️</button>
                 <button class="btn-del" onclick="elimina(${r.id})">🗑️</button>
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 }
 
 // Filtro select
@@ -191,9 +198,8 @@ document.getElementById('nominativo-filter').addEventListener('change', (e) => {
     renderLista(e.target.value);
 });
 
-// Modal functions
 function apriModal() {
-    alert("Per aggiungere un nuovo saldo, usa il modulo 'Nuovo Rinnovo'. Questo modulo serve per visualizzare e modificare lo storico.");
+    alert("Per aggiungere un nuovo saldo, usa il modulo 'Nuovo Rinnovo'.");
 }
 
 function apriEdit(id) {
@@ -202,18 +208,22 @@ function apriEdit(id) {
     
     document.getElementById('m_id').value = r.id;
     document.getElementById('m_nominativo').value = r.nominativo || '';
-    document.getElementById('m_num_rich').value = r.num_credito_rich || 0;
-    document.getElementById('m_num_dato').value = r.num_credito_dato || 0;
     
-    // Gestione date sicure
+    // Usa ?? 0 per gestire null/undefined nei campi numerici
+    document.getElementById('m_num_rich').value = r.num_credito_rich ?? 0;
+    document.getElementById('m_num_dato').value = r.num_credito_dato ?? 0;
+    document.getElementById('m_num_saldo').value = r.num_credito_dare ?? 0; 
+    
+    // Date
     document.getElementById('m_data_rich').value = r.data_credito_rinnovo_rich || '';
     document.getElementById('m_data_dato').value = r.data_credito_rinnovo_dato || '';
     document.getElementById('m_data_saldo').value = r.data_saldo || '';
     
-    document.getElementById('m_val_rich').value = r.val_nc_rich || 0;
-    document.getElementById('m_num_saldo').value = r.num_credito_dare || 0; 
-    document.getElementById('m_val_dato').value = r.val_nc_dato || 0; 
-    document.getElementById('m_val_saldo').value = r.val_nc_saldo || 0; 
+    // Valori
+    document.getElementById('m_val_rich').value = r.val_nc_rich ?? 0;
+    document.getElementById('m_val_dato').value = r.val_nc_dato ?? 0; 
+    document.getElementById('m_val_saldo').value = r.val_nc_saldo ?? 0; 
+    
     document.getElementById('m_note').value = r.note || '';
     
     document.getElementById('editModal').classList.add('active');
