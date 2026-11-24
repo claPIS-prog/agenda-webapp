@@ -181,7 +181,7 @@ function render(filter) {
     }).join('');
 }
 
-// --- FUNZIONI INFO MODAL (TUTTI I CAMPI) ---
+// --- FUNZIONI INFO MODAL (TUTTI I CAMPI + USERID/PASSWORD) ---
 function apriInfo(id) {
     const c = contatti.find(x => x.id === id);
     if (!c) return;
@@ -226,6 +226,11 @@ function apriInfo(id) {
     html += `<div class="info-row"><div class="info-label">Data Fine:</div><div class="info-value">${v(c.data_fine)}</div></div>`;
     html += `<div class="info-row" style="flex-direction:column;"><div class="info-label" style="width:100%;margin-bottom:4px;">Informazioni:</div><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;">${v(c.informazioni)}</div></div>`;
 
+    // --- SEZIONE ACCESSO (B) ---
+    html += '<div class="info-section-title">Accesso</div>';
+    html += `<div class="info-row"><div class="info-label">User ID:</div><div class="info-value">${v(c.user_id)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Password:</div><div class="info-value">${v(c.password)}</div></div>`;
+
     html += '</div>';
 
     document.getElementById('infoContent').innerHTML = html;
@@ -236,7 +241,7 @@ function chiudiInfo() {
     document.getElementById('infoModal').classList.remove('active');
 }
 
-// --- FUNZIONI MODIFICA ---
+// --- FUNZIONI MODIFICA (B) INCLUSI USERID E PASSWORD ---
 function apriModifica(id) {
     const c = contatti.find(x => x.id === id);
     if (!c) return;
@@ -278,6 +283,11 @@ function apriModifica(id) {
     html += '<div class="row"><div><label>Data Iscrizione:</label><input type="date" id="m_data_iscrizione" value="' + (c.data_iscrizione || '') + '"></div>';
     html += '<div><label>Data Fine:</label><input type="date" id="m_data_fine" value="' + (c.data_fine || '') + '"></div></div>';
     html += '<label>Informazioni:</label><textarea id="m_informazioni">' + (c.informazioni || '') + '</textarea>';
+
+    // (B) Campi UserId e Password aggiunti al form di modifica
+    html += '<div class="section-title">Accesso (B)</div>';
+    html += '<label>User ID:</label><input type="text" id="m_user_id" value="' + (c.user_id || '') + '">';
+    html += '<label>Password:</label><input type="text" id="m_password" value="' + (c.password || '') + '">';
     
     document.getElementById('modal_form').innerHTML = html;
     document.getElementById('editModal').classList.add('active');
@@ -316,7 +326,9 @@ async function salvaModifica() {
         citta: document.getElementById('m_citta').value.trim(),
         data_iscrizione: document.getElementById('m_data_iscrizione').value,
         data_fine: document.getElementById('m_data_fine').value,
-        informazioni: document.getElementById('m_informazioni').value.trim()
+        informazioni: document.getElementById('m_informazioni').value.trim(),
+        user_id: document.getElementById('m_user_id').value.trim(), // (B)
+        password: document.getElementById('m_password').value.trim() // (B)
     };
     
     try {
