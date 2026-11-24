@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from auth import get_current_user
 from database import db_conn
 from pydantic import BaseModel
@@ -13,7 +13,7 @@ class CreditoPayload(BaseModel):
 def api_saldo_iniziale(payload: CreditoPayload, request: Request):
     """
     Salva o aggiorna il SALDO INIZIALE con ID fisso = 1.
-    Se non esiste, lo crea. Se esiste, lo aggiorna.
+    FIX: Rimuovo valore_totale dalla query per evitare errori 500 se la colonna manca.
     """
     get_current_user(request)
     dati = payload.dati
@@ -24,21 +24,22 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
             cur.execute("SELECT id FROM crediti WHERE id = 1 LIMIT 1")
             exists = cur.fetchone()
             
+            qta = int(dati.get("quantita", 0))
+            unitario = float(dati.get("valore_singolo", 0))
+            
             if exists:
                 # Aggiorna il saldo esistente
                 cur.execute("""
                     UPDATE crediti SET 
                         quantita=%s, 
-                        valore_totale=%s, 
                         valore_singolo=%s, 
                         data_acquisto=%s, 
                         note=%s, 
                         creato_il=%s 
                     WHERE id = 1
                 """, (
-                    int(dati.get("quantita", 0)),
-                    float(dati.get("valore_totale", 0)),
-                    float(dati.get("valore_singolo", 0)),
+                    qta,
+                    unitario,
                     dati.get("data_acquisto", ""),
                     dati.get("note", "Saldo Iniziale"),
                     datetime.now().isoformat()
@@ -48,18 +49,20 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
                 cur.execute("""
                     INSERT INTO crediti (
                         id, fornitore, data_acquisto, quantita, 
-                        valore_totale, valore_singolo, note, creato_il
+                        valore_singolo, note, creato_il
                     ) VALUES (
-                        1, 'SALDO INIZIALE', %s, %s, %s, %s, 'Saldo Iniziale', %s
+                        1, 'SALDO INIZIALE', %s, %s, %s, 'Saldo Iniziale', %s
                     )
                 """, (
                     dati.get("data_acquisto", ""),
-                    int(dati.get("quantita", 0)),
-                    float(dati.get("valore_totale", 0)),
-                    float(dati.get("valore_singolo", 0)),
+                    qta,
+                    unitario,
                     datetime.now().isoformat()
                 ))
         conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
     return {"ok": True}
@@ -67,7 +70,7 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
 @router.post("/api/credito")
 def api_credito(payload: CreditoPayload, request: Request):
     """
-    Salva un NUOVO ACQUISTO con ID automatico progressivo (MAX(id) + 1).
+    Salva un NUOVO ACQUISTO con ID automatico progressivo.
     """
     get_current_user(request)
     dati = payload.dati
@@ -81,19 +84,21 @@ def api_credito(payload: CreditoPayload, request: Request):
             cur.execute("""
                 INSERT INTO crediti (
                     id, fornitore, data_acquisto, quantita, 
-                    valore_totale, valore_singolo, note, creato_il
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    valore_singolo, note, creato_il
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 nuovo_id,
                 dati.get("fornitore", ""),
                 dati.get("data_acquisto", ""),
                 int(dati.get("quantita", 1)),
-                float(dati.get("valore_totale", 0)),
                 float(dati.get("valore_singolo", 0)),
                 dati.get("note", ""),
                 datetime.now().isoformat()
             ))
         conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
     return {"ok": True, "id": nuovo_id}
@@ -102,7 +107,6 @@ def api_credito(payload: CreditoPayload, request: Request):
 def api_crediti_disponibili(request: Request):
     """
     Restituisce tutti i crediti con quantità > 0 per il menu Rinnovi.
-    Etichetta ID=1 come 'Saldo Iniziale', gli altri come 'Acquisto #X'.
     """
     get_current_user(request)
     conn = db_conn()
