@@ -25,140 +25,59 @@
             font-size: 14px;
         }
 
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 15px;
-        }
+        .container { max-width: 600px; margin: 0 auto; padding: 15px; }
 
         /* Header Dashboard */
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
+        .header { text-align: center; margin-bottom: 20px; }
         .dashboard-btn {
             background-color: var(--tg-theme-button-color);
             color: var(--tg-theme-button-text-color);
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 13px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
+            border: none; padding: 8px 16px; border-radius: 20px;
+            font-weight: bold; font-size: 13px; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 5px;
         }
 
         /* Sezione Filtri */
         .filters-section {
-            background: white;
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 15px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            background: white; border-radius: 12px; padding: 15px;
+            margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-
         .section-title {
-            background: #eef2f7;
-            color: #555;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 12px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            background: #eef2f7; color: #555; padding: 6px 12px;
+            border-radius: 6px; font-weight: bold; font-size: 12px;
+            margin-bottom: 12px; display: flex; align-items: center; gap: 5px;
         }
-
-        .filter-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .filter-group label {
-            display: block;
-            font-size: 11px;
-            color: #666;
-            margin-bottom: 4px;
-            font-weight: 600;
-        }
-
-        .filter-group select, 
-        .filter-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 13px;
-            background: #fafafa;
-            box-sizing: border-box;
+        .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .filter-group label { display: block; font-size: 11px; color: #666; margin-bottom: 4px; font-weight: 600; }
+        .filter-group select, .filter-group input {
+            width: 100%; padding: 8px; border: 1px solid #ddd;
+            border-radius: 6px; font-size: 13px; background: #fafafa; box-sizing: border-box;
         }
 
         /* Contatori */
         .counters-bar {
-            background: #f0f7ff;
-            border: 1px solid #cce5ff;
-            border-radius: 8px;
-            padding: 10px;
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 15px;
-            font-size: 13px;
-            font-weight: 600;
+            background: #f0f7ff; border: 1px solid #cce5ff; border-radius: 8px;
+            padding: 10px; display: flex; justify-content: space-around;
+            margin-bottom: 15px; font-size: 13px; font-weight: 600;
         }
-
         .counter-item span { color: var(--tg-theme-link-color); }
 
         /* Sezione Nuovo */
         .new-section {
-            background: white;
-            border-radius: 12px;
-            padding: 15px;
+            background: white; border-radius: 12px; padding: 15px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-
         .new-header {
-            background: var(--tg-theme-button-color);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 12px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            background: var(--tg-theme-button-color); color: white;
+            padding: 8px 12px; border-radius: 6px; font-weight: bold;
+            font-size: 12px; margin-bottom: 12px; display: flex; align-items: center; gap: 5px;
         }
-
-        .input-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .input-group {
-            flex: 1;
-        }
-
-        .input-group label {
-            display: block;
-            font-size: 11px;
-            color: #666;
-            margin-bottom: 4px;
-        }
-
+        .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .input-group { flex: 1; }
+        .input-group label { display: block; font-size: 11px; color: #666; margin-bottom: 4px; }
         .input-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-            box-sizing: border-box;
+            width: 100%; padding: 8px; border: 1px solid #ddd;
+            border-radius: 6px; font-size: 14px; box-sizing: border-box;
         }
 
         /* Loading & Error */
@@ -167,7 +86,6 @@
             display: flex; align-items: center; justify-content: center;
             z-index: 1000; font-weight: bold; color: var(--tg-theme-link-color);
         }
-        
         .error-msg {
             color: #dc3545; background: #fff5f5; padding: 10px;
             border-radius: 6px; text-align: center; margin-top: 10px; display: none;
