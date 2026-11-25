@@ -121,28 +121,11 @@ textarea { resize: vertical; min-height: 70px; }
 <div class="container">
     <h2>🔄 Lista Rinnovi <small style="font-size:11px; color:#999;">v2.1</small></h2>
     <div class="counter-wrapper">
-        <div class="counter" id="counter">Totale: 2</div>
+        <div class="counter" id="counter">Totale: 0</div>
     </div>
     <input type="text" class="search" id="search" placeholder="🔍 Cerca per nominativo...">
     <div id="lista">
-        <div class="item">
-            <div class="item-main">
-                <div class="item-name"><span style="color:#888; font-size:12px; margin-right:6px;">1 -</span> Esempio 1 (test)</div>
-                <div class="item-sub">20/11/2026 &nbsp;|&nbsp; Scad: 20/11/2027</div>
-            </div>
-            <div class="item-actions">
-                <span class="badge badge-rinnovo">RINNOVO</span>
-            </div>
-        </div>
-        <div class="item">
-            <div class="item-main">
-                <div class="item-name"><span style="color:#888; font-size:12px; margin-right:6px;">2 -</span> Esempio 2 (test)</div>
-                <div class="item-sub">15/11/2026 &nbsp;|&nbsp; Scad: 15/11/2027</div>
-            </div>
-            <div class="item-actions">
-                <span class="badge badge-nuovo">NUOVO</span>
-            </div>
-        </div>
+        <div class="loading">⏳ Caricamento rinnovi...</div>
     </div>
 </div>
 
@@ -265,29 +248,38 @@ async function caricaDati() {
     const box = document.getElementById('lista');
     box.innerHTML = '<div class="loading">⏳ Caricamento rinnovi...</div>';
 
-    // Fallback immediato con dati di esempio se il backend non risponde
-    const dummy = [
-        { id: 1, nominativo: "Esempio 1", data_operazione: "2026-11-20", scadenza: "2027-11-20", tipo: "rinnovo", note: "Dato di test" },
-        { id: 2, nominativo: "Esempio 2", data_operazione: "2026-11-15", scadenza: "2027-11-15", tipo: "nuovo", note: "" }
-    ];
-
     try {
         const res = await Promise.race([
-            fetch('/api/lista_rinnovi?nocache=' + Date.now(), { headers: getHeaders(), cache: 'no-store' }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+            fetch('/api/lista_rinnovi?nocache=' + Date.now(), {
+                headers: getHeaders(),
+                cache: 'no-store'
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 6000))
         ]);
 
-        if (!res.ok) throw new Error('Errore server');
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`Errore Server ${res.status}: ${text.substring(0, 120)}`);
+        }
 
         const data = await res.json();
-        tuttiRinnovi = Array.isArray(data) && data.length > 0 ? data : dummy;
-    } catch (e) {
-        tuttiRinnovi = dummy;
-        box.innerHTML = '<div class="error" style="margin-bottom:10px;">⚠️ Backend non disponibile. Mostro dati di esempio.</div>';
-    }
+        tuttiRinnovi = Array.isArray(data) ? data : [];
 
-    aggiornaContatore(tuttiRinnovi.length);
-    render(tuttiRinnovi);
+        if (tuttiRinnovi.length === 0) {
+            box.innerHTML = '<div class="empty">Nessun rinnovo trovato.</div>';
+            aggiornaContatore(0);
+            return;
+        }
+
+        aggiornaContatore(tuttiRinnovi.length);
+        render(tuttiRinnovi);
+
+    } catch (e) {
+        box.innerHTML = `<div class="error"><strong>❌ Impossibile caricare i dati:</strong><br>${e.message}<br><br>
+            <button onclick="caricaDati()" style="padding:8px 16px; background:#0088cc; color:white; border:none; border-radius:4px; cursor:pointer;">🔄 Riprova</button>
+        </div>`;
+        aggiornaContatore(0);
+    }
 }
 
 function render(lista) {
