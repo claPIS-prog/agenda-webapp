@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class AmicoPayload(BaseModel):
     telegram_id: int
@@ -6,7 +7,11 @@ class AmicoPayload(BaseModel):
     nome: str
 
 class PermessiPayload(BaseModel):
-   dati: dict
+    user_id: int
+    permessi: dict
+    data_inizio_validita: Optional[str] = None
+    data_revoca: Optional[str] = None
+    data_fine_validita: Optional[str] = None
 
 class AzionePayload(BaseModel):
     dati: dict
