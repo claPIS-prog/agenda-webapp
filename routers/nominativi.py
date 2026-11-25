@@ -109,8 +109,7 @@ def api_azione(payload: AzionePayload, request: Request):
                         num_credito_dato = %s,
                         num_credito_dare = %s,
                         data_credito_rinnovo_rich = %s,
-                        data_credito_rinnovo_dato = %s,
-                        data_credito_rinnovo_saldo = %s
+                        data_credito_rinnovo_dato = %s
                     WHERE id = %s
                 """, (
                     dati.get("tipo", "rinnovo"),
@@ -122,7 +121,6 @@ def api_azione(payload: AzionePayload, request: Request):
                     int(dati.get("num_credito_dare", 0) or 0),
                     dati.get("data_credito_rinnovo_rich") or None,
                     dati.get("data_credito_rinnovo_dato") or None,
-                    dati.get("data_credito_rinnovo_saldo") or None,
                     dati.get("id")
                 ))
 
