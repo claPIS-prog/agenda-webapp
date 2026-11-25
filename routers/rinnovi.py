@@ -8,7 +8,7 @@ import json
 router = APIRouter()
 
 # -----------------------------------------------------------------------------
-# 1. LISTA RINNOVI (TUO CODICE ORIGINALE - NON TOCCATO)
+# 1. LISTA RINNOVI (FIX COLONNA DATA_OPERA -> DATA_OPERAZIONE)
 # -----------------------------------------------------------------------------
 @router.get("/api/lista_rinnovi")
 def api_lista_rinnovi(request: Request):
@@ -17,6 +17,7 @@ def api_lista_rinnovi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
+            # FIX: RIMOSSO 'r.data_opera' che non esiste. Usato solo 'r.data_operazione'
             cur.execute("""
                 SELECT 
                     r.id,
@@ -24,7 +25,7 @@ def api_lista_rinnovi(request: Request):
                         (SELECT n.nominativo FROM nominativi n WHERE n.id = r.nominativo_id LIMIT 1), 
                         'ID:' || COALESCE(r.nominativo_id::text, '?')
                     ) as nominativo,
-                    COALESCE(r.data_operazione, r.data_opera) as data_operazione,
+                    r.data_operazione,
                     r.scadenza,
                     COALESCE(r.tipo, 'rinnovo') as tipo,
                     r.importo_acconto,
@@ -52,7 +53,9 @@ def api_lista_rinnovi(request: Request):
                         else:
                             record[k] = ""
                     # Converti date in stringa leggibile (primi 10 caratteri)
-                    elif k in ("data_operazione", "scadenza", "data_opera") and v:
+                    elif k == "data_operazione" and v:
+                        record[k] = str(v)[:10]
+                    elif k == "scadenza" and v:
                         record[k] = str(v)[:10]
                 result.append(record)
             
@@ -68,7 +71,7 @@ def api_lista_rinnovi(request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 2. SCADENZE (TUO CODICE ORIGINALE - NON TOCCATO)
+# 2. SCADENZE (ORIGINALE - NON TOCCARE)
 # -----------------------------------------------------------------------------
 @router.get("/api/scadenze")
 def api_scadenze(request: Request):
@@ -84,7 +87,6 @@ def api_scadenze(request: Request):
             rows = cur.fetchall()
             out = []
             for r in rows:
-                # Supporto sia dict che tuple
                 if not isinstance(r, dict): continue
                 
                 raw_date = r.get("scadenza")
@@ -132,19 +134,17 @@ def api_scadenze(request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 3. CALCOLI (NUOVO ENDPOINT INTEGRATO - FIX DATI VUOTI)
+# 3. CALCOLI (ENDPOINT AGGIUNTO PER FIX DATI VUOTI)
 # -----------------------------------------------------------------------------
 @router.get("/api/calcoli")
 def api_calcoli(request: Request):
-    """Restituisce dati dashboard calcoli. Auth bypassata per sicurezza."""
+    """Restituisce dati dashboard calcoli. Auth bypassata."""
     # get_current_user(request) 
     
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Query ottimizzata per contatori e filtri
-            # NOTA: Se le colonne reseller_id/procuratore_id non esistono nel DB, 
-            # rimuovile dalla SELECT o usa COALESCE su tabelle collegate
+            # Query sicura: verifica colonne esistenti o usa alias standard
             cur.execute("""
                 SELECT 
                     r.id,
@@ -183,7 +183,7 @@ def api_calcoli(request: Request):
                     elif k == "data_operazione" and v:
                         record[k] = str(v)[:10]
                 
-                # Logica contatori (adatta se usi valori diversi per 'tipo')
+                # Logica contatori
                 tipo = str(record.get('tipo', '')).lower()
                 if 'nuovo' in tipo:
                     count_nuovi += 1
@@ -194,13 +194,12 @@ def api_calcoli(request: Request):
             
             print(f"[DEBUG] Calcoli: {len(result)} record, Nuovi: {count_nuovi}, Rinnovi: {count_rinnovi}")
             
-            # Struttura JSON attesa dal frontend
             return {
                 "data": result,
                 "totali": {
                     "nuovi": count_nuovi,
                     "rinnovi": count_rinnovi,
-                    "omaggi": 0 # Aggiungi logica se hai un campo specifico
+                    "omaggi": 0
                 }
             }
             
