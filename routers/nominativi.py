@@ -99,19 +99,30 @@ def api_azione(payload: AzionePayload, request: Request):
             # AZIONI SUI RINNOVI
             # -------------------------------------------------
             elif azione == "modifica_rinnovo":
-                # Solo colonne che esistono realmente nella tabella rinnovi
                 cur.execute("""
                     UPDATE rinnovi SET 
                         tipo = %s,
                         data_operazione = %s,
                         scadenza = %s,
-                        note = %s
+                        note = %s,
+                        num_credito_rich = %s,
+                        num_credito_dato = %s,
+                        num_credito_dare = %s,
+                        data_credito_rinnovo_rich = %s,
+                        data_credito_rinnovo_dato = %s,
+                        data_credito_rinnovo_saldo = %s
                     WHERE id = %s
                 """, (
                     dati.get("tipo", "rinnovo"),
                     dati.get("data_operazione") or None,
                     dati.get("scadenza") or None,
                     dati.get("note", ""),
+                    int(dati.get("num_credito_rich", 0) or 0),
+                    int(dati.get("num_credito_dato", 0) or 0),
+                    int(dati.get("num_credito_dare", 0) or 0),
+                    dati.get("data_credito_rinnovo_rich") or None,
+                    dati.get("data_credito_rinnovo_dato") or None,
+                    dati.get("data_credito_rinnovo_saldo") or None,
                     dati.get("id")
                 ))
 
