@@ -94,7 +94,7 @@ def api_get_permessi(user_id: int, request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 4. SALVA PERMESSI + DATE (crea record autorizzati se serve per il FK)
+# 4. SALVA PERMESSI + DATE
 # -----------------------------------------------------------------------------
 @router.post("/api/salva_permessi")
 def api_salva_permessi(payload: PermessiPayload, request: Request):
@@ -142,7 +142,7 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
     return {"ok": True}
 
 # -----------------------------------------------------------------------------
-# 5. ELIMINA PERMESSI (NUOVO - per bottone cancella in Lista Permessi)
+# 5. ELIMINA PERMESSI (per bottone cestino in Lista Permessi)
 # -----------------------------------------------------------------------------
 @router.delete("/api/permessi/{user_id}")
 def api_elimina_permessi(user_id: int, request: Request):
@@ -153,7 +153,7 @@ def api_elimina_permessi(user_id: int, request: Request):
         with conn.cursor() as cur:
             cur.execute("DELETE FROM permessi WHERE user_id = %s", (user_id,))
             conn.commit()
-            return {"ok": True, "eliminati": cur.rowcount}
+            return {"ok": True}
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
