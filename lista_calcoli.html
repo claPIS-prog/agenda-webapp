@@ -121,10 +121,24 @@ async function caricaLista() {
         
         let totNuovi = 0, totRinnovi = 0, totOmaggi = 0, totDare = 0, totDareOmaggio = 0, totNC = 0, totNCOmaggio = 0;
         listaDati.forEach(i => {
-            const val = (parseFloat(i.importo_acconto || 0) + parseFloat(i.importo_saldo || 0));
-            if (i.tipo === 'nuovo') { totNuovi += val; totDare += parseInt(i.num_credito_dare || 0); totNC += parseFloat(i.val_nc_rich || 0); }
-            else if (i.tipo === 'omaggio') { totOmaggi += val; totDareOmaggio += parseInt(i.num_credito_dare || 0); totNCOmaggio += parseFloat(i.val_nc_rich || 0); }
-            else { totRinnovi += val; }
+            const acconto = parseFloat(i.importo_acconto || i.acconto || 0);
+            const saldo = parseFloat(i.importo_saldo || i.saldo || 0);
+            const val = acconto + saldo;
+            const tipo = (i.tipo || '').toLowerCase();
+            
+            if (tipo === 'nuovo') { 
+                totNuovi += val; 
+                totDare += parseInt(i.num_credito_dare || 0); 
+                totNC += parseFloat(i.val_nc_rich || 0); 
+            }
+            else if (tipo === 'omaggio') { 
+                totOmaggi += val; 
+                totDareOmaggio += parseInt(i.num_credito_dare || 0); 
+                totNCOmaggio += parseFloat(i.val_nc_rich || 0); 
+            }
+            else { 
+                totRinnovi += val; 
+            }
         });
         
         document.getElementById('sum_nuovi').textContent = '€ ' + totNuovi.toFixed(2);
@@ -137,7 +151,7 @@ async function caricaLista() {
         document.getElementById('sum_totale').textContent = '€ ' + (totNuovi + totRinnovi + totOmaggi).toFixed(2);
         document.getElementById('summary_box').style.display = 'block';
         
-        box.innerHTML = listaDati.map((i, index) => {
+        box.innerHTML = listaDati.map(i => {
             const tipoClass = i.tipo === 'nuovo' ? 'nuovo' : (i.tipo === 'omaggio' ? 'omaggio' : 'rinnovo');
             const tipoLabel = i.tipo === 'nuovo' ? '🆕 NUOVO' : (i.tipo === 'omaggio' ? '🎁 OMAGGIO' : '🔄 RINNOVO');
             const data = i.data_operazione ? new Date(i.data_operazione).toLocaleDateString('it-IT') : 'N/D';
@@ -148,9 +162,8 @@ async function caricaLista() {
             const dare = i.num_credito_dare || (rich - dati);
             const valSingolo = parseFloat(i.val_singolo_nc_rich || 0).toFixed(2);
             const totNc = parseFloat(i.val_nc_rich || 0).toFixed(2);
-            let html = '<div class="item ' + tipoClass + '" style="display:flex; align-items:center; justify-content:space-between;">' +
-                '<div style="flex-grow:1;">' +
-                '<strong><span style="color:#888; font-size:12px; margin-right:8px;">' + (index + 1) + ' -</span> <span class="badge ' + tipoClass + '">' + tipoLabel + '</span>' + (i.nominativo || '') + '</strong>' +
+            let html = '<div class="item ' + tipoClass + '">' +
+                '<strong><span class="badge ' + tipoClass + '">' + tipoLabel + '</span>' + (i.nominativo || '') + '</strong>' +
                 '<small>📅 Data: ' + data + ' | ⏰ Scadenza: ' + (i.scadenza || 'N/D') + (i.orario_scadenza ? ' ore ' + i.orario_scadenza : '') + '</small>' +
                 '<small>💰 Acconto: € ' + acconto + ' | Saldo: € ' + saldo + '</small>';
             if (rich > 0 || dati > 0) {
@@ -166,11 +179,6 @@ async function caricaLista() {
             }
             if (i.note) html += '<small>📝 ' + i.note + '</small>';
             html += '</div>';
-            html += '<div style="display:flex; gap:4px;">' +
-                '<button class="btn" style="background:#0088cc; color:white; padding:6px 8px; border:none; border-radius:4px; cursor:pointer;" onclick="alert(\'Info: ' + (i.nominativo || '') + '\')" title="Info">ℹ️</button>' +
-                '<button class="btn" style="background:#ff9800; color:white; padding:6px 8px; border:none; border-radius:4px; cursor:pointer;" onclick="alert(\'Modifica\')" title="Modifica">✏️</button>' +
-                '<button class="btn" style="background:#25d366; color:white; padding:6px 8px; border:none; border-radius:4px; cursor:pointer;" onclick="window.open(\'https://wa.me/?text=\'+encodeURIComponent(\'Info calcolo: ' + (i.nominativo || '') + '\'))" title="WhatsApp">💬</button>' +
-                '</div></div>';
             return html;
         }).join('');
     } catch (e) { box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>'; }
