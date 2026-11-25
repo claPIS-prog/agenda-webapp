@@ -1,295 +1,275 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<title>Lista Rinnovi</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-body { 
-    font-family: -apple-system, Arial, sans-serif; 
-    background: #f5f5f5; 
-    margin: 0; 
-    padding: 15px; 
-}
-.container { 
-    background: white; 
-    border-radius: 10px; 
-    padding: 20px; 
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08); 
-    max-width: 600px; 
-    margin: 0 auto; 
-}
-h2 { 
-    text-align: center; 
-    margin-top: 0; 
-    color: #333; 
-    font-size: 20px;
-}
-.counter-wrapper { 
-    text-align: center; 
-    margin-bottom: 15px;
-}
-.counter { 
-    text-align: center; 
-    background: #0088cc; 
-    color: white; 
-    padding: 8px 15px; 
-    border-radius: 20px; 
-    font-size: 14px; 
-    font-weight: bold; 
-    display: inline-block; 
-}
-.search { 
-    width: 100%; 
-    padding: 10px; 
-    border: 1px solid #ddd; 
-    border-radius: 5px; 
-    box-sizing: border-box; 
-    font-size: 15px; 
-    margin-bottom: 15px; 
-}
-.item { 
-    background: #fff; 
-    padding: 12px 15px; 
-    margin: 8px 0; 
-    border-radius: 8px; 
-    border: 1px solid #eee; 
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; 
-}
-.item-main {
-    flex-grow: 1;
-    overflow: hidden;
-    margin-right: 10px;
-}
-.item-name { 
-    font-weight: bold; 
-    font-size: 15px; 
-    color: #222; 
-    margin-bottom: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.item-sub {
-    font-size: 13px;
-    color: #666;
-}
-.item-actions { 
-    display: flex; 
-    gap: 6px; 
-    margin-left: 8px; 
-    flex-shrink: 0; 
-    align-items: center;
-}
-.badge {
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: bold;
-    white-space: nowrap;
-}
-.badge-rinnovo {
-    background: #e8f5e9;
-    color: #2e7d32;
-}
-.badge-nuovo {
-    background: #fff3e0;
-    color: #ef6c00;
-}
-.badge-omaggio {
-    background: #f3e5f5;
-    color: #7b1fa2;
-}
-.empty { 
-    text-align: center; 
-    color: #888; 
-    padding: 30px; 
-}
-.error { 
-    text-align: center; 
-    color: #c62828; 
-    padding: 20px; 
-    background: #ffebee; 
-    border-radius: 6px; 
-}
-.loading {
-    text-align: center;
-    color: #0088cc;
-    padding: 40px;
-    font-weight: bold;
-}
-.toast { 
-    position: fixed; 
-    bottom: 20px; 
-    left: 50%; 
-    transform: translateX(-50%); 
-    background: #333; 
-    color: white; 
-    padding: 12px 24px; 
-    border-radius: 6px; 
-    z-index: 9999; 
-    opacity: 0; 
-    transition: opacity 0.3s; 
-    font-size: 14px; 
-}
-.toast.show { 
-    opacity: 1; 
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lista Rinnovi</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Usiamo lo stesso auth.js se necessario, altrimenti rimuovi -->
+    <script src="/auth.js?v=2"></script> 
+    <style>
+        /* STILI IDENTICI A ELENCAZIONE.HTML */
+        :root {
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-hint-color: #999999;
+            --tg-theme-link-color: #2481cc;
+            --tg-theme-button-color: #2481cc;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-secondary-bg-color: #f4f4f5;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-secondary-bg-color);
+            margin: 0;
+            padding: 0;
+            color: var(--tg-theme-text-color);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .header {
+            background-color: var(--tg-theme-bg-color);
+            padding: 10px 15px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search-container {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 10px 8px 35px;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+            background-color: #f1f1f1;
+            font-size: 16px;
+            box-sizing: border-box;
+            outline: none;
+            color: var(--tg-theme-text-color);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        .list-container {
+            padding-bottom: 20px;
+        }
+
+        .item {
+            background-color: var(--tg-theme-bg-color);
+            padding: 12px 15px;
+            border-bottom: 1px solid #efeff4;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .item:active {
+            background-color: #f0f0f0;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #555;
+            font-size: 16px;
+            margin-right: 12px;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+
+        .content {
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        .name {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--tg-theme-text-color);
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+            white-space: nowrap;
+        }
+
+        .badge-nuovo { background-color: #fff3cd; color: #856404; }
+        .badge-rinnovo { background-color: #d4edda; color: #155724; }
+        .badge-scaduto { background-color: #f8d7da; color: #721c24; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--tg-theme-hint-color);
+        }
+
+        /* Loading overlay */
+        #loading {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            font-weight: bold;
+            color: var(--tg-theme-link-color);
+        }
+    </style>
 </head>
 <body>
-<div class="container">
-    <h2>🔄 Lista Rinnovi</h2>
-    <div class="counter-wrapper">
-        <div class="counter" id="counter">Totale: 0</div>
-    </div>
-    <input type="text" class="search" id="search" placeholder="🔍 Cerca per nominativo...">
-    <div id="lista">
-        <div class="loading">⏳ Caricamento rinnovi...</div>
-    </div>
-</div>
 
-<div class="toast" id="toast"></div>
+    <div id="loading">Caricamento...</div>
+
+    <div class="header">
+        <div class="search-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" class="search-input" placeholder="Cerca nominativo...">
+        </div>
+    </div>
+
+    <div id="listContainer" class="list-container">
+        <!-- Items will be injected here -->
+    </div>
 
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
-tg.ready();
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    
+    // Adatta i colori al tema Telegram
+    document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#ffffff');
+    document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#000000');
+    document.documentElement.style.setProperty('--tg-theme-hint-color', tg.themeParams.hint_color || '#999999');
+    document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color || '#f4f4f5');
 
-let tuttiRinnovi = [];
+    let allData = [];
 
-function getField(obj, ...keys) {
-    for (const k of keys) {
-        if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') {
-            return obj[k];
+    async function fetchData() {
+        try {
+            const response = await fetch('/api/lista_rinnovi?nocache=' + Date.now());
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            const data = await response.json();
+            allData = data || [];
+            
+            renderList(allData);
+            document.getElementById('loading').style.display = 'none';
+            
+        } catch (error) {
+            console.error('Error:', error);
+            document.getElementById('loading').innerHTML = `Errore: ${error.message}<br><button onclick="location.reload()">Riprova</button>`;
         }
     }
-    return null;
-}
 
-function mostraToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
-}
+    function getInitials(name) {
+        if (!name) return '?';
+        const parts = name.split(' ');
+        if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
 
-function aggiornaContatore(n) {
-    document.getElementById('counter').textContent = 'Totale: ' + n;
-}
+    function renderList(items) {
+        const container = document.getElementById('listContainer');
+        container.innerHTML = '';
 
-async function caricaDati() {
-    const box = document.getElementById('lista');
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        if (items.length === 0) {
+            container.innerHTML = '<div class="empty-state">Nessun rinnovo trovato.</div>';
+            return;
+        }
 
-        const res = await fetch('/api/lista_rinnovi?nocache=' + Date.now(), {
-            signal: controller.signal,
-            headers: { 'Accept': 'application/json' }
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'item';
+            
+            // Determina tipo badge
+            let badgeClass = 'badge-rinnovo';
+            let badgeText = 'RINNOVO';
+            const tipo = (item.tipo || '').toLowerCase();
+            if (tipo.includes('nuovo')) {
+                badgeClass = 'badge-nuovo';
+                badgeText = 'NUOVO';
+            } else if (tipo.includes('scad')) {
+                badgeClass = 'badge-scaduto';
+                badgeText = 'SCADUTO';
+            }
+
+            // Formatta date
+            const dataOp = item.data_operazione ? String(item.data_operazione).substring(0, 10) : '';
+            const scad = item.scadenza ? String(item.scadenza).substring(0, 10) : '';
+            const subtitle = `${dataOp} | Scad: ${scad}`;
+
+            div.innerHTML = `
+                <div class="avatar">${getInitials(item.nominativo)}</div>
+                <div class="content">
+                    <div class="name">${item.nominativo || 'Sconosciuto'}</div>
+                    <div class="subtitle">${subtitle}</div>
+                </div>
+                <div class="badge ${badgeClass}">${badgeText}</div>
+            `;
+            
+            // Azione al click (esempio: apri modal o dettaglio)
+            div.onclick = () => {
+                // Qui puoi mettere la logica per aprire il dettaglio
+                // tg.showPopup({ title: item.nominativo, message: subtitle });
+                console.log('Clicked:', item.id);
+            };
+
+            container.appendChild(div);
         });
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-            const text = await res.text();
-            throw new Error(`Errore Server ${res.status}: ${text.substring(0, 180)}`);
-        }
-
-        const data = await res.json();
-        console.log("Dati grezzi:", data);
-
-        let lista = [];
-        if (Array.isArray(data)) {
-            lista = data;
-        } else if (data && Array.isArray(data.data)) {
-            lista = data.data;
-        } else if (data && Array.isArray(data.rinnovi)) {
-            lista = data.rinnovi;
-        } else {
-            throw new Error("Formato dati non valido");
-        }
-
-        tuttiRinnovi = lista;
-        aggiornaContatore(lista.length);
-        render(lista);
-
-    } catch (e) {
-        let msg = e.message;
-        if (e.name === 'AbortError') msg = "Timeout: il server non ha risposto entro 12 secondi.";
-        box.innerHTML = `<div class="error"><strong>❌ Errore:</strong><br>${msg}<br><br>
-            <button onclick="location.reload()" style="padding:8px 16px; background:#0088cc; color:white; border:none; border-radius:4px; cursor:pointer;">🔄 Riprova</button>
-        </div>`;
-    }
-}
-
-function render(lista) {
-    const box = document.getElementById('lista');
-
-    if (!lista || lista.length === 0) {
-        box.innerHTML = '<div class="empty">Nessun rinnovo trovato.</div>';
-        return;
     }
 
-    box.innerHTML = lista.map((r, index) => {
-        const nome = getField(r, 'nominativo', 'nome') || ('ID: ' + (getField(r, 'nominativo_id', 'id') || '?'));
-        let dataOp = getField(r, 'data_operazione', 'data_opera', 'data') || '-';
-        dataOp = String(dataOp).substring(0, 10);
-        let scadenza = getField(r, 'scadenza', 'scad', 'data_scadenza') || '-';
-        scadenza = String(scadenza).substring(0, 10);
-        const tipoRaw = String(getField(r, 'tipo', 'type') || 'rinnovo').toLowerCase();
-
-        let badgeClass = 'badge-rinnovo';
-        let badgeText = 'RINNOVO';
-        if (tipoRaw === 'nuovo') {
-            badgeClass = 'badge-nuovo';
-            badgeText = 'NUOVO';
-        } else if (tipoRaw === 'omaggio') {
-            badgeClass = 'badge-omaggio';
-            badgeText = 'OMAGGIO';
-        }
-
-        return `
-            <div class="item">
-                <div class="item-main">
-                    <div class="item-name">
-                        <span style="color:#888; font-size:12px; margin-right:6px;">${index + 1} -</span>
-                        ${nome}
-                    </div>
-                    <div class="item-sub">${dataOp} &nbsp;|&nbsp; Scad: ${scadenza}</div>
-                </div>
-                <div class="item-actions">
-                    <span class="badge ${badgeClass}">${badgeText}</span>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-// Filtro ricerca
-document.getElementById('search').addEventListener('input', function(e) {
-    const term = e.target.value.toLowerCase().trim();
-    if (!term) {
-        render(tuttiRinnovi);
-        aggiornaContatore(tuttiRinnovi.length);
-        return;
-    }
-    const filtrati = tuttiRinnovi.filter(r => {
-        const nome = String(getField(r, 'nominativo', 'nome') || '').toLowerCase();
-        const id = String(getField(r, 'nominativo_id', 'id') || '');
-        return nome.includes(term) || id.includes(term);
+    // Search Filter
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        const filtered = allData.filter(item => 
+            (item.nominativo && item.nominativo.toLowerCase().includes(term)) ||
+            (item.note && item.note.toLowerCase().includes(term))
+        );
+        renderList(filtered);
     });
-    render(filtrati);
-    aggiornaContatore(filtrati.length);
-});
 
-caricaDati();
+    // Init
+    fetchData();
 </script>
 </body>
 </html>
