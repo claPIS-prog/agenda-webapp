@@ -67,23 +67,38 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
 @router.post("/api/credito")
 def api_credito(payload: CreditoPayload, request: Request):
     """
-    Salva un NUOVO ACQUISTO con ID automatico progressivo (MAX(id) + 1).
+    Salva un NUOVO ACQUISTO.
+    Versione ultra-robusta contro errori 500.
     """
     get_current_user(request)
-    dati = payload.dati
+    dati = payload.dati or {}
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Genera contatore automatico
-            cur.execute("SELECT COALESCE(MAX(id), 1) + 1 FROM crediti")
-            nuovo_id = cur.fetchone()[0]
-            
-            # Costruisce la nota includendo la modalità di pagamento
-            note_finale = dati.get("note", "")
-            pagamento = dati.get("modalita_pagamento", "")
+            # Genera ID in modo sicuro
+            try:
+                cur.execute("SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM crediti")
+                row = cur.fetchone()
+                if isinstance(row, dict):
+                    nuovo_id = int(row.get("next_id") or 2)
+                elif isinstance(row, (list, tuple)) and len(row) > 0:
+                    nuovo_id = int(row[0] or 2)
+                else:
+                    nuovo_id = 2
+            except Exception as e:
+                print(f"[WARN] Errore lettura MAX(id): {e}")
+                nuovo_id = 2
+
+            if nuovo_id < 2:
+                nuovo_id = 2
+
+            # Nota con modalità di pagamento
+            note_finale = (dati.get("note") or "").strip()
+            pagamento = (dati.get("modalita_pagamento") or "").strip()
             if pagamento:
                 note_finale = f"[Pagamento: {pagamento}] {note_finale}".strip()
-            
+
+            # Inserimento
             cur.execute("""
                 INSERT INTO crediti (
                     id, fornitore, data_acquisto, quantita, 
@@ -91,18 +106,25 @@ def api_credito(payload: CreditoPayload, request: Request):
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 nuovo_id,
-                dati.get("fornitore", ""),
-                dati.get("data_acquisto", ""),
-                int(dati.get("quantita", 1)),
-                float(dati.get("valore_totale", 0)),
-                float(dati.get("valore_singolo", 0)),
+                str(dati.get("fornitore") or ""),
+                str(dati.get("data_acquisto") or ""),
+                int(dati.get("quantita") or 1),
+                float(dati.get("valore_totale") or 0),
+                float(dati.get("valore_singolo") or 0),
                 note_finale,
                 datetime.now().isoformat()
             ))
+
         conn.commit()
+        return {"ok": True, "id": nuovo_id}
+
+    except Exception as e:
+        conn.rollback()
+        err_msg = str(e)
+        print(f"[ERRORE /api/credito] {err_msg}")
+        raise HTTPException(status_code=500, detail=err_msg)
     finally:
         conn.close()
-    return {"ok": True, "id": nuovo_id}
 
 @router.get("/api/crediti_disponibili")
 def api_crediti_disponibili(request: Request):
