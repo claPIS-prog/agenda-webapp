@@ -94,7 +94,7 @@ def api_get_permessi(user_id: int, request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 4. SALVA PERMESSI + DATE
+# 4. SALVA PERMESSI + DATE (crea record autorizzati se serve per il FK)
 # -----------------------------------------------------------------------------
 @router.post("/api/salva_permessi")
 def api_salva_permessi(payload: PermessiPayload, request: Request):
@@ -102,7 +102,6 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Crea record placeholder in autorizzati se non esiste (per rispettare il FK)
             cur.execute("SELECT id FROM autorizzati WHERE id = %s", (payload.user_id,))
             if not cur.fetchone():
                 cur.execute("SELECT nominativo FROM nominativi WHERE id = %s", (payload.user_id,))
@@ -143,7 +142,26 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
     return {"ok": True}
 
 # -----------------------------------------------------------------------------
-# 5. AGGIUNGI / RIMUOVI AMICO
+# 5. ELIMINA PERMESSI (NUOVO - per bottone cancella in Lista Permessi)
+# -----------------------------------------------------------------------------
+@router.delete("/api/permessi/{user_id}")
+def api_elimina_permessi(user_id: int, request: Request):
+    """Elimina tutti i permessi di un nominativo."""
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM permessi WHERE user_id = %s", (user_id,))
+            conn.commit()
+            return {"ok": True, "eliminati": cur.rowcount}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+# -----------------------------------------------------------------------------
+# 6. AGGIUNGI / RIMUOVI AMICO (compatibilità)
 # -----------------------------------------------------------------------------
 @router.post("/api/aggiungi_amico")
 def api_aggiungi_amico(payload: AmicoPayload, request: Request):
