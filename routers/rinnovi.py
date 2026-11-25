@@ -18,7 +18,7 @@ def api_lista_rinnovi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Solo colonne esistenti (senza importo_acconto / importo_saldo)
+            # Query minimale e sicura
             cur.execute("""
                 SELECT 
                     r.id,
@@ -30,14 +30,9 @@ def api_lista_rinnovi(request: Request):
                     r.scadenza,
                     COALESCE(r.tipo, 'rinnovo') as tipo,
                     r.note,
-                    r.nominativo_id,
-                    r.num_credito_rich,
-                    r.num_credito_dato,
-                    r.num_credito_dare,
-                    r.data_credito_rinnovo_rich,
-                    r.data_credito_rinnovo_dato
+                    r.nominativo_id
                 FROM rinnovi r
-                ORDER BY r.creato_il DESC NULLS LAST, r.id DESC
+                ORDER BY r.id DESC
             """)
             
             rows = cur.fetchall()
