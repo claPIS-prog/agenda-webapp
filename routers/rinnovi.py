@@ -8,7 +8,7 @@ import json
 router = APIRouter()
 
 # -----------------------------------------------------------------------------
-# 1. LISTA RINNOVI (TUO CODICE ORIGINALE - NON TOCCATO)
+# 1. LISTA RINNOVI (FIX SPAZIO NELL'URL)
 # -----------------------------------------------------------------------------
 @router.get("/api/lista_rinnovi")
 def api_lista_rinnovi(request: Request):
@@ -37,28 +37,23 @@ def api_lista_rinnovi(request: Request):
             rows = cur.fetchall()
             result = []
             for row in rows:
-                # Gestione robusta: funziona sia con tuple che con dict/RealDictRow
                 if isinstance(row, dict):
                     record = dict(row)
                 else:
                     columns = [desc[0] for desc in cur.description]
                     record = dict(zip(columns, row))
                 
-                # Pulizia None → stringa vuota o 0
                 for k, v in list(record.items()):
                     if v is None:
                         if k in ("importo_acconto", "importo_saldo", "id", "nominativo_id"):
                             record[k] = 0
                         else:
                             record[k] = ""
-                    # Converti date in stringa leggibile (primi 10 caratteri)
                     elif k in ("data_operazione", "scadenza") and v:
                         record[k] = str(v)[:10]
                 result.append(record)
             
             print(f"[DEBUG] Restituiti {len(result)} record per lista_rinnovi")
-            if result:
-                print(f"[DEBUG] Primo record: {result[0]}")
             return result
             
     except Exception as e:
@@ -68,7 +63,7 @@ def api_lista_rinnovi(request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 2. SCADENZE (TUO CODICE ORIGINALE - NON TOCCATO)
+# 2. SCADENZE (ORIGINALE - NON TOCCARE)
 # -----------------------------------------------------------------------------
 @router.get("/api/scadenze")
 def api_scadenze(request: Request):
@@ -129,81 +124,3 @@ def api_scadenze(request: Request):
             return out
     finally:
         conn.close()
-
-# -----------------------------------------------------------------------------
-# 3. CALCOLI (NUOVO ENDPOINT - FIX DEFINITIVO 404)
-# -----------------------------------------------------------------------------
-@router.get("/api/calcoli")
-def api_calcoli(request: Request):
-    """Restituisce dati dashboard calcoli. Auth bypassata per sicurezza."""
-    # get_current_user(request) 
-    
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT 
-                    r.id,
-                    COALESCE((SELECT n.nominativo FROM nominativi n WHERE n.id = r.nominativo_id LIMIT 1), 'Sconosciuto') as nominativo,
-                    r.tipo,
-                    r.data_operazione,
-                    r.importo_acconto,
-                    r.importo_saldo,
-                    r.reseller_id,
-                    r.procuratore_id,
-                    r.nominativo_id
-                FROM rinnovi r
-                ORDER BY r.creato_il DESC NULLS LAST, r.id DESC
-            """)
-            
-            rows = cur.fetchall()
-            result = []
-            count_nuovi = 0
-            count_rinnovi = 0
-            
-            for row in rows:
-                # TUA STESSA LOGICA DI CONVERSIONE ROBUSTA
-                if isinstance(row, dict):
-                    record = dict(row)
-                else:
-                    columns = [desc[0] for desc in cur.description]
-                    record = dict(zip(columns, row))
-                
-                # Pulizia None → stringa vuota o 0
-                for k, v in list(record.items()):
-                    if v is None:
-                        if k in ("importo_acconto", "importo_saldo", "id", "nominativo_id", "reseller_id", "procuratore_id"):
-                            record[k] = 0
-                        else:
-                            record[k] = ""
-                    elif k == "data_operazione" and v:
-                        record[k] = str(v)[:10]
-                
-                # Logica contatori (adatta se usi valori diversi per 'tipo')
-                tipo = str(record.get('tipo', '')).lower()
-                if 'nuovo' in tipo:
-                    count_nuovi += 1
-                else:
-                    count_rinnovi += 1
-                    
-                result.append(record)
-            
-            print(f"[DEBUG] Calcoli: {len(result)} record, Nuovi: {count_nuovi}, Rinnovi: {count_rinnovi}")
-            
-            # Struttura JSON attesa dal frontend
-            return {
-                "data": result,
-                "totali": {
-                    "nuovi": count_nuovi,
-                    "rinnovi": count_rinnovi,
-                    "omaggi": 0 # Aggiungi logica se hai un campo specifico
-                }
-            }
-            
-    except Exception as e:
-        print(f"[ERRORE /api/calcoli] {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        conn.close()
-
-# ... (Mantieni qui sotto gli altri endpoint POST/DELETE che hai già) ...
