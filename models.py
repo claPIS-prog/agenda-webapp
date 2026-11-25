@@ -6,8 +6,7 @@ class AmicoPayload(BaseModel):
     nome: str
 
 class PermessiPayload(BaseModel):
-    user_id: int
-    permessi: dict
+   dati: dict
 
 class AzionePayload(BaseModel):
     dati: dict
