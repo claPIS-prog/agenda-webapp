@@ -1,315 +1,334 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Calcoli</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="/auth.js"></script>
-<style>
-body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-h2 { text-align: center; margin-top: 0; color: #333; }
-.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
-.counter-wrapper { text-align: center; }
-label { display: block; font-weight: bold; margin: 10px 0 4px; color: #333; font-size: 13px; }
-input, select, textarea { width: 100%; padding: 9px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 14px; font-family: inherit; }
-input[readonly] { background: #f0f0f0; color: #555; cursor: not-allowed; font-weight: bold; }
-textarea { resize: vertical; min-height: 50px; }
-.row { display: flex; gap: 8px; }
-.row > div { flex: 1; }
-.btn { width: 100%; padding: 13px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; color: white; }
-.btn:active { opacity: 0.8; }
-.btn-save { background: #4caf50; }
-.btn-pdf { background: #25d366; }
-.section-title { font-size: 13px; color: white; font-weight: bold; margin: 18px 0 10px; padding: 8px 12px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-.section-title.filtri { background: #607d8b; }
-.section-title.nuovo { background: #2196f3; }
-.section-title.rinnovo { background: #ff9800; }
-.section-title.omaggio { background: #4caf50; }
-.section-title.crediti { background: #9c27b0; }
-.section-title.crediti-omaggio { background: #66bb6a; }
-.section-title.riepilogo { background: #333; }
-.result-box { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 12px; border-radius: 6px; margin: 10px 0; }
-.result-box.credito { background: #f3e5f5; border-left-color: #9c27b0; }
-.result-box.credito-omaggio { background: #e8f5e9; border-left-color: #4caf50; }
-.result-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid #c8e6c9; }
-.result-box.credito .result-item { border-bottom-color: #e1bee7; }
-.result-box.credito-omaggio .result-item { border-bottom-color: #c8e6c9; }
-.result-item:last-child { border-bottom: none; font-weight: bold; font-size: 15px; }
-.result-box .result-item:last-child { color: #2e7d32; }
-.result-box.credito .result-item:last-child { color: #7b1fa2; }
-.result-box.credito-omaggio .result-item:last-child { color: #2e7d32; }
-.stat-box { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 10px; border-radius: 6px; margin: 10px 0; text-align: center; }
-.stat-box strong { font-size: 18px; color: #1976d2; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
-.toast.show { opacity: 1; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Calcoli</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-hint-color: #999999;
+            --tg-theme-link-color: #2481cc;
+            --tg-theme-button-color: #2481cc;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-secondary-bg-color: #f4f4f5;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-secondary-bg-color);
+            margin: 0;
+            padding: 0;
+            color: var(--tg-theme-text-color);
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+
+        /* Header Dashboard */
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .dashboard-btn {
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Sezione Filtri */
+        .filters-section {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .section-title {
+            background: #eef2f7;
+            color: #555;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .filter-group label {
+            display: block;
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .filter-group select, 
+        .filter-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            background: #fafafa;
+            box-sizing: border-box;
+        }
+
+        /* Contatori */
+        .counters-bar {
+            background: #f0f7ff;
+            border: 1px solid #cce5ff;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .counter-item span { color: var(--tg-theme-link-color); }
+
+        /* Sezione Nuovo */
+        .new-section {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .new-header {
+            background: var(--tg-theme-button-color);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .input-group {
+            flex: 1;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        /* Loading & Error */
+        #loadingOverlay {
+            position: fixed; inset: 0; background: rgba(255,255,255,0.9);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000; font-weight: bold; color: var(--tg-theme-link-color);
+        }
+        
+        .error-msg {
+            color: #dc3545; background: #fff5f5; padding: 10px;
+            border-radius: 6px; text-align: center; margin-top: 10px; display: none;
+        }
+    </style>
 </head>
 <body>
+
+<div id="loadingOverlay">⏳ Caricamento dati...</div>
+
 <div class="container">
-<h2>🧮 Calcoli</h2>
-<div class="counter-wrapper"><div class="counter">Dashboard Contabile</div></div>
+    <!-- Header -->
+    <div class="header">
+        <h2 style="margin:0 0 10px 0; font-size:18px;">📊 Calcoli</h2>
+        <button class="dashboard-btn" onclick="alert('Dashboard Contabile in sviluppo')">📈 Dashboard Contabile</button>
+    </div>
 
-<!-- FILTRI -->
-<div class="section-title filtri">🔍 Filtri</div>
-<div class="row">
-    <div><label>Nominativo DA:</label><select id="nominativo_da" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
-    <div><label>Nominativo A:</label><select id="nominativo_a" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
-</div>
-<div class="row">
-    <div><label>Reseller DA:</label><select id="reseller_da" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
-    <div><label>Reseller A:</label><select id="reseller_a" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
-</div>
-<div class="row">
-    <div><label>Procuratore DA:</label><select id="procuratore_da" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
-    <div><label>Procuratore A:</label><select id="procuratore_a" onchange="calcolaAutomatico()"><option value="">-- Tutti --</option></select></div>
-</div>
-<div class="row">
-    <div><label>Periodo DA:</label><input type="date" id="periodo_da" onchange="calcolaAutomatico()"></div>
-    <div><label>Periodo A:</label><input type="date" id="periodo_a" onchange="calcolaAutomatico()"></div>
-</div>
+    <!-- Filtri -->
+    <div class="filters-section">
+        <div class="section-title">🔍 FILTRI</div>
+        
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label>Nominativo DA:</label>
+                <select id="nom-da"><option value="">-- Tutti --</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Nominativo A:</label>
+                <select id="nom-a"><option value="">-- Tutti --</option></select>
+            </div>
+        </div>
 
-<div class="stat-box">
-    <div>🆕 Nuovi: <strong id="count_nuovi">0</strong> | 🔄 Rinnovi: <strong id="count_rinnovi">0</strong> | 🎁 Omaggi: <strong id="count_omaggi">0</strong></div>
-</div>
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label>Reseller DA:</label>
+                <select id="res-da"><option value="">-- Tutti --</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Reseller A:</label>
+                <select id="res-a"><option value="">-- Tutti --</option></select>
+            </div>
+        </div>
 
-<!-- NUOVO -->
-<div class="section-title nuovo">🆕 NUOVO</div>
-<label>Importo Nuovo (€):</label>
-<input type="number" id="importo_nuovo" step="0.01" value="0" readonly>
-<div class="row">
-    <div><label>Acconto Nuovo (€):</label><input type="number" id="acconto_nuovo" step="0.01" value="0" readonly></div>
-    <div><label>Acconto Saldo Nuovo (€):</label><input type="number" id="acconto_saldo_nuovo" step="0.01" value="0" readonly></div>
-</div>
-<label>Totale Acconti Nuovi (€):</label>
-<input type="number" id="totale_acconti_nuovi" step="0.01" value="0" readonly>
-<label>Info su Saldo Nuovo:</label>
-<textarea id="info_saldo_nuovo" placeholder="Note sul saldo nuovo..."></textarea>
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label>Procuratore DA:</label>
+                <select id="proc-da"><option value="">-- Tutti --</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Procuratore A:</label>
+                <select id="proc-a"><option value="">-- Tutti --</option></select>
+            </div>
+        </div>
 
-<!-- RINNOVO -->
-<div class="section-title rinnovo">🔄 RINNOVO</div>
-<label>Importo Rinnovo (€):</label>
-<input type="number" id="importo_rinnovo" step="0.01" value="0" readonly>
-<div class="row">
-    <div><label>Acconto Rinnovo (€):</label><input type="number" id="acconto_rinnovo" step="0.01" value="0" readonly></div>
-    <div><label>Acconto Saldo Rinnovo (€):</label><input type="number" id="acconto_saldo_rinnovo" step="0.01" value="0" readonly></div>
-</div>
-<label>Totale Acconti Rinnovo (€):</label>
-<input type="number" id="totale_acconti_rinnovo" step="0.01" value="0" readonly>
-<label>Info su Saldo Rinnovo:</label>
-<textarea id="info_saldo_rinnovo" placeholder="Note sul saldo rinnovo..."></textarea>
+        <div class="filter-grid">
+            <div class="filter-group">
+                <label>Periodo DA:</label>
+                <input type="date" id="date-from">
+            </div>
+            <div class="filter-group">
+                <label>Periodo A:</label>
+                <input type="date" id="date-to">
+            </div>
+        </div>
+    </div>
 
-<!-- OMAGGIO -->
-<div class="section-title omaggio">🎁 OMAGGIO</div>
-<label>Importo Omaggio (€):</label>
-<input type="number" id="importo_omaggio" step="0.01" value="0" readonly>
-<div class="row">
-    <div><label>Acconto Omaggio (€):</label><input type="number" id="acconto_omaggio" step="0.01" value="0" readonly></div>
-    <div><label>Acconto Saldo Omaggio (€):</label><input type="number" id="acconto_saldo_omaggio" step="0.01" value="0" readonly></div>
-</div>
-<label>Totale Acconti Omaggio (€):</label>
-<input type="number" id="totale_acconti_omaggio" step="0.01" value="0" readonly>
+    <!-- Contatori -->
+    <div class="counters-bar">
+        <div class="counter-item">💼 Nuovi: <span id="cnt-nuovi">0</span></div>
+        <div class="counter-item">🔄 Rinnovi: <span id="cnt-rinnovi">0</span></div>
+        <div class="counter-item">🎁 Omaggi: <span id="cnt-omaggi">0</span></div>
+    </div>
 
-<!-- CREDITI (Nuovi + Rinnovi) -->
-<div class="section-title crediti">🎫 CREDITI (Nuovi + Rinnovi)</div>
-<div class="result-box credito">
-    <div class="result-item"><span>Crediti Richiesti:</span><span id="rpt_cred_rich">0</span></div>
-    <div class="result-item"><span>Crediti Dati:</span><span id="rpt_cred_dati">0</span></div>
-    <div class="result-item"><span>Crediti Dare:</span><span id="rpt_cred_dare">0</span></div>
-    <div class="result-item"><span>Totale NC (€):</span><span id="rpt_totale_nc">€ 0.00</span></div>
-</div>
+    <!-- Errore -->
+    <div id="errorMsg" class="error-msg"></div>
 
-<!-- CREDITI OMAGGIO -->
-<div class="section-title crediti-omaggio">🎁 CREDITI OMAGGIO</div>
-<div class="result-box credito-omaggio">
-    <div class="result-item"><span>Crediti Richiesti:</span><span id="rpt_cred_rich_omaggio">0</span></div>
-    <div class="result-item"><span>Crediti Dati:</span><span id="rpt_cred_dati_omaggio">0</span></div>
-    <div class="result-item"><span>Crediti Dare:</span><span id="rpt_cred_dare_omaggio">0</span></div>
-    <div class="result-item"><span>Totale NC Omaggio (€):</span><span id="rpt_totale_nc_omaggio">€ 0.00</span></div>
+    <!-- Sezione Nuovo (Placeholder come da screenshot) -->
+    <div class="new-section">
+        <div class="new-header">➕ NUOVO</div>
+        <div class="input-group" style="margin-bottom:10px;">
+            <label>Importo Nuovo (€):</label>
+            <input type="number" placeholder="0" readonly style="background:#f9f9f9;">
+        </div>
+        <div class="input-row">
+            <div class="input-group">
+                <label>Acconto Nuovo (€):</label>
+                <input type="number" placeholder="0" readonly style="background:#f9f9f9;">
+            </div>
+            <div class="input-group">
+                <label>Acconto Saldo Nuovo (€):</label>
+                <input type="number" placeholder="0" readonly style="background:#f9f9f9;">
+            </div>
+        </div>
+    </div>
 </div>
-
-<!-- RIEPILOGO -->
-<div class="section-title riepilogo">📊 RIEPILOGO</div>
-<div class="result-box">
-    <div class="result-item"><span>Totale Acconti Nuovi:</span><span id="rpt_nuovi">€ 0.00</span></div>
-    <div class="result-item"><span>Totale Acconti Rinnovo:</span><span id="rpt_rinnovo">€ 0.00</span></div>
-    <div class="result-item"><span>Totale Acconti Omaggio:</span><span id="rpt_omaggio">€ 0.00</span></div>
-    <div class="result-item"><span>TOTALE GENERALE:</span><span id="rpt_totale">€ 0.00</span></div>
-</div>
-
-<label>Note generali (opzionale):</label>
-<textarea id="note" placeholder="Note..."></textarea>
-
-<button class="btn btn-save" onclick="salva()">💾 SALVA</button>
-<button class="btn btn-pdf" onclick="generaPDFWhatsApp()">📄 PDF x WHATSAPP</button>
-</div>
-<div class="toast" id="toast"></div>
 
 <script>
-const tg = window.Telegram.WebApp; tg.expand();
+const tg = window.Telegram.WebApp;
+tg.expand();
 
-function getHeaders(contentType) {
-    const headers = {};
-    if (contentType) headers['Content-Type'] = contentType;
-    const initData = tg.initData;
-    if (initData) headers['X-Telegram-Init-Data'] = initData;
-    return headers;
-}
+// Adatta colori al tema Telegram
+document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#ffffff');
+document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#000000');
+document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color || '#f4f4f5');
 
-async function caricaDropdowns() {
-    const ok = async (url) => {
-        try {
-            const res = await fetch(url, { headers: getHeaders() });
-            return res.ok ? await res.json() : [];
-        } catch (e) { return []; }
-    };
-    const nominativi = await ok('/api/nominativi');
-    const resellers = await ok('/api/resellers');
-    const procuratori = await ok('/api/procuratori');
-    const pop = (id, arr, campo) => {
-        const sel = document.getElementById(id);
-        arr.forEach(x => { sel.innerHTML += '<option value="' + x[campo] + '">' + x[campo] + '</option>'; });
-    };
-    pop('nominativo_da', nominativi, 'nominativo'); pop('nominativo_a', nominativi, 'nominativo');
-    pop('reseller_da', resellers, 'nominativo'); pop('reseller_a', resellers, 'nominativo');
-    pop('procuratore_da', procuratori, 'nominativo'); pop('procuratore_a', procuratori, 'nominativo');
-}
+let globalData = [];
 
-async function calcolaAutomatico() {
-    const p = new URLSearchParams();
-    ['nominativo_da','nominativo_a','reseller_da','reseller_a','procuratore_da','procuratore_a','periodo_da','periodo_a'].forEach(id => {
-        p.append(id, document.getElementById(id).value);
-    });
+async function caricaDati() {
+    const loader = document.getElementById('loadingOverlay');
+    const errorBox = document.getElementById('errorMsg');
+    
     try {
-        const res = await fetch('/api/calcoli/calcola?' + p.toString(), { headers: getHeaders() });
-        if (!res.ok) return;
-        const d = await res.json();
+        // Timeout di sicurezza 10s
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        // Chiamata all'endpoint che abbiamo aggiunto nel Python
+        const res = await fetch('/api/calcoli?nocache=' + Date.now(), { 
+            signal: controller.signal 
+        });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) throw new Error(`Errore Server ${res.status}`);
+
+        const json = await res.json();
         
-        // NUOVO
-        document.getElementById('importo_nuovo').value = d.importo_nuovo.toFixed(2);
-        document.getElementById('acconto_nuovo').value = d.acconto_nuovo.toFixed(2);
-        document.getElementById('acconto_saldo_nuovo').value = d.acconto_saldo_nuovo.toFixed(2);
-        document.getElementById('totale_acconti_nuovi').value = d.totale_acconti_nuovi.toFixed(2);
-        // RINNOVO
-        document.getElementById('importo_rinnovo').value = d.importo_rinnovo.toFixed(2);
-        document.getElementById('acconto_rinnovo').value = d.acconto_rinnovo.toFixed(2);
-        document.getElementById('acconto_saldo_rinnovo').value = d.acconto_saldo_rinnovo.toFixed(2);
-        document.getElementById('totale_acconti_rinnovo').value = d.totale_acconti_rinnovo.toFixed(2);
-        // OMAGGIO
-        document.getElementById('importo_omaggio').value = d.importo_omaggio.toFixed(2);
-        document.getElementById('acconto_omaggio').value = d.acconto_omaggio.toFixed(2);
-        document.getElementById('acconto_saldo_omaggio').value = d.acconto_saldo_omaggio.toFixed(2);
-        document.getElementById('totale_acconti_omaggio').value = d.totale_acconti_omaggio.toFixed(2);
-        // CREDITI
-        document.getElementById('rpt_cred_rich').textContent = d.crediti_rich;
-        document.getElementById('rpt_cred_dati').textContent = d.crediti_dati;
-        document.getElementById('rpt_cred_dare').textContent = d.crediti_dare;
-        document.getElementById('rpt_totale_nc').textContent = '€ ' + d.totale_nc.toFixed(2);
-        // CREDITI OMAGGIO
-        document.getElementById('rpt_cred_rich_omaggio').textContent = d.crediti_rich_omaggio;
-        document.getElementById('rpt_cred_dati_omaggio').textContent = d.crediti_dati_omaggio;
-        document.getElementById('rpt_cred_dare_omaggio').textContent = d.crediti_dare_omaggio;
-        document.getElementById('rpt_totale_nc_omaggio').textContent = '€ ' + d.totale_nc_omaggio.toFixed(2);
-        // RIEPILOGO
-        document.getElementById('rpt_nuovi').textContent = '€ ' + d.totale_acconti_nuovi.toFixed(2);
-        document.getElementById('rpt_rinnovo').textContent = '€ ' + d.totale_acconti_rinnovo.toFixed(2);
-        document.getElementById('rpt_omaggio').textContent = '€ ' + d.totale_acconti_omaggio.toFixed(2);
-        document.getElementById('rpt_totale').textContent = '€ ' + d.totale_generale.toFixed(2);
-        // COUNT
-        document.getElementById('count_nuovi').textContent = d.count_nuovi;
-        document.getElementById('count_rinnovi').textContent = d.count_rinnovi;
-        document.getElementById('count_omaggi').textContent = d.count_omaggi;
-    } catch (e) { console.error(e); }
+        // Gestione formato { data: [...], totali: {...} }
+        globalData = json.data || [];
+        const totali = json.totali || {};
+
+        // Aggiorna contatori
+        document.getElementById('cnt-nuovi').textContent = totali.nuovi || 0;
+        document.getElementById('cnt-rinnovi').textContent = totali.rinnovi || 0;
+        document.getElementById('cnt-omaggi').textContent = totali.omaggi || 0;
+
+        // Popola i filtri Select
+        popolaSelect('nom-da', 'nom-a', globalData.map(r => r.nominativo).filter(Boolean));
+        // Se hai colonne reseller/procuratore nel DB, decommenta queste righe:
+        // popolaSelect('res-da', 'res-a', [...new Set(globalData.map(r => r.reseller_id))].filter(Boolean));
+        // popolaSelect('proc-da', 'proc-a', [...new Set(globalData.map(r => r.procuratore_id))].filter(Boolean));
+
+        loader.style.display = 'none';
+        console.log("✅ Dati Calcoli caricati:", globalData.length);
+
+    } catch (e) {
+        loader.style.display = 'none';
+        errorBox.style.display = 'block';
+        errorBox.textContent = "❌ Errore: " + e.message;
+        console.error(e);
+    }
 }
 
-function mostraToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
+function popolaSelect(idDa, idA, items) {
+    const unique = [...new Set(items)].sort();
+    const opts = '<option value="">-- Tutti --</option>' + unique.map(i => `<option value="${i}">${i}</option>`).join('');
+    document.getElementById(idDa).innerHTML = opts;
+    document.getElementById(idA).innerHTML = opts;
 }
 
-async function salva() {
-    const v = id => parseFloat(document.getElementById(id).value) || 0;
-    const dati = {
-        nominativo_da: document.getElementById('nominativo_da').value,
-        nominativo_a: document.getElementById('nominativo_a').value,
-        reseller_da: document.getElementById('reseller_da').value,
-        reseller_a: document.getElementById('reseller_a').value,
-        procuratore_da: document.getElementById('procuratore_da').value,
-        procuratore_a: document.getElementById('procuratore_a').value,
-        periodo_da: document.getElementById('periodo_da').value,
-        periodo_a: document.getElementById('periodo_a').value,
-        importo_nuovo: v('importo_nuovo'), acconto_nuovo: v('acconto_nuovo'), acconto_saldo_nuovo: v('acconto_saldo_nuovo'),
-        totale_acconti_nuovi: v('totale_acconti_nuovi'), info_saldo_nuovo: document.getElementById('info_saldo_nuovo').value.trim(),
-        info_saldo_rinnovo_nuovo: '',
-        importo_rinnovo: v('importo_rinnovo'), acconto_rinnovo: v('acconto_rinnovo'), acconto_saldo_rinnovo: v('acconto_saldo_rinnovo'),
-        totale_acconti_rinnovo: v('totale_acconti_rinnovo'), info_saldo_rinnovo: document.getElementById('info_saldo_rinnovo').value.trim(),
-        importo_omaggio: v('importo_omaggio'), acconto_omaggio: v('acconto_omaggio'), acconto_saldo_omaggio: v('acconto_saldo_omaggio'),
-        totale_acconti_omaggio: v('totale_acconti_omaggio'),
-        crediti_rich: parseInt(document.getElementById('rpt_cred_rich').textContent) || 0,
-        crediti_dati: parseInt(document.getElementById('rpt_cred_dati').textContent) || 0,
-        crediti_dare: parseInt(document.getElementById('rpt_cred_dare').textContent) || 0,
-        totale_nc: parseFloat(document.getElementById('rpt_totale_nc').textContent.replace('€ ','')) || 0,
-        crediti_rich_omaggio: parseInt(document.getElementById('rpt_cred_rich_omaggio').textContent) || 0,
-        crediti_dati_omaggio: parseInt(document.getElementById('rpt_cred_dati_omaggio').textContent) || 0,
-        crediti_dare_omaggio: parseInt(document.getElementById('rpt_cred_dare_omaggio').textContent) || 0,
-        totale_nc_omaggio: parseFloat(document.getElementById('rpt_totale_nc_omaggio').textContent.replace('€ ','')) || 0,
-        totale_generale: parseFloat(document.getElementById('rpt_totale').textContent.replace('€ ','')) || 0,
-        note: document.getElementById('note').value.trim()
-    };
-    try {
-        const res = await fetch('/api/calcoli', { method: 'POST', headers: getHeaders('application/json'), body: JSON.stringify({ dati: dati }) });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        mostraToast('✅ Calcolo salvato!');
-        document.getElementById('note').value = '';
-    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
-}
-
-function generaPDFWhatsApp() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const val = id => document.getElementById(id).value;
-    const txt = id => document.getElementById(id).textContent;
-    doc.setFontSize(16); doc.text('Report Calcoli', 105, 20, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text(`Nominativi: ${val('nominativo_da')||'Tutti'} - ${val('nominativo_a')||'Tutti'}`, 20, 35);
-    doc.text(`Reseller: ${val('reseller_da')||'Tutti'} - ${val('reseller_a')||'Tutti'}`, 20, 42);
-    doc.text(`Procuratore: ${val('procuratore_da')||'Tutti'} - ${val('procuratore_a')||'Tutti'}`, 20, 49);
-    doc.text(`Periodo: ${val('periodo_da')||'N/D'} - ${val('periodo_a')||'N/D'}`, 20, 56);
-    doc.setFontSize(12); doc.text('NUOVO', 20, 68);
-    doc.setFontSize(10);
-    doc.text(`Importo: EUR ${val('importo_nuovo')} | Acconto: EUR ${val('acconto_nuovo')} | Saldo: EUR ${val('acconto_saldo_nuovo')}`, 20, 75);
-    doc.text(`Totale Acconti Nuovi: EUR ${val('totale_acconti_nuovi')}`, 20, 82);
-    doc.setFontSize(12); doc.text('RINNOVO', 20, 92);
-    doc.setFontSize(10);
-    doc.text(`Importo: EUR ${val('importo_rinnovo')} | Acconto: EUR ${val('acconto_rinnovo')} | Saldo: EUR ${val('acconto_saldo_rinnovo')}`, 20, 99);
-    doc.text(`Totale Acconti Rinnovo: EUR ${val('totale_acconti_rinnovo')}`, 20, 106);
-    doc.setFontSize(12); doc.text('OMAGGIO', 20, 116);
-    doc.setFontSize(10);
-    doc.text(`Importo: EUR ${val('importo_omaggio')} | Acconto: EUR ${val('acconto_omaggio')} | Saldo: EUR ${val('acconto_saldo_omaggio')}`, 20, 123);
-    doc.text(`Totale Acconti Omaggio: EUR ${val('totale_acconti_omaggio')}`, 20, 130);
-    doc.setFontSize(12); doc.text('CREDITI', 20, 140);
-    doc.setFontSize(10);
-    doc.text(`Richiesti: ${txt('rpt_cred_rich')} | Dati: ${txt('rpt_cred_dati')} | Dare: ${txt('rpt_cred_dare')}`, 20, 147);
-    doc.text(`Totale NC: ${txt('rpt_totale_nc')}`, 20, 154);
-    doc.setFontSize(12); doc.text('CREDITI OMAGGIO', 20, 164);
-    doc.setFontSize(10);
-    doc.text(`Richiesti: ${txt('rpt_cred_rich_omaggio')} | Dati: ${txt('rpt_cred_dati_omaggio')} | Dare: ${txt('rpt_cred_dare_omaggio')}`, 20, 171);
-    doc.text(`Totale NC Omaggio: ${txt('rpt_totale_nc_omaggio')}`, 20, 178);
-    doc.setFontSize(14); doc.setFont(undefined, 'bold');
-    doc.text(`TOTALE GENERALE: ${txt('rpt_totale')}`, 20, 193);
-    const note = document.getElementById('note').value;
-    if (note) { doc.setFontSize(10); doc.setFont(undefined, 'normal'); doc.text('Note: ' + note, 20, 205); }
-    doc.save('calcoli.pdf');
-    const msg = `Report Calcoli\nTotale: ${txt('rpt_totale')}\nNuovi: ${txt('rpt_nuovi')}\nRinnovi: ${txt('rpt_rinnovo')}\nOmaggio: ${txt('rpt_omaggio')}\nCrediti Dare: ${txt('rpt_cred_dare')}\nCrediti Dare Omaggio: ${txt('rpt_cred_dare_omaggio')}`;
-    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
-    mostraToast('📄 PDF scaricato + WhatsApp aperto');
-}
-
-caricaDropdowns();
-calcolaAutomatico();
+// Avvio
+caricaDati();
 </script>
 </body>
 </html>
