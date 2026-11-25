@@ -7,45 +7,50 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; padding: 15px; }
 
-.tab-bar {
-    display: flex;
-    background: white;
-    border-bottom: 1px solid #e0e0e0;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+/* BOTTONI NAVIGAZIONE STILE CONTABILITÀ */
+.menu-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
 }
-.tab-btn {
-    flex: 1;
-    padding: 14px;
+.menu-btn {
+    padding: 16px 10px;
     border: none;
-    background: white;
+    border-radius: 12px;
+    background: #e0e0e0;
+    color: #555;
     font-size: 14px;
-    font-weight: 600;
-    color: #666;
+    font-weight: 700;
     cursor: pointer;
-    border-bottom: 3px solid transparent;
     transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
-.tab-btn.active {
-    color: #2481cc;
-    border-bottom-color: #2481cc;
+.menu-btn .icon { font-size: 24px; }
+.menu-btn.active {
+    background: #3498db;
+    color: white;
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
 }
 
-.section { display: none; padding: 15px; }
+.section { display: none; }
 .section.active { display: block; }
 
 .container { max-width: 600px; margin: 0 auto; }
 .form-group { margin-bottom: 15px; }
 label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #555; }
-select, input[type="date"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+select, input[type="date"], input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white; }
 .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .module-list { margin-top: 20px; }
 .module-item {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px;
+    padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px;
     margin-bottom: 8px; background: white;
 }
 .module-name { font-size: 14px; font-weight: 500; }
@@ -62,49 +67,129 @@ select, input[type="date"] { width: 100%; padding: 10px; border: 1px solid #ddd;
 input:checked + .slider { background-color: #27ae60; }
 input:checked + .slider:before { transform: translateX(24px); }
 .btn-save {
-    width: 100%; padding: 12px; background: #27ae60; color: white;
-    border: none; border-radius: 6px; font-size: 16px; font-weight: 600;
+    width: 100%; padding: 14px; background: #27ae60; color: white;
+    border: none; border-radius: 8px; font-size: 16px; font-weight: 600;
     cursor: pointer; margin-top: 20px;
 }
 .btn-save:disabled { background: #95a5a6; cursor: not-allowed; }
-.error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 6px; margin-top: 10px; display: none; }
-.success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 6px; margin-top: 10px; display: none; }
+.error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; }
+.success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; }
 
-.search-container { position: relative; margin-bottom: 15px; }
-.search-input {
-    width: 100%; padding: 10px 10px 10px 35px; border-radius: 10px;
-    border: 1px solid #e0e0e0; background: white; font-size: 16px; outline: none;
+/* LISTA PERMESSI - STILE LISTA CONTATTI (numero progressivo) */
+.list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
 }
-.search-icon {
-    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-    color: #888; font-size: 14px; pointer-events: none;
+.list-title { font-size: 18px; font-weight: 700; color: #2c3e50; }
+.total-badge {
+    background: #3498db;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
 }
-.item {
-    background: white; padding: 12px 15px; border-radius: 8px;
-    margin-bottom: 8px; display: flex; align-items: center; cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+.search-box {
+    position: relative;
+    margin-bottom: 15px;
 }
-.item:active { background: #f0f0f0; }
-.avatar {
-    width: 40px; height: 40px; border-radius: 50%; background: #e0e0e0;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: bold; color: #555; font-size: 16px; margin-right: 12px;
-    flex-shrink: 0; text-transform: uppercase;
+.search-box input {
+    width: 100%;
+    padding: 10px 10px 10px 35px;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+    background: white;
+    font-size: 16px;
+    outline: none;
 }
-.content { flex-grow: 1; overflow: hidden; }
-.name { font-weight: 600; font-size: 16px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.subtitle { font-size: 14px; color: #999; }
-.modules { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.module-tag {
-    font-size: 11px; padding: 2px 6px; border-radius: 8px;
-    background: #e3f2fd; color: #1565c0; font-weight: 500;
+.search-box .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #888;
+    font-size: 14px;
+    pointer-events: none;
 }
+.list-item {
+    background: white;
+    padding: 10px 12px;
+    border-bottom: 1px solid #efeff4;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    gap: 10px;
+}
+.list-item:active { background-color: #f0f0f0; }
+.list-item .number {
+    font-weight: 700;
+    font-size: 15px;
+    color: #888;
+    min-width: 22px;
+    text-align: right;
+    flex-shrink: 0;
+}
+.list-item .info {
+    flex-grow: 1;
+    overflow: hidden;
+}
+.list-item .name {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.list-item .subtitle {
+    font-size: 13px;
+    color: #999;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.list-item .modules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 4px;
+}
+.list-item .module-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    background: #e3f2fd;
+    color: #1565c0;
+    font-weight: 500;
+}
+.list-item .actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.btn-action {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s;
+}
+.btn-action:active { transform: scale(0.92); }
+.btn-edit { background: #f39c12; color: white; }
+.btn-delete { background: #e74c3c; color: white; }
 .empty-state { text-align: center; padding: 40px 20px; color: #999; }
-.count-info { text-align: center; color: #666; font-size: 12px; margin-bottom: 10px; }
 #loading {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(255,255,255,0.8); display: flex; align-items: center;
-    justify-content: center; z-index: 1000; font-weight: bold; color: #2481cc;
+    background: rgba(255,255,255,0.9); display: flex; align-items: center;
+    justify-content: center; z-index: 1000; font-weight: bold; color: #3498db;
 }
 </style>
 </head>
@@ -112,15 +197,21 @@ input:checked + .slider:before { transform: translateX(24px); }
 
 <div id="loading">⏳ Caricamento...</div>
 
-<div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('gestione')">⚙️ Gestione Permessi</button>
-    <button class="tab-btn" onclick="switchTab('lista')">📋 Lista Permessi</button>
-</div>
+<div class="container">
+    <!-- BOTTONI NAVIGAZIONE -->
+    <div class="menu-buttons">
+        <button class="menu-btn active" id="btn-gestione" onclick="switchTab('gestione')">
+            <span class="icon">⚙️</span>
+            <span>Gestione</span>
+        </button>
+        <button class="menu-btn" id="btn-lista" onclick="switchTab('lista')">
+            <span class="icon">📋</span>
+            <span>Lista Permessi</span>
+        </button>
+    </div>
 
-<!-- SEZIONE 1: GESTIONE PERMESSI -->
-<div id="section-gestione" class="section active">
-    <div class="container">
-        <div class="count-info" id="count-info"></div>
+    <!-- SEZIONE 1: GESTIONE PERMESSI -->
+    <div id="section-gestione" class="section active">
         <div class="form-group">
             <label for="utente-select">Seleziona Nominativo:</label>
             <select id="utente-select" onchange="caricaPermessi()">
@@ -146,14 +237,16 @@ input:checked + .slider:before { transform: translateX(24px); }
         <div class="error-msg" id="error-msg"></div>
         <div class="success-msg" id="success-msg"></div>
     </div>
-</div>
 
-<!-- SEZIONE 2: LISTA PERMESSI -->
-<div id="section-lista" class="section">
-    <div class="container">
-        <div class="search-container">
+    <!-- SEZIONE 2: LISTA PERMESSI (STILE LISTA CONTATTI) -->
+    <div id="section-lista" class="section">
+        <div class="list-header">
+            <div class="list-title">📋 Lista Permessi</div>
+            <div class="total-badge" id="total-badge">Totale: 0</div>
+        </div>
+        <div class="search-box">
             <span class="search-icon">🔍</span>
-            <input type="text" id="searchInput" class="search-input" placeholder="Cerca utente...">
+            <input type="text" id="searchInput" placeholder="Cerca nominativo...">
         </div>
         <div id="listContainer"></div>
     </div>
@@ -171,51 +264,41 @@ const ALL_MODULES = [
 ];
 
 const MODULE_LABELS = {
-    "nominativo": "📝 Nominativo",
-    "lista": "📋 Lista",
-    "scadenze": "⏰ Scadenze",
-    "rinnovi": "🔄 Rinnovi",
-    "storico_rinnovi": "📜 Storico",
-    "saldo_rinnovi": "💰 Saldo",
-    "reseller": "🏢 Reseller",
-    "procuratori": "👥 Procuratori",
-    "server": "🖥️ Server",
-    "nota": "💬 Note",
-    "credenziali": "🔑 Credenziali",
-    "permessi": "🔐 Permessi",
-    "dispositivi": "📱 Dispositivi",
-    "sistemi_op": "⚙️ Sistemi",
-    "buffett": "🍽️ Buffett",
-    "pagamenti": "💳 Pagamenti",
-    "operatori_it": "📡 Operatori",
-    "tabelle": "🗂️ Tabelle",
-    "crediti": "💎 Crediti",
-    "calcoli": "📊 Calcoli"
+    "nominativo": "📝 Nominativo", "lista": "📋 Lista",
+    "scadenze": "⏰ Scadenze", "rinnovi": "🔄 Rinnovi",
+    "storico_rinnovi": "📜 Storico", "saldo_rinnovi": "💰 Saldo",
+    "reseller": "🏢 Reseller", "procuratori": "👥 Procuratori",
+    "server": "🖥️ Server", "nota": "💬 Note",
+    "credenziali": "🔑 Credenziali", "permessi": "🔐 Permessi",
+    "dispositivi": "📱 Dispositivi", "sistemi_op": "⚙️ Sistemi",
+    "buffett": "🍽️ Buffett", "pagamenti": "💳 Pagamenti",
+    "operatori_it": "📡 Operatori", "tabelle": "🗂️ Tabelle",
+    "crediti": "💎 Crediti", "calcoli": "📊 Calcoli"
 };
 
-let utenti = [];
 let permessiCorrenti = {};
-let allData = [];
+let listaPermessi = [];
 
 function switchTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     
     if (tab === 'gestione') {
-        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('btn-gestione').classList.add('active');
         document.getElementById('section-gestione').classList.add('active');
     } else {
-        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('btn-lista').classList.add('active');
         document.getElementById('section-lista').classList.add('active');
-        if (allData.length === 0) caricaLista();
+        if (listaPermessi.length === 0) caricaLista();
     }
 }
 
+// ==================== GESTIONE PERMESSI ====================
 async function caricaUtenti() {
     try {
         const res = await fetch('/api/amici?nocache=' + Date.now());
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        utenti = await res.json();
+        const utenti = await res.json();
         
         const select = document.getElementById('utente-select');
         select.innerHTML = '<option value="">-- Seleziona --</option>';
@@ -226,7 +309,6 @@ async function caricaUtenti() {
             select.appendChild(opt);
         });
         
-        document.getElementById('count-info').textContent = 'Nominativi trovati: ' + utenti.length;
         document.getElementById('loading').style.display = 'none';
     } catch (e) {
         showError('Errore caricamento: ' + e.message);
@@ -323,6 +405,7 @@ async function salvaPermessi() {
         }
         
         showSuccess('✅ Permessi salvati!');
+        listaPermessi = [];
         setTimeout(() => hideMessages(), 3000);
     } catch (e) {
         showError('❌ ' + e.message);
@@ -332,36 +415,19 @@ async function salvaPermessi() {
     }
 }
 
+// ==================== LISTA PERMESSI (STILE LISTA CONTATTI) ====================
 async function caricaLista() {
     try {
-        const response = await fetch('/api/amici?nocache=' + Date.now());
-        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const res = await fetch('/api/lista_permessi?nocache=' + Date.now());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        listaPermessi = await res.json();
         
-        const utentiLista = await response.json();
-        
-        const promises = utentiLista.map(async (u) => {
-            try {
-                const permRes = await fetch(`/api/permessi/${u.id}?nocache=` + Date.now());
-                if (permRes.ok) {
-                    const perms = await permRes.json();
-                    return { ...u, permessi: perms };
-                }
-            } catch (e) { console.error(e); }
-            return { ...u, permessi: {} };
-        });
-        
-        allData = await Promise.all(promises);
-        renderLista(allData);
-    } catch (error) {
-        document.getElementById('listContainer').innerHTML = `<div class="empty-state">Errore: ${error.message}</div>`;
+        document.getElementById('total-badge').textContent = 'Totale: ' + listaPermessi.length;
+        renderLista(listaPermessi);
+    } catch (e) {
+        document.getElementById('listContainer').innerHTML = 
+            `<div class="empty-state">Errore: ${e.message}</div>`;
     }
-}
-
-function getInitials(name) {
-    if (!name) return '?';
-    const parts = name.split(' ');
-    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 function renderLista(items) {
@@ -369,40 +435,40 @@ function renderLista(items) {
     container.innerHTML = '';
     
     if (items.length === 0) {
-        container.innerHTML = '<div class="empty-state">Nessun utente trovato.</div>';
+        container.innerHTML = '<div class="empty-state">Nessun nominativo ha permessi configurati.</div>';
         return;
     }
     
-    items.forEach(item => {
+    items.forEach((item, index) => {
         const div = document.createElement('div');
-        div.className = 'item';
+        div.className = 'list-item';
         
-        const activeModules = Object.entries(item.permessi || {})
-            .filter(([mod, attivo]) => attivo)
-            .map(([mod]) => MODULE_LABELS[mod] || mod);
-        
-        const subtitle = activeModules.length > 0 
-            ? `${activeModules.length} moduli attivi` 
-            : 'Nessun permesso';
+        const moduli = item.moduli_lista || [];
+        const moduliLabels = moduli.map(m => MODULE_LABELS[m] || m);
+        const subtitle = `${item.moduli_attivi} moduli attivi`;
         
         div.innerHTML = `
-            <div class="avatar">${getInitials(item.nome)}</div>
-            <div class="content">
+            <div class="number">${index + 1}</div>
+            <div class="info">
                 <div class="name">${item.nome || 'Sconosciuto'}</div>
                 <div class="subtitle">${subtitle}</div>
-                ${activeModules.length > 0 ? `
+                ${moduliLabels.length > 0 ? `
                     <div class="modules">
-                        ${activeModules.slice(0, 5).map(m => `<span class="module-tag">${m}</span>`).join('')}
-                        ${activeModules.length > 5 ? `<span class="module-tag">+${activeModules.length - 5}</span>` : ''}
+                        ${moduliLabels.slice(0, 5).map(m => `<span class="module-tag">${m}</span>`).join('')}
+                        ${moduliLabels.length > 5 ? `<span class="module-tag">+${moduliLabels.length - 5}</span>` : ''}
                     </div>
                 ` : ''}
+            </div>
+            <div class="actions">
+                <button class="btn-action btn-edit" onclick="event.stopPropagation(); modificaPermessi(${item.id}, '${item.nome.replace(/'/g, "\\'")}')" title="Modifica">✏️</button>
+                <button class="btn-action btn-delete" onclick="event.stopPropagation(); eliminaPermessi(${item.id}, '${item.nome.replace(/'/g, "\\'")}')" title="Elimina">🗑️</button>
             </div>
         `;
         
         div.onclick = () => {
-            tg.showPopup({ 
-                title: item.nome, 
-                message: `Moduli attivi: ${activeModules.length}\n\n${activeModules.join(', ')}` 
+            tg.showPopup({
+                title: item.nome,
+                message: `Moduli attivi (${item.moduli_attivi}):\n\n${moduliLabels.join('\n')}`
             });
         };
         
@@ -410,9 +476,55 @@ function renderLista(items) {
     });
 }
 
+async function modificaPermessi(userId, nome) {
+    switchTab('gestione');
+    
+    const select = document.getElementById('utente-select');
+    select.value = userId;
+    
+    await caricaPermessi();
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    tg.showPopup({
+        title: '✏️ Modifica Permessi',
+        message: `Stai modificando i permessi di:\n${nome}`
+    });
+}
+
+function eliminaPermessi(userId, nome) {
+    tg.showConfirm(`Eliminare tutti i permessi di:\n${nome}?`, async (ok) => {
+        if (!ok) return;
+        
+        try {
+            const res = await fetch(`/api/permessi/${userId}`, {
+                method: 'DELETE'
+            });
+            
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || 'HTTP ' + res.status);
+            }
+            
+            listaPermessi = [];
+            await caricaLista();
+            
+            tg.showPopup({
+                title: '✅ Eliminato',
+                message: `Permessi di ${nome} rimossi.`
+            });
+        } catch (e) {
+            tg.showPopup({
+                title: '❌ Errore',
+                message: e.message
+            });
+        }
+    });
+}
+
 document.getElementById('searchInput').addEventListener('input', (e) => {
     const term = e.target.value.toLowerCase();
-    const filtered = allData.filter(item => 
+    const filtered = listaPermessi.filter(item => 
         (item.nome && item.nome.toLowerCase().includes(term))
     );
     renderLista(filtered);
