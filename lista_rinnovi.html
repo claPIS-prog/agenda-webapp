@@ -246,36 +246,26 @@ function getHeaders(contentType) {
 
 async function caricaDati() {
     const box = document.getElementById('lista');
+    box.innerHTML = '<div class="loading">⏳ Caricamento rinnovi...</div>';
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
-
-        const res = await fetch('/api/lista_rinnovi?nocache=' + Date.now(), {
-            signal: controller.signal,
-            headers: getHeaders()
+        const res = await fetch('/api/lista_rinnovi?nocache=' + Date.now() + '&t=' + Math.random(), {
+            headers: getHeaders(),
+            cache: 'no-store'
         });
-        clearTimeout(timeoutId);
 
         if (!res.ok) {
             const text = await res.text();
-            throw new Error(`Errore Server ${res.status}: ${text.substring(0, 180)}`);
+            throw new Error(`Errore Server ${res.status}: ${text.substring(0, 250)}`);
         }
 
         const data = await res.json();
-        let lista = Array.isArray(data) ? data : 
-                    (data?.data || data?.rinnovi || data?.results || []);
-        
-        if (!Array.isArray(lista)) throw new Error("Formato dati non valido");
-
-        tuttiRinnovi = lista;
-        aggiornaContatore(lista.length);
-        render(lista);
+        tuttiRinnovi = Array.isArray(data) ? data : [];
+        aggiornaContatore(tuttiRinnovi.length);
+        render(tuttiRinnovi);
 
     } catch (e) {
-        let msg = e.message;
-        if (e.name === 'AbortError') msg = "Timeout: il server non ha risposto entro 12 secondi.";
-        box.innerHTML = `<div class="error"><strong>❌ Errore:</strong><br>${msg}<br><br>
-            <button onclick="location.reload()" style="padding:8px 16px; background:#0088cc; color:white; border:none; border-radius:4px; cursor:pointer;">🔄 Riprova</button>
+        box.innerHTML = `<div class="error"><strong>❌ Errore:</strong><br>${e.message}<br><br>
+            <button onclick="caricaDati()" style="padding:8px 16px; background:#0088cc; color:white; border:none; border-radius:4px; cursor:pointer;">🔄 Riprova</button>
         </div>`;
     }
 }
