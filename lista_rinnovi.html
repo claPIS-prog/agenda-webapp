@@ -121,11 +121,28 @@ textarea { resize: vertical; min-height: 70px; }
 <div class="container">
     <h2>🔄 Lista Rinnovi <small style="font-size:11px; color:#999;">v2.1</small></h2>
     <div class="counter-wrapper">
-        <div class="counter" id="counter">Totale: 0</div>
+        <div class="counter" id="counter">Totale: 2</div>
     </div>
     <input type="text" class="search" id="search" placeholder="🔍 Cerca per nominativo...">
     <div id="lista">
-        <div class="loading">⏳ Caricamento rinnovi...</div>
+        <div class="item">
+            <div class="item-main">
+                <div class="item-name"><span style="color:#888; font-size:12px; margin-right:6px;">1 -</span> Esempio 1 (test)</div>
+                <div class="item-sub">20/11/2026 &nbsp;|&nbsp; Scad: 20/11/2027</div>
+            </div>
+            <div class="item-actions">
+                <span class="badge badge-rinnovo">RINNOVO</span>
+            </div>
+        </div>
+        <div class="item">
+            <div class="item-main">
+                <div class="item-name"><span style="color:#888; font-size:12px; margin-right:6px;">2 -</span> Esempio 2 (test)</div>
+                <div class="item-sub">15/11/2026 &nbsp;|&nbsp; Scad: 15/11/2027</div>
+            </div>
+            <div class="item-actions">
+                <span class="badge badge-nuovo">NUOVO</span>
+            </div>
+        </div>
     </div>
 </div>
 
