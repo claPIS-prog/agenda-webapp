@@ -44,6 +44,10 @@ def api_azione(payload: AzionePayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
+
+            # -------------------------------------------------
+            # AZIONI SUI NOMINATIVI / CONTATTI
+            # -------------------------------------------------
             if azione == "cancella":
                 cur.execute("DELETE FROM nominativi WHERE id = %s", (dati.get("id"),))
             
@@ -70,7 +74,6 @@ def api_azione(payload: AzionePayload, request: Request):
                 ))
             
             elif azione == "modifica":
-                # FIX CRITICO: Inclusi user_id e password nella query UPDATE
                 cur.execute("""
                     UPDATE nominativi SET 
                         nominativo=%s, tipo=%s, user_id=%s, password=%s, prezzo=%s, cadenza=%s, 
@@ -81,7 +84,7 @@ def api_azione(payload: AzionePayload, request: Request):
                     WHERE id=%s
                 """, (
                     dati.get("nominativo"), dati.get("tipo"), 
-                    dati.get("user_id"), dati.get("password"),  # <-- CAMPI AGGIUNTI
+                    dati.get("user_id"), dati.get("password"),
                     float(dati.get("prezzo",0)), dati.get("cadenza"), dati.get("tipo_linea"), 
                     dati.get("server"), dati.get("reseller"),
                     dati.get("dispositivo"), dati.get("sistema_operativo"),
@@ -92,6 +95,36 @@ def api_azione(payload: AzionePayload, request: Request):
                     dati.get("data_iscrizione"), dati.get("data_fine"),
                     dati.get("informazioni"), dati.get("id")
                 ))
+
+            # -------------------------------------------------
+            # AZIONI SUI RINNOVI (NUOVE)
+            # -------------------------------------------------
+            elif azione == "modifica_rinnovo":
+                cur.execute("""
+                    UPDATE rinnovi SET 
+                        tipo = %s,
+                        data_operazione = %s,
+                        scadenza = %s,
+                        importo_acconto = %s,
+                        importo_saldo = %s,
+                        note = %s
+                    WHERE id = %s
+                """, (
+                    dati.get("tipo", "rinnovo"),
+                    dati.get("data_operazione") or None,
+                    dati.get("scadenza") or None,
+                    float(dati.get("importo_acconto", 0) or 0),
+                    float(dati.get("importo_saldo", 0) or 0),
+                    dati.get("note", ""),
+                    dati.get("id")
+                ))
+
+            elif azione == "cancella_rinnovo":
+                cur.execute("DELETE FROM rinnovi WHERE id = %s", (dati.get("id"),))
+
+            else:
+                # Azione non riconosciuta
+                print(f"[ATTENZIONE] Azione non gestita: {azione}")
         
         conn.commit()
     finally:
