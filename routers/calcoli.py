@@ -11,77 +11,87 @@ class CreditoPayload(BaseModel):
 
 @router.post("/api/saldo_iniziale")
 def api_saldo_iniziale(payload: CreditoPayload, request: Request):
-    """
-    Salva o aggiorna il SALDO INIZIALE con ID fisso = 1.
-    Se non esiste, lo crea. Se esiste, lo aggiorna.
-    """
     get_current_user(request)
-    dati = payload.dati
+    dati = payload.dati or {}
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Verifica se esiste già un record con ID=1
             cur.execute("SELECT id FROM crediti WHERE id = 1 LIMIT 1")
             exists = cur.fetchone()
             
+            qta = int(dati.get("quantita") or 0)
+            unitario = float(dati.get("valore_singolo") or 0)
+            totale = float(dati.get("valore_totale") or 0)
+            
             if exists:
-                # Aggiorna il saldo esistente
                 cur.execute("""
                     UPDATE crediti SET 
                         quantita=%s, 
-                        valore_totale=%s, 
-                        valore_singolo=%s, 
+                        valore_singolo=%s,
+                        valore_totale=%s,
                         data_acquisto=%s, 
                         note=%s, 
                         creato_il=%s 
                     WHERE id = 1
                 """, (
-                    int(dati.get("quantita", 0)),
-                    float(dati.get("valore_totale", 0)),
-                    float(dati.get("valore_singolo", 0)),
+                    qta, unitario, totale,
                     dati.get("data_acquisto", ""),
                     dati.get("note", "Saldo Iniziale"),
                     datetime.now().isoformat()
                 ))
             else:
-                # Crea nuovo record con ID=1
                 cur.execute("""
                     INSERT INTO crediti (
                         id, fornitore, data_acquisto, quantita, 
-                        valore_totale, valore_singolo, note, creato_il
-                    ) VALUES (
-                        1, 'SALDO INIZIALE', %s, %s, %s, %s, 'Saldo Iniziale', %s
-                    )
+                        valore_singolo, valore_totale, note, creato_il
+                    ) VALUES (1, 'SALDO INIZIALE', %s, %s, %s, %s, 'Saldo Iniziale', %s)
                 """, (
                     dati.get("data_acquisto", ""),
-                    int(dati.get("quantita", 0)),
-                    float(dati.get("valore_totale", 0)),
-                    float(dati.get("valore_singolo", 0)),
+                    qta, unitario, totale,
                     datetime.now().isoformat()
                 ))
         conn.commit()
+        return {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
-    return {"ok": True}
 
 @router.post("/api/credito")
 def api_credito(payload: CreditoPayload, request: Request):
     """
-    Salva un NUOVO ACQUISTO con ID automatico progressivo (MAX(id) + 1).
+    Salva un NUOVO ACQUISTO.
+    Accesso all'ID completamente sicuro (nessun KeyError possibile).
     """
     get_current_user(request)
-    dati = payload.dati
+    dati = payload.dati or {}
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Genera contatore automatico in modo sicuro
+            # Genera prossimo ID in modo sicuro
             cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM crediti")
             row = cur.fetchone()
-            nuovo_id = row[0] if isinstance(row, (list, tuple)) else row["id"] if isinstance(row, dict) else (row or 1)
-            if nuovo_id is None or nuovo_id < 2:
-                nuovo_id = 2  # ID 1 è riservato al Saldo Iniziale
 
-            # Costruisce la nota includendo la modalità di pagamento
+            nuovo_id = 2
+            try:
+                if row is None:
+                    nuovo_id = 2
+                elif isinstance(row, dict):
+                    # Prende il primo valore disponibile, qualunque sia la chiave
+                    vals = list(row.values())
+                    nuovo_id = int(vals[0]) if vals else 2
+                elif isinstance(row, (list, tuple)):
+                    nuovo_id = int(row[0]) if row else 2
+                else:
+                    nuovo_id = int(row)
+            except Exception:
+                nuovo_id = 2
+
+            if nuovo_id < 2:
+                nuovo_id = 2
+
+            # Nota con modalità di pagamento
             note_finale = (dati.get("note") or "").strip()
             pagamento = (dati.get("modalita_pagamento") or "").strip()
             if pagamento:
@@ -94,16 +104,18 @@ def api_credito(payload: CreditoPayload, request: Request):
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 nuovo_id,
-                dati.get("fornitore", "") or "",
-                dati.get("data_acquisto", "") or "",
-                int(dati.get("quantita", 1) or 1),
-                float(dati.get("valore_totale", 0) or 0),
-                float(dati.get("valore_singolo", 0) or 0),
+                str(dati.get("fornitore") or ""),
+                str(dati.get("data_acquisto") or ""),
+                int(dati.get("quantita") or 1),
+                float(dati.get("valore_totale") or 0),
+                float(dati.get("valore_singolo") or 0),
                 note_finale,
                 datetime.now().isoformat()
             ))
+
         conn.commit()
         return {"ok": True, "id": nuovo_id}
+
     except Exception as e:
         conn.rollback()
         print(f"[ERRORE /api/credito] {e}")
@@ -113,10 +125,6 @@ def api_credito(payload: CreditoPayload, request: Request):
 
 @router.get("/api/crediti_disponibili")
 def api_crediti_disponibili(request: Request):
-    """
-    Restituisce tutti i crediti con quantità > 0 per il menu Rinnovi.
-    Etichetta ID=1 come 'Saldo Iniziale', gli altri come 'Acquisto #X'.
-    """
     get_current_user(request)
     conn = db_conn()
     try:
