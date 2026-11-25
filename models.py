@@ -9,7 +9,6 @@ class AmicoPayload(BaseModel):
 class PermessiPayload(BaseModel):
     user_id: int
     permessi: dict
-    dati: dict
     data_inizio_validita: Optional[str] = None
     data_revoca: Optional[str] = None
     data_fine_validita: Optional[str] = None
