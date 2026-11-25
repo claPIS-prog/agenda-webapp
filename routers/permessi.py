@@ -8,11 +8,11 @@ from datetime import datetime
 router = APIRouter()
 
 # -----------------------------------------------------------------------------
-# 1. LISTA NOMINATIVI (per la dropdown)
+# 1. DROPDOWN GESTIONE (tutti i nominativi)
 # -----------------------------------------------------------------------------
 @router.get("/api/amici")
 def api_amici(request: Request):
-    """Restituisce TUTTI i nominativi dalla tabella nominativi."""
+    """Restituisce tutti i nominativi per la dropdown di gestione."""
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -22,43 +22,70 @@ def api_amici(request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 2. GET PERMESSI + DATE per un nominativo
+# 2. LISTA PERMESSI (SOLO nominativi con permessi attivi)
+# -----------------------------------------------------------------------------
+@router.get("/api/lista_permessi")
+def api_lista_permessi(request: Request):
+    """Restituisce solo i nominativi che hanno almeno un permesso attivo."""
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 
+                    n.id,
+                    n.nominativo as nome,
+                    COUNT(p.id) as moduli_attivi,
+                    ARRAY_AGG(p.modulo ORDER BY p.modulo) as moduli_lista
+                FROM permessi p
+                INNER JOIN nominativi n ON n.id = p.user_id
+                WHERE p.attivo = TRUE
+                GROUP BY n.id, n.nominativo
+                HAVING COUNT(p.id) > 0
+                ORDER BY n.nominativo
+            """)
+            rows = cur.fetchall()
+            result = []
+            for r in rows:
+                record = dict(r) if isinstance(r, dict) else dict(zip(
+                    ["id", "nome", "moduli_attivi", "moduli_lista"], r
+                ))
+                result.append(record)
+            return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+# -----------------------------------------------------------------------------
+# 3. GET PERMESSI + DATE
 # -----------------------------------------------------------------------------
 @router.get("/api/permessi/{user_id}")
 def api_get_permessi(user_id: int, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Permessi moduli
             cur.execute("SELECT modulo, attivo FROM permessi WHERE user_id = %s", (user_id,))
             rows = cur.fetchall()
             perms = {}
             for row in rows:
-                if isinstance(row, dict):
-                    perms[row["modulo"]] = row["attivo"]
-                else:
-                    perms[row[0]] = row[1]
+                d = dict(row) if isinstance(row, dict) else dict(zip(["modulo", "attivo"], row))
+                perms[d["modulo"]] = d["attivo"]
             for mod in ALL_MODULES:
                 if mod not in perms:
                     perms[mod] = False
 
-            # Date (se esistono righe permessi per questo user)
             cur.execute("""
                 SELECT data_inizio_validita, data_revoca, data_fine_validita
                 FROM permessi WHERE user_id = %s LIMIT 1
             """, (user_id,))
             date_row = cur.fetchone()
 
-            dates = {
-                "data_inizio_validita": "",
-                "data_revoca": "",
-                "data_fine_validita": ""
-            }
+            dates = {"data_inizio_validita": "", "data_revoca": "", "data_fine_validita": ""}
             if date_row:
                 d = dict(date_row) if isinstance(date_row, dict) else dict(zip(
                     ["data_inizio_validita", "data_revoca", "data_fine_validita"], date_row
                 ))
-                for k in ["data_inizio_validita", "data_revoca", "data_fine_validita"]:
+                for k in dates:
                     if d.get(k):
                         dates[k] = str(d[k])[:10]
 
@@ -67,7 +94,7 @@ def api_get_permessi(user_id: int, request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 3. SALVA PERMESSI + DATE (gestisce FK autorizzati)
+# 4. SALVA PERMESSI + DATE
 # -----------------------------------------------------------------------------
 @router.post("/api/salva_permessi")
 def api_salva_permessi(payload: PermessiPayload, request: Request):
@@ -75,8 +102,7 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Se non esiste un record in autorizzati con quell'id, lo creo
-            # (per rispettare il FK permessi.user_id → autorizzati.id)
+            # Crea record placeholder in autorizzati se non esiste (per rispettare il FK)
             cur.execute("SELECT id FROM autorizzati WHERE id = %s", (payload.user_id,))
             if not cur.fetchone():
                 cur.execute("SELECT nominativo FROM nominativi WHERE id = %s", (payload.user_id,))
@@ -88,7 +114,6 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
                     ON CONFLICT (id) DO NOTHING
                 """, (payload.user_id, -payload.user_id, nome))
 
-            # Salva permessi moduli
             for modulo, attivo in payload.permessi.items():
                 if modulo in ALL_MODULES:
                     cur.execute("""
@@ -97,7 +122,6 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
                         ON CONFLICT (user_id, modulo) DO UPDATE SET attivo = EXCLUDED.attivo
                     """, (payload.user_id, modulo, bool(attivo)))
 
-            # Salva date
             cur.execute("""
                 UPDATE permessi SET
                     data_inizio_validita = %s,
@@ -105,9 +129,9 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
                     data_fine_validita = %s
                 WHERE user_id = %s
             """, (
-                payload.data_inizio_validita or None,
-                payload.data_revoca or None,
-                payload.data_fine_validita or None,
+                payload.data_inizio_validita,
+                payload.data_revoca,
+                payload.data_fine_validita,
                 payload.user_id
             ))
             conn.commit()
@@ -119,7 +143,7 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
     return {"ok": True}
 
 # -----------------------------------------------------------------------------
-# 4. AGGIUNGI / RIMUOVI AMICO (mantenuti per compatibilità)
+# 5. AGGIUNGI / RIMUOVI AMICO
 # -----------------------------------------------------------------------------
 @router.post("/api/aggiungi_amico")
 def api_aggiungi_amico(payload: AmicoPayload, request: Request):
