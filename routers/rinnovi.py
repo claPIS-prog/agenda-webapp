@@ -13,46 +13,55 @@ router = APIRouter()
 @router.get("/api/lista_rinnovi")
 def api_lista_rinnovi(request: Request):
     """
-    Versione di emergenza: se il DB fallisce restituisce lista vuota invece di bloccarsi.
+    Restituisce la lista con nominativo corretto.
     """
+    conn = db_conn()
     try:
-        conn = db_conn()
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, nominativo_id, data_operazione, scadenza, 
-                       COALESCE(tipo, 'rinnovo') as tipo, note
-                FROM rinnovi
-                ORDER BY id DESC
-                LIMIT 100
+                SELECT 
+                    r.id,
+                    COALESCE(
+                        (SELECT n.nominativo FROM nominativi n WHERE n.id = r.nominativo_id LIMIT 1),
+                        'ID:' || COALESCE(r.nominativo_id::text, '?')
+                    ) as nominativo,
+                    r.data_operazione,
+                    r.scadenza,
+                    COALESCE(r.tipo, 'rinnovo') as tipo,
+                    r.note
+                FROM rinnovi r
+                ORDER BY r.id DESC
+                LIMIT 200
             """)
+            
             rows = cur.fetchall()
             result = []
+            
             for row in rows:
                 if isinstance(row, dict):
                     rec = {
                         "id": row.get("id"),
-                        "nominativo": "ID:" + str(row.get("nominativo_id") or "?"),
+                        "nominativo": row.get("nominativo") or "N/D",
                         "data_operazione": str(row.get("data_operazione") or "")[:10],
                         "scadenza": str(row.get("scadenza") or "")[:10],
                         "tipo": row.get("tipo") or "rinnovo",
-                        "note": row.get("note") or "",
-                        "num_credito_dare": 0
+                        "note": row.get("note") or ""
                     }
                 else:
                     rec = {
                         "id": row[0],
-                        "nominativo": "ID:" + str(row[1] or "?"),
+                        "nominativo": row[1] or "N/D",
                         "data_operazione": str(row[2] or "")[:10],
                         "scadenza": str(row[3] or "")[:10],
                         "tipo": row[4] or "rinnovo",
-                        "note": row[5] or "",
-                        "num_credito_dare": 0
+                        "note": row[5] or ""
                     }
                 result.append(rec)
+            
             return result
+            
     except Exception as e:
         print(f"[ERRORE lista_rinnovi] {e}")
-        # In caso di errore restituisce lista vuota invece di 500
         return []
     finally:
         try:
