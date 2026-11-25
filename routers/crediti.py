@@ -78,6 +78,12 @@ def api_credito(payload: CreditoPayload, request: Request):
             cur.execute("SELECT COALESCE(MAX(id), 1) + 1 FROM crediti")
             nuovo_id = cur.fetchone()[0]
             
+            # Costruisce la nota includendo la modalità di pagamento
+            note_finale = dati.get("note", "")
+            pagamento = dati.get("modalita_pagamento", "")
+            if pagamento:
+                note_finale = f"[Pagamento: {pagamento}] {note_finale}".strip()
+            
             cur.execute("""
                 INSERT INTO crediti (
                     id, fornitore, data_acquisto, quantita, 
@@ -90,7 +96,7 @@ def api_credito(payload: CreditoPayload, request: Request):
                 int(dati.get("quantita", 1)),
                 float(dati.get("valore_totale", 0)),
                 float(dati.get("valore_singolo", 0)),
-                dati.get("note", ""),
+                note_finale,
                 datetime.now().isoformat()
             ))
         conn.commit()
