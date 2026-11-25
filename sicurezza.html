@@ -9,7 +9,6 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; }
 
-/* TAB NAVIGATION */
 .tab-bar {
     display: flex;
     background: white;
@@ -35,11 +34,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     border-bottom-color: #2481cc;
 }
 
-/* SECTIONS */
 .section { display: none; padding: 15px; }
 .section.active { display: block; }
 
-/* PERMESSI - Gestione */
 .container { max-width: 600px; margin: 0 auto; }
 .form-group { margin-bottom: 15px; }
 label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #555; }
@@ -73,7 +70,6 @@ input:checked + .slider:before { transform: translateX(24px); }
 .error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 6px; margin-top: 10px; display: none; }
 .success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 6px; margin-top: 10px; display: none; }
 
-/* LISTA PERMESSI */
 .search-container { position: relative; margin-bottom: 15px; }
 .search-input {
     width: 100%; padding: 10px 10px 10px 35px; border-radius: 10px;
@@ -201,7 +197,6 @@ let utenti = [];
 let permessiCorrenti = {};
 let allData = [];
 
-// ==================== TAB SWITCHING ====================
 function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -216,7 +211,6 @@ function switchTab(tab) {
     }
 }
 
-// ==================== GESTIONE PERMESSI ====================
 async function caricaUtenti() {
     try {
         const res = await fetch('/api/amici?nocache=' + Date.now());
@@ -338,7 +332,6 @@ async function salvaPermessi() {
     }
 }
 
-// ==================== LISTA PERMESSI ====================
 async function caricaLista() {
     try {
         const response = await fetch('/api/amici?nocache=' + Date.now());
@@ -425,7 +418,6 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
     renderLista(filtered);
 });
 
-// ==================== UTILS ====================
 function showError(msg) {
     const el = document.getElementById('error-msg');
     el.textContent = msg;
@@ -445,7 +437,6 @@ function hideMessages() {
     document.getElementById('success-msg').style.display = 'none';
 }
 
-// ==================== INIT ====================
 caricaUtenti();
 </script>
 </body>
