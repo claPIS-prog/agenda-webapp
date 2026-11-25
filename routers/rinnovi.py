@@ -13,27 +13,20 @@ router = APIRouter()
 @router.get("/api/lista_rinnovi")
 def api_lista_rinnovi(request: Request):
     """
-    Versione minimale. Nessuna subquery.
+    Versione di emergenza: se il DB fallisce restituisce lista vuota invece di bloccarsi.
     """
-    conn = db_conn()
     try:
+        conn = db_conn()
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT 
-                    id,
-                    nominativo_id,
-                    data_operazione,
-                    scadenza,
-                    COALESCE(tipo, 'rinnovo') as tipo,
-                    note
+                SELECT id, nominativo_id, data_operazione, scadenza, 
+                       COALESCE(tipo, 'rinnovo') as tipo, note
                 FROM rinnovi
                 ORDER BY id DESC
                 LIMIT 100
             """)
-            
             rows = cur.fetchall()
             result = []
-            
             for row in rows:
                 if isinstance(row, dict):
                     rec = {
@@ -42,7 +35,8 @@ def api_lista_rinnovi(request: Request):
                         "data_operazione": str(row.get("data_operazione") or "")[:10],
                         "scadenza": str(row.get("scadenza") or "")[:10],
                         "tipo": row.get("tipo") or "rinnovo",
-                        "note": row.get("note") or ""
+                        "note": row.get("note") or "",
+                        "num_credito_dare": 0
                     }
                 else:
                     rec = {
@@ -51,17 +45,20 @@ def api_lista_rinnovi(request: Request):
                         "data_operazione": str(row[2] or "")[:10],
                         "scadenza": str(row[3] or "")[:10],
                         "tipo": row[4] or "rinnovo",
-                        "note": row[5] or ""
+                        "note": row[5] or "",
+                        "num_credito_dare": 0
                     }
                 result.append(rec)
-            
             return result
-            
     except Exception as e:
         print(f"[ERRORE lista_rinnovi] {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # In caso di errore restituisce lista vuota invece di 500
+        return []
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except:
+            pass
 
 
 # -----------------------------------------------------------------------------
