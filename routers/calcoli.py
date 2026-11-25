@@ -10,7 +10,7 @@ class CreditoPayload(BaseModel):
     dati: dict
 
 # -----------------------------------------------------------------------------
-# 1. ENDPOINT LISTA CALCOLI (MANCANTE - FIX 404)
+# 1. ENDPOINT LISTA CALCOLI (FIX SINTASSI E INDENTAZIONE)
 # -----------------------------------------------------------------------------
 @router.get("/api/calcoli")
 def api_calcoli(request: Request):
@@ -50,7 +50,7 @@ def api_calcoli(request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 2. SALDO INIZIALE (FIX SINTASSI E INDENTAZIONE)
+# 2. SALDO INIZIALE (FIX INDENTAZIONE)
 # -----------------------------------------------------------------------------
 @router.post("/api/saldo_iniziale")
 def api_saldo_iniziale(payload: CreditoPayload, request: Request):
@@ -98,7 +98,7 @@ def api_saldo_iniziale(payload: CreditoPayload, request: Request):
     return {"ok": True}
 
 # -----------------------------------------------------------------------------
-# 3. NUOVO CREDITO (FIX SINTASSI E INDENTAZIONE)
+# 3. NUOVO CREDITO (FIX INDENTAZIONE)
 # -----------------------------------------------------------------------------
 @router.post("/api/credito")
 def api_credito(payload: CreditoPayload, request: Request):
@@ -134,7 +134,7 @@ def api_credito(payload: CreditoPayload, request: Request):
     return {"ok": True, "id": nuovo_id}
 
 # -----------------------------------------------------------------------------
-# 4. CREDITI DISPONIBILI (FIX SPAZI FATALI NELL'URL E DOCSTRING)
+# 4. CREDITI DISPONIBILI (FIX SPAZI URL E DOCSTRING)
 # -----------------------------------------------------------------------------
 @router.get("/api/crediti_disponibili")
 def api_crediti_disponibili(request: Request):
