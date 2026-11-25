@@ -18,8 +18,6 @@ def api_lista_rinnovi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Query esplicita con alias chiari
-            # Nota: uso sia data_operazione che data_opera per compatibilità
             cur.execute("""
                 SELECT 
                     r.id,
@@ -27,7 +25,7 @@ def api_lista_rinnovi(request: Request):
                         (SELECT n.nominativo FROM nominativi n WHERE n.id = r.nominativo_id LIMIT 1), 
                         'ID:' || COALESCE(r.nominativo_id::text, '?')
                     ) as nominativo,
-                    COALESCE(r.data_operazione, r.data_opera) as data_operazione,
+                    r.data_operazione,
                     r.scadenza,
                     COALESCE(r.tipo, 'rinnovo') as tipo,
                     r.importo_acconto,
@@ -44,21 +42,19 @@ def api_lista_rinnovi(request: Request):
             for row in rows:
                 # Gestione robusta: funziona sia con tuple che con dict/RealDictRow
                 if isinstance(row, dict):
-                    record = dict(row)  # copia
+                    record = dict(row)
                 else:
-                    # Se è una tupla, usiamo le colonne
                     columns = [desc[0] for desc in cur.description]
                     record = dict(zip(columns, row))
                 
-                # Pulizia None → stringa vuota o 0
+                # Pulizia None
                 for k, v in list(record.items()):
                     if v is None:
                         if k in ("importo_acconto", "importo_saldo", "id", "nominativo_id"):
                             record[k] = 0
                         else:
                             record[k] = ""
-                    # Converti date in stringa leggibile (primi 10 caratteri)
-                    elif k in ("data_operazione", "scadenza", "data_opera") and v:
+                    elif k in ("data_operazione", "scadenza") and v:
                         record[k] = str(v)[:10]
                 
                 result.append(record)
@@ -93,9 +89,7 @@ def api_scadenze(request: Request):
             rows = cur.fetchall()
             out = []
             for r in rows:
-                # Supporto sia dict che tuple
                 if not isinstance(r, dict):
-                    # Se fosse tupla, questo endpoint andrebbe adattato, ma sembra usare dict
                     continue
                     
                 raw_date = r.get("scadenza")
@@ -159,5 +153,3 @@ def api_scadenze(request: Request):
             return out
     finally:
         conn.close()
-
-# ... (Mantieni qui sotto gli altri endpoint POST/DELETE che hai già) ...
