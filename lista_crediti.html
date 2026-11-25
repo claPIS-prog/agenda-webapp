@@ -3,76 +3,127 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Lista Crediti</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="/auth.js"></script>
 <style>
-body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-h2 { text-align: center; margin-top: 0; color: #333; }
-label { display: block; font-weight: bold; margin: 10px 0 4px; color: #333; font-size: 13px; }
-input, select { width: 100%; padding: 9px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
-.row { display: flex; gap: 8px; }
-.row > div { flex: 1; }
-.section-title { font-size: 13px; color: white; font-weight: bold; margin: 18px 0 10px; padding: 8px 12px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; background: #607d8b; }
-.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
-.summary-card { background: white; border-radius: 8px; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-.summary-card.acquistato { border-top: 4px solid #2196f3; }
-.summary-card.venduto { border-top: 4px solid #ff9800; }
-.summary-card.saldo { border-top: 4px solid #4caf50; }
-.summary-card h3 { margin: 0 0 10px 0; font-size: 12px; color: #666; text-transform: uppercase; }
-.summary-card .value { font-size: 24px; font-weight: bold; margin: 5px 0; }
-.summary-card.acquistato .value { color: #2196f3; }
-.summary-card.venduto .value { color: #ff9800; }
-.summary-card.saldo .value { color: #4caf50; }
-.summary-card .subvalue { font-size: 14px; color: #888; }
-.btn { width: 100%; padding: 13px; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; color: white; }
-.btn:active { opacity: 0.8; }
-.btn-pdf { background: #25d366; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
+body { 
+    font-family: -apple-system, Arial, sans-serif; 
+    background: #f5f5f5; 
+    margin: 0; 
+    padding: 15px; 
+}
+.container { 
+    background: white; 
+    border-radius: 10px; 
+    padding: 20px; 
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08); 
+    max-width: 600px; 
+    margin: 0 auto; 
+}
+h2 { 
+    text-align: center; 
+    margin-top: 0; 
+    color: #333; 
+    font-size: 20px;
+}
+.counter-wrapper { text-align: center; margin-bottom: 15px; }
+.counter { 
+    text-align: center; background: #0088cc; color: white; 
+    padding: 8px 15px; border-radius: 20px; font-size: 14px; 
+    font-weight: bold; display: inline-block; 
+}
+.search { 
+    width: 100%; padding: 10px; border: 1px solid #ddd; 
+    border-radius: 5px; box-sizing: border-box; font-size: 15px; margin-bottom: 15px; 
+}
+.item { 
+    background: #fff; padding: 12px 15px; margin: 8px 0; 
+    border-radius: 8px; border: 1px solid #eee; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
+    display: flex; align-items: center; justify-content: space-between; 
+}
+.item-main { flex-grow: 1; overflow: hidden; margin-right: 8px; }
+.item-name { 
+    font-weight: bold; font-size: 15px; color: #222; margin-bottom: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.item-sub { font-size: 13px; color: #666; }
+.item-actions { display: flex; gap: 5px; flex-shrink: 0; align-items: center; }
+.btn { 
+    padding: 6px 9px; border: none; border-radius: 4px; 
+    font-size: 12px; cursor: pointer; font-weight: bold; 
+    text-align: center; white-space: nowrap; min-width: 32px; 
+}
+.btn-info { background: #0088cc; color: white; }
+.btn-edit { background: #ff9800; color: white; }
+.btn-wa { background: #25d366; color: white; }
+.btn-del { background: #f44336; color: white; }
+
+.empty { text-align: center; color: #888; padding: 30px; }
+.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
+.loading { text-align: center; color: #0088cc; padding: 40px; font-weight: bold; }
+
+.toast { 
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); 
+    background: #333; color: white; padding: 12px 24px; border-radius: 6px; 
+    z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; 
+}
 .toast.show { opacity: 1; }
+
+/* Modal */
+.modal-overlay { 
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); 
+    z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(2px); 
+}
+.modal-overlay.active { display: flex; }
+.modal { 
+    background: white; border-radius: 12px; padding: 25px; width: 90%; max-width: 480px; 
+    max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative; 
+}
+.modal h3 { margin-top: 0; text-align: center; color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 15px; }
+.close-modal { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; color: #999; cursor: pointer; line-height: 1; }
+.info-grid { display: grid; grid-template-columns: 1fr; gap: 8px; font-size: 14px; }
+.info-row { display: flex; border-bottom: 1px solid #f0f0f0; padding-bottom: 6px; }
+.info-label { font-weight: bold; color: #555; width: 140px; flex-shrink: 0; }
+.info-value { color: #222; word-break: break-word; }
+.info-section-title { 
+    font-size: 12px; color: #0088cc; font-weight: bold; text-transform: uppercase; 
+    margin-top: 12px; margin-bottom: 6px; border-bottom: 1px solid #e0e0e0; padding-bottom: 2px; 
+}
 </style>
 </head>
 <body>
 <div class="container">
-<h2>🎫 Lista Crediti</h2>
-
-<div class="section-title">🔍 Filtri</div>
-<div class="row">
-    <div><label>Data DA:</label><input type="date" id="data_da"></div>
-    <div><label>Data A:</label><input type="date" id="data_a"></div>
-</div>
-<div class="row">
-    <div><label>Fornitore DA:</label><input type="text" id="fornitore_da" placeholder="es. Pierino"></div>
-    <div><label>Fornitore A:</label><input type="text" id="fornitore_a" placeholder="es. Xy"></div>
-</div>
-
-<button class="btn" style="background:#0088cc;" onclick="calcola()">📊 Calcola</button>
-
-<div class="summary-grid">
-    <div class="summary-card acquistato">
-        <h3>🛒 Acquistato</h3>
-        <div class="value" id="acq_qta">0</div>
-        <div class="subvalue" id="acq_val">€ 0.00</div>
+    <h2>🎫 Lista Crediti</h2>
+    <div class="counter-wrapper">
+        <div class="counter" id="counter">Totale: 0</div>
     </div>
-    <div class="summary-card venduto">
-        <h3>💰 Venduto</h3>
-        <div class="value" id="vend_qta">0</div>
-        <div class="subvalue" id="vend_val">€ 0.00</div>
-    </div>
-    <div class="summary-card saldo">
-        <h3>📊 Saldo</h3>
-        <div class="value" id="saldo_qta">0</div>
-        <div class="subvalue" id="saldo_val">€ 0.00</div>
+    <input type="text" class="search" id="search" placeholder="🔍 Cerca per fornitore o nota...">
+    <div id="lista">
+        <div class="loading">⏳ Caricamento crediti...</div>
     </div>
 </div>
 
-<button class="btn btn-pdf" onclick="generaPDF()">📄 PDF</button>
+<!-- Modal Info -->
+<div class="modal-overlay" id="infoModal">
+    <div class="modal">
+        <button class="close-modal" onclick="chiudiInfo()">×</button>
+        <h3>ℹ️ Dettagli Credito</h3>
+        <div id="infoContent"></div>
+    </div>
 </div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-const tg = window.Telegram.WebApp; tg.expand();
+const tg = window.Telegram.WebApp;
+tg.expand();
+tg.ready();
+
+let tuttiCrediti = [];
 
 function getHeaders(contentType) {
     const headers = {};
@@ -82,85 +133,129 @@ function getHeaders(contentType) {
     return headers;
 }
 
-let datiCorrenti = {};
+function formatDataIT(val) {
+    if (!val) return '-';
+    let str = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+        const p = str.substring(0, 10).split('-');
+        return `${p[2]}/${p[1]}/${p[0]}`;
+    }
+    return str.substring(0, 10);
+}
 
 function mostraToast(msg) {
     const t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-async function calcola() {
-    const p = new URLSearchParams();
-    p.append('data_da', document.getElementById('data_da').value);
-    p.append('data_a', document.getElementById('data_a').value);
-    p.append('fornitore_da', document.getElementById('fornitore_da').value);
-    p.append('fornitore_a', document.getElementById('fornitore_a').value);
-    
+function aggiornaContatore(n) {
+    document.getElementById('counter').textContent = 'Totale: ' + n;
+}
+
+async function caricaDati() {
+    const box = document.getElementById('lista');
     try {
-        const res = await fetch('/api/lista_crediti?' + p.toString(), { headers: getHeaders() });
-        if (!res.ok) { mostraToast('❌ Errore server'); return; }
-        datiCorrenti = await res.json();
-        
-        document.getElementById('acq_qta').textContent = datiCorrenti.tot_acq_qta;
-        document.getElementById('acq_val').textContent = '€ ' + datiCorrenti.tot_acq_val.toFixed(2);
-        document.getElementById('vend_qta').textContent = datiCorrenti.tot_vend_qta;
-        document.getElementById('vend_val').textContent = '€ ' + datiCorrenti.tot_vend_val.toFixed(2);
-        document.getElementById('saldo_qta').textContent = datiCorrenti.saldo_qta;
-        document.getElementById('saldo_val').textContent = '€ ' + datiCorrenti.saldo_val.toFixed(2);
-        
-        mostraToast('✅ Calcolo completato');
-    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
+        // Endpoint da adattare se necessario (usa /api/crediti_disponibili o crea uno dedicato)
+        const res = await fetch('/api/crediti_disponibili?nocache=' + Date.now(), {
+            headers: getHeaders()
+        });
+
+        if (!res.ok) {
+            throw new Error(`Errore Server ${res.status}`);
+        }
+
+        const data = await res.json();
+        tuttiCrediti = Array.isArray(data) ? data : [];
+        aggiornaContatore(tuttiCrediti.length);
+        render(tuttiCrediti);
+
+    } catch (e) {
+        box.innerHTML = `<div class="error"><strong>❌ Errore:</strong><br>${e.message}<br><br>
+            <button onclick="location.reload()" style="padding:8px 16px; background:#0088cc; color:white; border:none; border-radius:4px; cursor:pointer;">🔄 Riprova</button>
+        </div>`;
+    }
 }
 
-function generaPDF() {
-    if (!datiCorrenti.tot_acq_qta && !datiCorrenti.tot_vend_qta) {
-        mostraToast('⚠️ Nessun dato da esportare');
+function render(lista) {
+    const box = document.getElementById('lista');
+
+    if (!lista || lista.length === 0) {
+        box.innerHTML = '<div class="empty">Nessun credito trovato.</div>';
         return;
     }
-    
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    const dataDa = document.getElementById('data_da').value || 'N/D';
-    const dataA = document.getElementById('data_a').value || 'N/D';
-    const fornDa = document.getElementById('fornitore_da').value || 'Tutti';
-    const fornA = document.getElementById('fornitore_a').value || 'Tutti';
-    
-    doc.setFontSize(16);
-    doc.text('Lista Crediti', 105, 20, { align: 'center' });
-    
-    doc.setFontSize(10);
-    doc.text(`Periodo: ${dataDa} - ${dataA}`, 20, 35);
-    doc.text(`Fornitore: ${fornDa} - ${fornA}`, 20, 42);
-    
-    doc.setFontSize(14);
-    doc.text('RIEPILOGO', 20, 60);
-    
-    doc.setFontSize(12);
-    doc.text('ACQUISTATO', 20, 75);
-    doc.setFontSize(10);
-    doc.text(`Quantità: ${datiCorrenti.tot_acq_qta}`, 20, 82);
-    doc.text(`Valore: EUR ${datiCorrenti.tot_acq_val.toFixed(2)}`, 20, 89);
-    
-    doc.setFontSize(12);
-    doc.text('VENDUTO', 20, 102);
-    doc.setFontSize(10);
-    doc.text(`Quantità: ${datiCorrenti.tot_vend_qta}`, 20, 109);
-    doc.text(`Valore: EUR ${datiCorrenti.tot_vend_val.toFixed(2)}`, 20, 116);
-    
-    doc.setFontSize(12);
-    doc.text('SALDO', 20, 129);
-    doc.setFontSize(10);
-    doc.text(`Quantità: ${datiCorrenti.saldo_qta}`, 20, 136);
-    doc.text(`Valore: EUR ${datiCorrenti.saldo_val.toFixed(2)}`, 20, 143);
-    
-    doc.save('lista_crediti.pdf');
-    mostraToast('📄 PDF scaricato');
+
+    box.innerHTML = lista.map((c, index) => {
+        const tipo = c.tipo || 'Credito';
+        const qta = c.quantita || 0;
+        const valore = c.valore || 0;
+        const data = formatDataIT(c.data_ref || c.data_acquisto);
+        const id = c.id;
+
+        return `
+            <div class="item">
+                <div class="item-main">
+                    <div class="item-name">
+                        <span style="color:#888; font-size:12px; margin-right:6px;">${index + 1} -</span>
+                        ${tipo}
+                    </div>
+                    <div class="item-sub">Qta: ${qta} &nbsp;|&nbsp; € ${parseFloat(valore).toFixed(2)} &nbsp;|&nbsp; ${data}</div>
+                </div>
+                <div class="item-actions">
+                    <button class="btn btn-info" onclick="apriInfo(${id})" title="Info">ℹ️</button>
+                    <button class="btn btn-wa" onclick="whatsapp('${tipo.replace(/'/g, "\\'")}', ${qta}, ${valore})" title="WhatsApp">💬</button>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
-// Caricamento iniziale
-calcola();
+function apriInfo(id) {
+    const c = tuttiCrediti.find(x => x.id == id);
+    if (!c) { mostraToast('Record non trovato'); return; }
+
+    const v = (val) => val !== undefined && val !== null && val !== '' ? val : '-';
+
+    let html = '<div class="info-grid">';
+    html += '<div class="info-section-title">Dettagli</div>';
+    html += `<div class="info-row"><div class="info-label">ID:</div><div class="info-value">${v(c.id)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Tipo:</div><div class="info-value">${v(c.tipo)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Quantità:</div><div class="info-value">${v(c.quantita)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Valore Unitario:</div><div class="info-value">€ ${parseFloat(c.valore || 0).toFixed(2)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Data:</div><div class="info-value">${formatDataIT(c.data_ref || c.data_acquisto)}</div></div>`;
+    html += '</div>';
+
+    document.getElementById('infoContent').innerHTML = html;
+    document.getElementById('infoModal').classList.add('active');
+}
+
+function chiudiInfo() {
+    document.getElementById('infoModal').classList.remove('active');
+}
+
+function whatsapp(tipo, qta, valore) {
+    const testo = `Messaggio automatico del bot. Info Credito: ${tipo}\nQuantità: ${qta}\nValore unitario: € ${parseFloat(valore).toFixed(2)}`;
+    window.open('https://wa.me/?text=' + encodeURIComponent(testo), '_blank');
+}
+
+// Filtro ricerca
+document.getElementById('search').addEventListener('input', function(e) {
+    const term = e.target.value.toLowerCase().trim();
+    if (!term) {
+        render(tuttiCrediti);
+        aggiornaContatore(tuttiCrediti.length);
+        return;
+    }
+    const filtrati = tuttiCrediti.filter(c => {
+        const tipo = String(c.tipo || '').toLowerCase();
+        return tipo.includes(term);
+    });
+    render(filtrati);
+    aggiornaContatore(filtrati.length);
+});
+
+caricaDati();
 </script>
 </body>
 </html>
