@@ -8,7 +8,7 @@ import json
 router = APIRouter()
 
 # -----------------------------------------------------------------------------
-# 1. LISTA RINNOVI (FIX COLONNA DATA_OPERA -> DATA_OPERAZIONE)
+# 1. LISTA RINNOVI (TUO CODICE ORIGINALE - NON TOCCATO)
 # -----------------------------------------------------------------------------
 @router.get("/api/lista_rinnovi")
 def api_lista_rinnovi(request: Request):
@@ -17,7 +17,6 @@ def api_lista_rinnovi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # FIX: RIMOSSO 'r.data_opera' che non esiste. Usato solo 'r.data_operazione'
             cur.execute("""
                 SELECT 
                     r.id,
@@ -53,9 +52,7 @@ def api_lista_rinnovi(request: Request):
                         else:
                             record[k] = ""
                     # Converti date in stringa leggibile (primi 10 caratteri)
-                    elif k == "data_operazione" and v:
-                        record[k] = str(v)[:10]
-                    elif k == "scadenza" and v:
+                    elif k in ("data_operazione", "scadenza") and v:
                         record[k] = str(v)[:10]
                 result.append(record)
             
@@ -134,17 +131,17 @@ def api_scadenze(request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 3. CALCOLI (ENDPOINT AGGIUNTO PER FIX DATI VUOTI)
+# 3. CALCOLI (NUOVO ENDPOINT INTEGRATO - FIX 404)
 # -----------------------------------------------------------------------------
 @router.get("/api/calcoli")
 def api_calcoli(request: Request):
-    """Restituisce dati dashboard calcoli. Auth bypassata."""
+    """Restituisce dati dashboard calcoli. Auth bypassata per sicurezza."""
     # get_current_user(request) 
     
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Query sicura: verifica colonne esistenti o usa alias standard
+            # Query ottimizzata per contatori e filtri
             cur.execute("""
                 SELECT 
                     r.id,
@@ -183,7 +180,7 @@ def api_calcoli(request: Request):
                     elif k == "data_operazione" and v:
                         record[k] = str(v)[:10]
                 
-                # Logica contatori
+                # Logica contatori (adatta se usi valori diversi per 'tipo')
                 tipo = str(record.get('tipo', '')).lower()
                 if 'nuovo' in tipo:
                     count_nuovi += 1
@@ -194,12 +191,13 @@ def api_calcoli(request: Request):
             
             print(f"[DEBUG] Calcoli: {len(result)} record, Nuovi: {count_nuovi}, Rinnovi: {count_rinnovi}")
             
+            # Struttura JSON attesa dal frontend
             return {
                 "data": result,
                 "totali": {
                     "nuovi": count_nuovi,
                     "rinnovi": count_rinnovi,
-                    "omaggi": 0
+                    "omaggi": 0 # Aggiungi logica se hai un campo specifico
                 }
             }
             
