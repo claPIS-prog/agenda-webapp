@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sicurezza</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; }
+
+/* TAB NAVIGATION */
+.tab-bar {
+    display: flex;
+    background: white;
+    border-bottom: 1px solid #e0e0e0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+.tab-btn {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    background: white;
+    font-size: 14px;
+    font-weight: 600;
+    color: #666;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+}
+.tab-btn.active {
+    color: #2481cc;
+    border-bottom-color: #2481cc;
+}
+
+/* SECTIONS */
+.section { display: none; padding: 15px; }
+.section.active { display: block; }
+
+/* PERMESSI - Gestione */
+.container { max-width: 600px; margin: 0 auto; }
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #555; }
+select, input[type="date"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+.date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.module-list { margin-top: 20px; }
+.module-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px;
+    margin-bottom: 8px; background: white;
+}
+.module-name { font-size: 14px; font-weight: 500; }
+.toggle { position: relative; width: 50px; height: 26px; display: inline-block; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc; transition: .4s; border-radius: 26px;
+}
+.slider:before {
+    position: absolute; content: ""; height: 18px; width: 18px;
+    left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%;
+}
+input:checked + .slider { background-color: #27ae60; }
+input:checked + .slider:before { transform: translateX(24px); }
+.btn-save {
+    width: 100%; padding: 12px; background: #27ae60; color: white;
+    border: none; border-radius: 6px; font-size: 16px; font-weight: 600;
+    cursor: pointer; margin-top: 20px;
+}
+.btn-save:disabled { background: #95a5a6; cursor: not-allowed; }
+.error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 6px; margin-top: 10px; display: none; }
+.success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 6px; margin-top: 10px; display: none; }
+
+/* LISTA PERMESSI */
+.search-container { position: relative; margin-bottom: 15px; }
+.search-input {
+    width: 100%; padding: 10px 10px 10px 35px; border-radius: 10px;
+    border: 1px solid #e0e0e0; background: white; font-size: 16px; outline: none;
+}
+.search-icon {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: #888; font-size: 14px; pointer-events: none;
+}
+.item {
+    background: white; padding: 12px 15px; border-radius: 8px;
+    margin-bottom: 8px; display: flex; align-items: center; cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.item:active { background: #f0f0f0; }
+.avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: #e0e0e0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold; color: #555; font-size: 16px; margin-right: 12px;
+    flex-shrink: 0; text-transform: uppercase;
+}
+.content { flex-grow: 1; overflow: hidden; }
+.name { font-weight: 600; font-size: 16px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.subtitle { font-size: 14px; color: #999; }
+.modules { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.module-tag {
+    font-size: 11px; padding: 2px 6px; border-radius: 8px;
+    background: #e3f2fd; color: #1565c0; font-weight: 500;
+}
+.empty-state { text-align: center; padding: 40px 20px; color: #999; }
+.count-info { text-align: center; color: #666; font-size: 12px; margin-bottom: 10px; }
+#loading {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.8); display: flex; align-items: center;
+    justify-content: center; z-index: 1000; font-weight: bold; color: #2481cc;
+}
+</style>
+</head>
+<body>
+
+<div id="loading">⏳ Caricamento...</div>
+
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('gestione')">⚙️ Gestione Permessi</button>
+    <button class="tab-btn" onclick="switchTab('lista')">📋 Lista Permessi</button>
+</div>
+
+<!-- SEZIONE 1: GESTIONE PERMESSI -->
+<div id="section-gestione" class="section active">
+    <div class="container">
+        <div class="count-info" id="count-info"></div>
+        <div class="form-group">
+            <label for="utente-select">Seleziona Nominativo:</label>
+            <select id="utente-select" onchange="caricaPermessi()">
+                <option value="">-- Seleziona --</option>
+            </select>
+        </div>
+        <div class="date-row">
+            <div class="form-group">
+                <label for="data-inizio">Data Inizio Validità</label>
+                <input type="date" id="data-inizio">
+            </div>
+            <div class="form-group">
+                <label for="data-revoca">Data Revoca</label>
+                <input type="date" id="data-revoca">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="data-fine">Data Fine Validità</label>
+            <input type="date" id="data-fine">
+        </div>
+        <div class="module-list" id="module-list"></div>
+        <button class="btn-save" id="btn-save" onclick="salvaPermessi()" disabled>💾 Salva Permessi</button>
+        <div class="error-msg" id="error-msg"></div>
+        <div class="success-msg" id="success-msg"></div>
+    </div>
+</div>
+
+<!-- SEZIONE 2: LISTA PERMESSI -->
+<div id="section-lista" class="section">
+    <div class="container">
+        <div class="search-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" class="search-input" placeholder="Cerca utente...">
+        </div>
+        <div id="listContainer"></div>
+    </div>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+
+const ALL_MODULES = [
+    "nominativo", "lista", "scadenze", "rinnovi", "storico_rinnovi",
+    "saldo_rinnovi", "reseller", "procuratori", "server", "nota",
+    "credenziali", "permessi", "dispositivi", "sistemi_op", "buffett",
+    "pagamenti", "operatori_it", "tabelle", "crediti", "calcoli"
+];
+
+const MODULE_LABELS = {
+    "nominativo": "📝 Nominativo",
+    "lista": "📋 Lista",
+    "scadenze": "⏰ Scadenze",
+    "rinnovi": "🔄 Rinnovi",
+    "storico_rinnovi": "📜 Storico",
+    "saldo_rinnovi": "💰 Saldo",
+    "reseller": "🏢 Reseller",
+    "procuratori": "👥 Procuratori",
+    "server": "🖥️ Server",
+    "nota": "💬 Note",
+    "credenziali": "🔑 Credenziali",
+    "permessi": "🔐 Permessi",
+    "dispositivi": "📱 Dispositivi",
+    "sistemi_op": "⚙️ Sistemi",
+    "buffett": "🍽️ Buffett",
+    "pagamenti": "💳 Pagamenti",
+    "operatori_it": "📡 Operatori",
+    "tabelle": "🗂️ Tabelle",
+    "crediti": "💎 Crediti",
+    "calcoli": "📊 Calcoli"
+};
+
+let utenti = [];
+let permessiCorrenti = {};
+let allData = [];
+
+// ==================== TAB SWITCHING ====================
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    
+    if (tab === 'gestione') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('section-gestione').classList.add('active');
+    } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('section-lista').classList.add('active');
+        if (allData.length === 0) caricaLista();
+    }
+}
+
+// ==================== GESTIONE PERMESSI ====================
+async function caricaUtenti() {
+    try {
+        const res = await fetch('/api/amici?nocache=' + Date.now());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        utenti = await res.json();
+        
+        const select = document.getElementById('utente-select');
+        select.innerHTML = '<option value="">-- Seleziona --</option>';
+        utenti.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.id;
+            opt.textContent = u.nome || ('ID: ' + u.id);
+            select.appendChild(opt);
+        });
+        
+        document.getElementById('count-info').textContent = 'Nominativi trovati: ' + utenti.length;
+        document.getElementById('loading').style.display = 'none';
+    } catch (e) {
+        showError('Errore caricamento: ' + e.message);
+        document.getElementById('loading').style.display = 'none';
+    }
+}
+
+async function caricaPermessi() {
+    const userId = document.getElementById('utente-select').value;
+    if (!userId) {
+        document.getElementById('btn-save').disabled = true;
+        document.getElementById('module-list').innerHTML = '';
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/permessi/${userId}?nocache=` + Date.now());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        
+        permessiCorrenti = data.permessi || {};
+        
+        if (data.date) {
+            document.getElementById('data-inizio').value = data.date.data_inizio_validita || '';
+            document.getElementById('data-revoca').value = data.date.data_revoca || '';
+            document.getElementById('data-fine').value = data.date.data_fine_validita || '';
+        }
+        
+        renderModuli();
+        document.getElementById('btn-save').disabled = false;
+        hideMessages();
+    } catch (e) {
+        showError('Errore permessi: ' + e.message);
+    }
+}
+
+function renderModuli() {
+    const container = document.getElementById('module-list');
+    container.innerHTML = '';
+    
+    ALL_MODULES.forEach(mod => {
+        const item = document.createElement('div');
+        item.className = 'module-item';
+        
+        const label = document.createElement('span');
+        label.className = 'module-name';
+        label.textContent = MODULE_LABELS[mod] || mod;
+        
+        const toggle = document.createElement('label');
+        toggle.className = 'toggle';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = permessiCorrenti[mod] || false;
+        checkbox.onchange = (e) => { permessiCorrenti[mod] = e.target.checked; };
+        
+        const slider = document.createElement('span');
+        slider.className = 'slider';
+        
+        toggle.appendChild(checkbox);
+        toggle.appendChild(slider);
+        item.appendChild(label);
+        item.appendChild(toggle);
+        container.appendChild(item);
+    });
+}
+
+async function salvaPermessi() {
+    const userId = document.getElementById('utente-select').value;
+    if (!userId) { showError('Seleziona un nominativo'); return; }
+    
+    const btn = document.getElementById('btn-save');
+    btn.disabled = true;
+    btn.textContent = '⏳ Salvataggio...';
+    
+    try {
+        const payload = {
+            user_id: parseInt(userId),
+            permessi: permessiCorrenti,
+            data_inizio_validita: document.getElementById('data-inizio').value || null,
+            data_revoca: document.getElementById('data-revoca').value || null,
+            data_fine_validita: document.getElementById('data-fine').value || null
+        };
+        
+        const res = await fetch('/api/salva_permessi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'HTTP ' + res.status);
+        }
+        
+        showSuccess('✅ Permessi salvati!');
+        setTimeout(() => hideMessages(), 3000);
+    } catch (e) {
+        showError('❌ ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Salva Permessi';
+    }
+}
+
+// ==================== LISTA PERMESSI ====================
+async function caricaLista() {
+    try {
+        const response = await fetch('/api/amici?nocache=' + Date.now());
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        
+        const utentiLista = await response.json();
+        
+        const promises = utentiLista.map(async (u) => {
+            try {
+                const permRes = await fetch(`/api/permessi/${u.id}?nocache=` + Date.now());
+                if (permRes.ok) {
+                    const perms = await permRes.json();
+                    return { ...u, permessi: perms };
+                }
+            } catch (e) { console.error(e); }
+            return { ...u, permessi: {} };
+        });
+        
+        allData = await Promise.all(promises);
+        renderLista(allData);
+    } catch (error) {
+        document.getElementById('listContainer').innerHTML = `<div class="empty-state">Errore: ${error.message}</div>`;
+    }
+}
+
+function getInitials(name) {
+    if (!name) return '?';
+    const parts = name.split(' ');
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function renderLista(items) {
+    const container = document.getElementById('listContainer');
+    container.innerHTML = '';
+    
+    if (items.length === 0) {
+        container.innerHTML = '<div class="empty-state">Nessun utente trovato.</div>';
+        return;
+    }
+    
+    items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        
+        const activeModules = Object.entries(item.permessi || {})
+            .filter(([mod, attivo]) => attivo)
+            .map(([mod]) => MODULE_LABELS[mod] || mod);
+        
+        const subtitle = activeModules.length > 0 
+            ? `${activeModules.length} moduli attivi` 
+            : 'Nessun permesso';
+        
+        div.innerHTML = `
+            <div class="avatar">${getInitials(item.nome)}</div>
+            <div class="content">
+                <div class="name">${item.nome || 'Sconosciuto'}</div>
+                <div class="subtitle">${subtitle}</div>
+                ${activeModules.length > 0 ? `
+                    <div class="modules">
+                        ${activeModules.slice(0, 5).map(m => `<span class="module-tag">${m}</span>`).join('')}
+                        ${activeModules.length > 5 ? `<span class="module-tag">+${activeModules.length - 5}</span>` : ''}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        div.onclick = () => {
+            tg.showPopup({ 
+                title: item.nome, 
+                message: `Moduli attivi: ${activeModules.length}\n\n${activeModules.join(', ')}` 
+            });
+        };
+        
+        container.appendChild(div);
+    });
+}
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+    const term = e.target.value.toLowerCase();
+    const filtered = allData.filter(item => 
+        (item.nome && item.nome.toLowerCase().includes(term))
+    );
+    renderLista(filtered);
+});
+
+// ==================== UTILS ====================
+function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+    document.getElementById('success-msg').style.display = 'none';
+}
+
+function showSuccess(msg) {
+    const el = document.getElementById('success-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+    document.getElementById('error-msg').style.display = 'none';
+}
+
+function hideMessages() {
+    document.getElementById('error-msg').style.display = 'none';
+    document.getElementById('success-msg').style.display = 'none';
+}
+
+// ==================== INIT ====================
+caricaUtenti();
+</script>
+</body>
+</html>
