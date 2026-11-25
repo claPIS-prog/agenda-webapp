@@ -68,7 +68,7 @@ def api_lista_rinnovi(request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 2. SCADENZE (ORIGINALE - NON TOCCARE)
+# 2. SCADENZE (TUO CODICE ORIGINALE - NON TOCCATO)
 # -----------------------------------------------------------------------------
 @router.get("/api/scadenze")
 def api_scadenze(request: Request):
@@ -131,7 +131,7 @@ def api_scadenze(request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 3. CALCOLI (NUOVO ENDPOINT INTEGRATO - FIX 404)
+# 3. CALCOLI (NUOVO ENDPOINT - FIX DEFINITIVO 404)
 # -----------------------------------------------------------------------------
 @router.get("/api/calcoli")
 def api_calcoli(request: Request):
@@ -141,7 +141,6 @@ def api_calcoli(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Query ottimizzata per contatori e filtri
             cur.execute("""
                 SELECT 
                     r.id,
