@@ -7,38 +7,120 @@ from datetime import datetime
 
 router = APIRouter()
 
+# -----------------------------------------------------------------------------
+# 1. LISTA NOMINATIVI (per la dropdown)
+# -----------------------------------------------------------------------------
 @router.get("/api/amici")
 def api_amici(request: Request):
-    """Restituisce lista utenti autorizzati con date."""
-    # get_current_user(request)  # Bypassato
+    """Restituisce TUTTI i nominativi dalla tabella nominativi."""
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT DISTINCT a.id, a.telegram_id, a.nome,
-                       p.data_inizio_validita, p.data_revoca, p.data_fine_validita
-                FROM autorizzati a
-                LEFT JOIN permessi p ON p.user_id = a.id
-                ORDER BY a.nome
-            """)
-            rows = cur.fetchall()
-            result = []
-            seen = set()
-            for r in rows:
-                if r["id"] not in seen:
-                    seen.add(r["id"])
-                    result.append({
-                        "id": r["id"],
-                        "telegram_id": r["telegram_id"],
-                        "nome": r["nome"],
-                        "data_inizio_validita": str(r.get("data_inizio_validita", ""))[:10] if r.get("data_inizio_validita") else "",
-                        "data_revoca": str(r.get("data_revoca", ""))[:10] if r.get("data_revoca") else "",
-                        "data_fine_validita": str(r.get("data_fine_validita", ""))[:10] if r.get("data_fine_validita") else ""
-                    })
-            return result
+            cur.execute("SELECT id, nominativo as nome FROM nominativi ORDER BY nominativo")
+            return cur.fetchall()
     finally:
         conn.close()
 
+# -----------------------------------------------------------------------------
+# 2. GET PERMESSI + DATE per un nominativo
+# -----------------------------------------------------------------------------
+@router.get("/api/permessi/{user_id}")
+def api_get_permessi(user_id: int, request: Request):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            # Permessi moduli
+            cur.execute("SELECT modulo, attivo FROM permessi WHERE user_id = %s", (user_id,))
+            rows = cur.fetchall()
+            perms = {}
+            for row in rows:
+                if isinstance(row, dict):
+                    perms[row["modulo"]] = row["attivo"]
+                else:
+                    perms[row[0]] = row[1]
+            for mod in ALL_MODULES:
+                if mod not in perms:
+                    perms[mod] = False
+
+            # Date (se esistono righe permessi per questo user)
+            cur.execute("""
+                SELECT data_inizio_validita, data_revoca, data_fine_validita
+                FROM permessi WHERE user_id = %s LIMIT 1
+            """, (user_id,))
+            date_row = cur.fetchone()
+
+            dates = {
+                "data_inizio_validita": "",
+                "data_revoca": "",
+                "data_fine_validita": ""
+            }
+            if date_row:
+                d = dict(date_row) if isinstance(date_row, dict) else dict(zip(
+                    ["data_inizio_validita", "data_revoca", "data_fine_validita"], date_row
+                ))
+                for k in ["data_inizio_validita", "data_revoca", "data_fine_validita"]:
+                    if d.get(k):
+                        dates[k] = str(d[k])[:10]
+
+            return {"permessi": perms, "date": dates}
+    finally:
+        conn.close()
+
+# -----------------------------------------------------------------------------
+# 3. SALVA PERMESSI + DATE (gestisce FK autorizzati)
+# -----------------------------------------------------------------------------
+@router.post("/api/salva_permessi")
+def api_salva_permessi(payload: PermessiPayload, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            # Se non esiste un record in autorizzati con quell'id, lo creo
+            # (per rispettare il FK permessi.user_id → autorizzati.id)
+            cur.execute("SELECT id FROM autorizzati WHERE id = %s", (payload.user_id,))
+            if not cur.fetchone():
+                cur.execute("SELECT nominativo FROM nominativi WHERE id = %s", (payload.user_id,))
+                nom = cur.fetchone()
+                nome = nom["nominativo"] if nom else f"Nominativo #{payload.user_id}"
+                cur.execute("""
+                    INSERT INTO autorizzati (id, telegram_id, password, nome)
+                    VALUES (%s, %s, 'auto', %s)
+                    ON CONFLICT (id) DO NOTHING
+                """, (payload.user_id, -payload.user_id, nome))
+
+            # Salva permessi moduli
+            for modulo, attivo in payload.permessi.items():
+                if modulo in ALL_MODULES:
+                    cur.execute("""
+                        INSERT INTO permessi (user_id, modulo, attivo)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (user_id, modulo) DO UPDATE SET attivo = EXCLUDED.attivo
+                    """, (payload.user_id, modulo, bool(attivo)))
+
+            # Salva date
+            cur.execute("""
+                UPDATE permessi SET
+                    data_inizio_validita = %s,
+                    data_revoca = %s,
+                    data_fine_validita = %s
+                WHERE user_id = %s
+            """, (
+                payload.data_inizio_validita or None,
+                payload.data_revoca or None,
+                payload.data_fine_validita or None,
+                payload.user_id
+            ))
+            conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# -----------------------------------------------------------------------------
+# 4. AGGIUNGI / RIMUOVI AMICO (mantenuti per compatibilità)
+# -----------------------------------------------------------------------------
 @router.post("/api/aggiungi_amico")
 def api_aggiungi_amico(payload: AmicoPayload, request: Request):
     get_current_user(request)
@@ -46,21 +128,20 @@ def api_aggiungi_amico(payload: AmicoPayload, request: Request):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO autorizzati (telegram_id, password, nome) 
-                VALUES (%s, %s, %s) 
-                ON CONFLICT (telegram_id) DO UPDATE SET 
-                    password = excluded.password, 
-                    nome = excluded.nome 
+                INSERT INTO autorizzati (telegram_id, password, nome)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (telegram_id) DO UPDATE SET
+                    password = excluded.password,
+                    nome = excluded.nome
                 RETURNING id
             """, (payload.telegram_id, payload.password, payload.nome))
             new_id = cur.fetchone()["id"]
-            oggi = datetime.now().date()
             for mod in ALL_MODULES:
                 cur.execute("""
-                    INSERT INTO permessi (user_id, modulo, attivo, data_inizio_validita) 
-                    VALUES (%s, %s, TRUE, %s) 
+                    INSERT INTO permessi (user_id, modulo, attivo)
+                    VALUES (%s, %s, TRUE)
                     ON CONFLICT (user_id, modulo) DO NOTHING
-                """, (new_id, mod, oggi))
+                """, (new_id, mod))
             conn.commit()
     finally:
         conn.close()
@@ -75,72 +156,6 @@ def api_rimuovi_amico(amico_id: int, request: Request):
             cur.execute("DELETE FROM permessi WHERE user_id = %s", (amico_id,))
             cur.execute("DELETE FROM autorizzati WHERE id = %s", (amico_id,))
             conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
-
-@router.get("/api/permessi/{user_id}")
-def api_get_permessi(user_id: int, request: Request):
-    """Restituisce permessi + date utente."""
-    # get_current_user(request)  # Bypassato
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT modulo, attivo FROM permessi WHERE user_id = %s", (user_id,))
-            rows = cur.fetchall()
-            perms = {row["modulo"]: row["attivo"] for row in rows}
-            for mod in ALL_MODULES:
-                if mod not in perms:
-                    perms[mod] = False
-            
-            cur.execute("""
-                SELECT data_inizio_validita, data_revoca, data_fine_validita
-                FROM permessi WHERE user_id = %s LIMIT 1
-            """, (user_id,))
-            date_row = cur.fetchone()
-            
-            return {
-                "permessi": perms,
-                "date": {
-                    "data_inizio_validita": str(date_row["data_inizio_validita"])[:10] if date_row and date_row.get("data_inizio_validita") else "",
-                    "data_revoca": str(date_row["data_revoca"])[:10] if date_row and date_row.get("data_revoca") else "",
-                    "data_fine_validita": str(date_row["data_fine_validita"])[:10] if date_row and date_row.get("data_fine_validita") else ""
-                }
-            }
-    finally:
-        conn.close()
-
-@router.post("/api/salva_permessi")
-def api_salva_permessi(payload: PermessiPayload, request: Request):
-    """Salva permessi moduli + date validità."""
-    get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            for modulo, attivo in payload.permessi.items():
-                if modulo in ALL_MODULES:
-                    cur.execute("""
-                        INSERT INTO permessi (user_id, modulo, attivo) 
-                        VALUES (%s, %s, %s) 
-                        ON CONFLICT (user_id, modulo) DO UPDATE SET attivo = EXCLUDED.attivo
-                    """, (payload.user_id, modulo, bool(attivo)))
-            
-            cur.execute("""
-                UPDATE permessi SET 
-                    data_inizio_validita = %s,
-                    data_revoca = %s,
-                    data_fine_validita = %s
-                WHERE user_id = %s
-            """, (
-                payload.data_inizio_validita,
-                payload.data_revoca,
-                payload.data_fine_validita,
-                payload.user_id
-            ))
-            conn.commit()
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
     return {"ok": True}
