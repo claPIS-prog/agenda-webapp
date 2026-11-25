@@ -56,10 +56,23 @@ hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
 <div id="acquisto-section">
     <h3>Nuovo Acquisto Credito</h3>
     
+    <label>Numeratore Transazione:</label>
+    <input type="text" id="c_numeratore" readonly class="readonly-field" value="(generato al salvataggio)">
+    
     <label>Fornitore:</label>
     <select id="c_forn">
         <option value="">-- Seleziona --</option>
         <option value="Pierino">Pierino</option>
+        <option value="Altro">Altro</option>
+    </select>
+    
+    <label>Modalità di Pagamento:</label>
+    <select id="c_pagamento">
+        <option value="">-- Seleziona --</option>
+        <option value="Contanti">Contanti</option>
+        <option value="Bonifico">Bonifico</option>
+        <option value="Carta">Carta</option>
+        <option value="PayPal">PayPal</option>
         <option value="Altro">Altro</option>
     </select>
     
@@ -130,12 +143,13 @@ async function salvaSaldo() {
 
 async function salvaAcquisto() {
     if(!document.getElementById('c_forn').value.trim()) {
-        alert("⚠️ Inserisci il nome del fornitore");
+        alert("⚠️ Seleziona il fornitore");
         return;
     }
     
     const d = {
         fornitore: document.getElementById('c_forn').value.trim(),
+        modalita_pagamento: document.getElementById('c_pagamento').value,
         data_acquisto: document.getElementById('c_data').value,
         quantita: parseInt(document.getElementById('c_qta').value) || 1,
         valore_totale: parseFloat(document.getElementById('c_tot').value) || 0,
@@ -152,8 +166,10 @@ async function salvaAcquisto() {
         if(!r.ok) throw new Error('Errore server: ' + r.status);
         
         const res = await r.json();
+        // Mostra il numeratore generato
+        document.getElementById('c_numeratore').value = 'Acquisto #' + res.id;
         showToast(`✅ Acquisto #${res.id} salvato!`);
-        setTimeout(() => tg.close(), 1500);
+        setTimeout(() => tg.close(), 1800);
     } catch(e) { 
         alert("❌ Errore: " + e.message); 
     }
