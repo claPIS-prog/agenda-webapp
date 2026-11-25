@@ -22,7 +22,6 @@ def api_contatti(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Query COMPLETA che include TUTTI i campi necessari alla maschera Info
             cur.execute("""
                 SELECT id, nominativo, tipo, prezzo, cadenza, user_id, password, 
                        tipo_linea, dispositivo, sistema_operativo, buffett, metodo_pagamento, 
@@ -97,24 +96,21 @@ def api_azione(payload: AzionePayload, request: Request):
                 ))
 
             # -------------------------------------------------
-            # AZIONI SUI RINNOVI (NUOVE)
+            # AZIONI SUI RINNOVI
             # -------------------------------------------------
             elif azione == "modifica_rinnovo":
+                # Solo colonne che esistono realmente nella tabella rinnovi
                 cur.execute("""
                     UPDATE rinnovi SET 
                         tipo = %s,
                         data_operazione = %s,
                         scadenza = %s,
-                        importo_acconto = %s,
-                        importo_saldo = %s,
                         note = %s
                     WHERE id = %s
                 """, (
                     dati.get("tipo", "rinnovo"),
                     dati.get("data_operazione") or None,
                     dati.get("scadenza") or None,
-                    float(dati.get("importo_acconto", 0) or 0),
-                    float(dati.get("importo_saldo", 0) or 0),
                     dati.get("note", ""),
                     dati.get("id")
                 ))
@@ -123,7 +119,6 @@ def api_azione(payload: AzionePayload, request: Request):
                 cur.execute("DELETE FROM rinnovi WHERE id = %s", (dati.get("id"),))
 
             else:
-                # Azione non riconosciuta
                 print(f"[ATTENZIONE] Azione non gestita: {azione}")
         
         conn.commit()
