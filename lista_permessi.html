@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lista Permessi</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 650px; margin: 0 auto; }
+h2 { text-align: center; margin-top: 0; color: #333; }
+.counter-wrapper { text-align: center; margin-bottom: 15px; }
+.counter { background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; display: inline-block; }
+.search { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; margin-bottom: 15px; }
+.item { background: #fff; padding: 12px 15px; margin: 8px 0; border-radius: 8px; border: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+.item-main { flex-grow: 1; margin-right: 8px; }
+.item-name { font-weight: bold; font-size: 15px; }
+.item-sub { font-size: 13px; color: #666; }
+.item-actions { display: flex; gap: 5px; }
+.btn { padding: 6px 9px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; }
+.btn-edit { background: #ff9800; color: white; }
+.btn-del { background: #f44336; color: white; }
+.loading { text-align: center; color: #0088cc; padding: 40px; font-weight: bold; }
+.empty, .error { text-align: center; padding: 20px; }
+.error { color: #c62828; background: #ffebee; border-radius: 6px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 20px; border-radius: 6px; opacity: 0; transition: opacity 0.3s; z-index: 9999; }
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h2>🔐 Lista Permessi</h2>
+    <div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
+    <input type="text" class="search" id="search" placeholder="🔍 Cerca per nominativo...">
+    <div id="lista"><div class="loading">⏳ Caricamento...</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const tg = window.Telegram.WebApp; tg.expand();
+let tuttiPermessi = [];
+
+function getHeaders(ct) {
+    const h = {};
+    if (ct) h['Content-Type'] = ct;
+    if (tg.initData) h['X-Telegram-Init-Data'] = tg.initData;
+    return h;
+}
+
+function mostraToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function formatDataIT(val) {
+    if (!val) return '-';
+    const s = String(val);
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        const p = s.substring(0,10).split('-');
+        return `${p[2]}/${p[1]}/${p[0]}`;
+    }
+    return s.substring(0,10);
+}
+
+async function caricaDati() {
+    const box = document.getElementById('lista');
+    try {
+        // Endpoint da creare o adattare: deve restituire nominativi con i loro permessi
+        const res = await fetch('/api/lista_permessi?nocache=' + Date.now(), { headers: getHeaders() });
+        if (!res.ok) throw new Error('Errore ' + res.status);
+        const data = await res.json();
+        tuttiPermessi = Array.isArray(data) ? data : [];
+        document.getElementById('counter').textContent = 'Totale: ' + tuttiPermessi.length;
+        render(tuttiPermessi);
+    } catch (e) {
+        box.innerHTML = '<div class="error">Errore caricamento: ' + e.message + '<br><small>Creare endpoint /api/lista_permessi</small></div>';
+    }
+}
+
+function render(lista) {
+    const box = document.getElementById('lista');
+    if (!lista || lista.length === 0) {
+        box.innerHTML = '<div class="empty">Nessun permesso trovato.</div>';
+        return;
+    }
+    box.innerHTML = lista.map((p, i) => {
+        const nome = p.nominativo || p.nome || 'N/D';
+        const inizio = formatDataIT(p.data_inizio_validita);
+        const fine = formatDataIT(p.data_fine_validita);
+        return `
+            <div class="item">
+                <div class="item-main">
+                    <div class="item-name"><span style="color:#888;font-size:12px;margin-right:6px;">${i+1} -</span>${nome}</div>
+                    <div class="item-sub">Inizio: ${inizio} | Fine: ${fine}</div>
+                </div>
+                <div class="item-actions">
+                    <button class="btn btn-edit" onclick="modifica(${p.id})" title="Modifica">✏️</button>
+                    <button class="btn btn-del" onclick="cancella(${p.id}, '${nome.replace(/'/g,"\\'")}')" title="Elimina">🗑️</button>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+function modifica(id) {
+    // Apre il form Gestione Permessi con il nominativo selezionato
+    // (o implementa una modal di modifica)
+    mostraToast('Modifica permesso ID ' + id + ' (da collegare)');
+    // Esempio: window.location = 'permessi.html?id=' + id;
+}
+
+async function cancella(id, nome) {
+    if (!confirm('Eliminare i permessi di "' + nome + '"?')) return;
+    try {
+        const res = await fetch('/api/azione', {
+            method: 'POST',
+            headers: getHeaders('application/json'),
+            body: JSON.stringify({ dati: { azione: 'elimina_permesso', id: id } })
+        });
+        if (!res.ok) throw new Error('Errore');
+        mostraToast('Permesso eliminato');
+        caricaDati();
+    } catch (e) {
+        mostraToast('Errore eliminazione');
+    }
+}
+
+document.getElementById('search').addEventListener('input', e => {
+    const t = e.target.value.toLowerCase();
+    const f = tuttiPermessi.filter(p => String(p.nominativo || p.nome || '').toLowerCase().includes(t));
+    render(f);
+    document.getElementById('counter').textContent = 'Totale: ' + f.length;
+});
+
+caricaDati();
+</script>
+</body>
+</html>
