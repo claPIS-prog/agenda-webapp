@@ -310,6 +310,7 @@ function render(lista) {
                     <span class="badge ${badgeClass}">${badgeText}</span>
                     <button class="btn btn-info" onclick="apriInfo(${id})" title="Info">ℹ️</button>
                     <button class="btn btn-edit" onclick="apriModifica(${id})" title="Modifica">✏️</button>
+                    <button class="btn" style="background:#9c27b0; color:white;" onclick="apriSaldo(${id})" title="Saldo Credito">💰</button>
                     <button class="btn btn-wa" onclick="whatsapp('${(nome || '').replace(/'/g, "\\'")}', '${dataOp}', '${scadenza}')" title="WhatsApp">💬</button>
                     <button class="btn btn-del" onclick="cancella(${id}, '${(nome || '').replace(/'/g, "\\'")}')" title="Elimina">🗑️</button>
                 </div>
@@ -465,7 +466,24 @@ async function salvaModifica() {
     }
 }
 
-function whatsapp(nome, dataOp, scadenza) {
+function apriSaldo(id) {
+    const r = tuttiRinnovi.find(x => x.id == id);
+    if (!r) { mostraToast('Record non trovato'); return; }
+
+    const nome = getField(r, 'nominativo', 'nome') || 'N/D';
+    const dare = r.num_credito_dare || 0;
+
+    if (dare <= 0) {
+        mostraToast('Nessun credito in sospeso da saldare');
+        return;
+    }
+
+    const data = prompt(`Saldare ${dare} crediti per "${nome}"?\nInserisci la Data Credito Saldo (GG/MM/AAAA):`, new Date().toLocaleDateString('it-IT'));
+    if (!data) return;
+
+    // Qui andrebbe la chiamata al backend per salvare
+    mostraToast(`✅ Credito saldato in data ${data} (da implementare lato server)`);
+}
     const testo = `Messaggio automatico del bot. Ciao ${nome}, il tuo rinnovo è stato eseguito in data ${dataOp} con scadenza ${scadenza}. Grazie.`;
     window.open('https://wa.me/?text=' + encodeURIComponent(testo), '_blank');
 }
