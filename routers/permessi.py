@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from auth import get_current_user
 from database import db_conn
 from config import ALL_MODULES
@@ -62,15 +62,37 @@ def api_get_permessi(user_id: int, request: Request):
         conn.close()
 
 @router.post("/api/salva_permessi")
-def api_salva_permessi(payload: PermessiPayload, request: Request):
+async def api_salva_permessi(request: Request):
+    """
+    Versione più tollerante: accetta anche campi extra (date) senza rompersi.
+    """
     get_current_user(request)
+    body = {}
+    try:
+        body = await request.json()
+    except:
+        pass
+
+    user_id = body.get("user_id")
+    permessi = body.get("permessi") or {}
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id mancante")
+
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            for modulo, attivo in payload.permessi.items():
+            for modulo, attivo in permessi.items():
                 if modulo in ALL_MODULES:
-                    cur.execute("INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, %s) ON CONFLICT (user_id, modulo) DO UPDATE SET attivo = excluded.attivo", (payload.user_id, modulo, attivo))
+                    cur.execute("""
+                        INSERT INTO permessi (user_id, modulo, attivo) 
+                        VALUES (%s, %s, %s) 
+                        ON CONFLICT (user_id, modulo) DO UPDATE SET attivo = EXCLUDED.attivo
+                    """, (user_id, modulo, bool(attivo)))
         conn.commit()
+        return {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
-    return {"ok": True}
