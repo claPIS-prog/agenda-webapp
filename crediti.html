@@ -57,7 +57,11 @@ hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
     <h3>Nuovo Acquisto Credito</h3>
     
     <label>Fornitore:</label>
-    <input type="text" id="c_forn" placeholder="Nome fornitore">
+    <select id="c_forn">
+        <option value="">-- Seleziona --</option>
+        <option value="Pierino">Pierino</option>
+        <option value="Altro">Altro</option>
+    </select>
     
     <div class="row">
         <div><label>Data Acquisto:</label><input type="date" id="c_data"></div>
