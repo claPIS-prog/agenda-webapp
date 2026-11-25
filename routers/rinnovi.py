@@ -13,28 +13,22 @@ router = APIRouter()
 @router.get("/api/lista_rinnovi")
 def api_lista_rinnovi(request: Request):
     """
-    Versione ultra-semplice e sicura.
+    Versione minimale. Nessuna subquery.
     """
-    # Auth temporaneamente disabilitata per test
-    # get_current_user(request)
-    
     conn = db_conn()
     try:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT 
-                    r.id,
-                    COALESCE(
-                        (SELECT n.nominativo FROM nominativi n WHERE n.id = r.nominativo_id LIMIT 1), 
-                        'Senza nome'
-                    ) as nominativo,
-                    r.data_operazione,
-                    r.scadenza,
-                    COALESCE(r.tipo, 'rinnovo') as tipo,
-                    r.note
-                FROM rinnovi r
-                ORDER BY r.id DESC
-                LIMIT 200
+                    id,
+                    nominativo_id,
+                    data_operazione,
+                    scadenza,
+                    COALESCE(tipo, 'rinnovo') as tipo,
+                    note
+                FROM rinnovi
+                ORDER BY id DESC
+                LIMIT 100
             """)
             
             rows = cur.fetchall()
@@ -44,7 +38,7 @@ def api_lista_rinnovi(request: Request):
                 if isinstance(row, dict):
                     rec = {
                         "id": row.get("id"),
-                        "nominativo": row.get("nominativo") or "Senza nome",
+                        "nominativo": "ID:" + str(row.get("nominativo_id") or "?"),
                         "data_operazione": str(row.get("data_operazione") or "")[:10],
                         "scadenza": str(row.get("scadenza") or "")[:10],
                         "tipo": row.get("tipo") or "rinnovo",
@@ -53,7 +47,7 @@ def api_lista_rinnovi(request: Request):
                 else:
                     rec = {
                         "id": row[0],
-                        "nominativo": row[1] or "Senza nome",
+                        "nominativo": "ID:" + str(row[1] or "?"),
                         "data_operazione": str(row[2] or "")[:10],
                         "scadenza": str(row[3] or "")[:10],
                         "tipo": row[4] or "rinnovo",
