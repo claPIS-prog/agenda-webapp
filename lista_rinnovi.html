@@ -7,22 +7,35 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 600px; margin: 0 auto; }
+.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 650px; margin: 0 auto; }
 h2 { text-align: center; margin-top: 0; color: #333; }
 .counter-wrapper { text-align: center; margin-bottom: 15px; }
 .counter { background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; display: inline-block; }
 .search { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; margin-bottom: 15px; }
 .item { background: #fff; padding: 12px 15px; margin: 8px 0; border-radius: 8px; border: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
-.item-main { flex-grow: 1; margin-right: 8px; }
-.item-name { font-weight: bold; font-size: 15px; }
+.item-main { flex-grow: 1; margin-right: 8px; overflow: hidden; }
+.item-name { font-weight: bold; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-sub { font-size: 13px; color: #666; }
-.badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
+.item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.btn { padding: 6px 8px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; min-width: 30px; }
+.btn-info { background: #0088cc; color: white; }
+.btn-edit { background: #ff9800; color: white; }
+.btn-saldo { background: #9c27b0; color: white; }
+.btn-wa { background: #25d366; color: white; }
+.btn-del { background: #f44336; color: white; }
+.badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; margin-right: 4px; }
 .badge-rinnovo { background: #0088cc; }
 .badge-nuovo { background: #4caf50; }
 .badge-omaggio { background: #ff9800; }
 .loading { text-align: center; color: #0088cc; padding: 40px; font-weight: bold; }
 .empty, .error { text-align: center; padding: 20px; }
 .error { color: #c62828; background: #ffebee; border-radius: 6px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 20px; border-radius: 6px; opacity: 0; transition: opacity 0.3s; z-index: 9999; }
+.toast.show { opacity: 1; }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: white; border-radius: 12px; padding: 20px; width: 90%; max-width: 480px; max-height: 85vh; overflow-y: auto; }
+.modal h3 { margin-top: 0; text-align: center; }
 </style>
 </head>
 <body>
@@ -32,30 +45,60 @@ h2 { text-align: center; margin-top: 0; color: #333; }
     <input type="text" class="search" id="search" placeholder="🔍 Cerca per nominativo...">
     <div id="lista"><div class="loading">⏳ Caricamento rinnovi...</div></div>
 </div>
+<div class="toast" id="toast"></div>
+
 <script>
 const tg = window.Telegram.WebApp; tg.expand();
 let tuttiRinnovi = [];
-function getHeaders() { const h = {}; if (tg.initData) h['X-Telegram-Init-Data'] = tg.initData; return h; }
+
+function getHeaders(ct) { 
+    const h = {}; 
+    if (ct) h['Content-Type'] = ct;
+    if (tg.initData) h['X-Telegram-Init-Data'] = tg.initData; 
+    return h; 
+}
 function aggiornaContatore(n) { document.getElementById('counter').textContent = 'Totale: ' + n; }
-function formatDataIT(val) { if (!val) return '-'; const s = String(val); if (/^\d{4}-\d{2}-\d{2}/.test(s)) { const p = s.substring(0,10).split('-'); return p[2]+'/'+p[1]+'/'+p[0]; } return s.substring(0,10); }
-function getField(obj, ...keys) { for (const k of keys) if (obj && obj[k] != null) return obj[k]; return ''; }
+function formatDataIT(val) { 
+    if (!val) return '-'; 
+    const s = String(val); 
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) { 
+        const p = s.substring(0,10).split('-'); 
+        return p[2]+'/'+p[1]+'/'+p[0]; 
+    } 
+    return s.substring(0,10); 
+}
+function getField(obj, ...keys) { 
+    for (const k of keys) if (obj && obj[k] != null) return obj[k]; 
+    return ''; 
+}
+function mostraToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
 
 async function caricaDati() {
     const box = document.getElementById('lista');
     box.innerHTML = '<div class="loading">⏳ Caricamento rinnovi...</div>';
-    setTimeout(() => { if (box.innerHTML.includes('Caricamento')) box.innerHTML = '<div class="error">⚠️ Timeout - Il server non risponde.<br><br><button onclick="caricaDati()">🔄 Riprova</button></div>'; }, 5000);
     try {
         const res = await fetch('/api/lista_rinnovi?nocache=' + Date.now(), { headers: getHeaders(), cache: 'no-store' });
         if (!res.ok) throw new Error('Errore ' + res.status);
         const data = await res.json();
         tuttiRinnovi = Array.isArray(data) ? data : [];
-        if (tuttiRinnovi.length === 0) { box.innerHTML = '<div class="empty">Nessun rinnovo trovato.</div>'; aggiornaContatore(0); return; }
         aggiornaContatore(tuttiRinnovi.length);
         render(tuttiRinnovi);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        box.innerHTML = '<div class="error">Errore caricamento: ' + e.message + '</div>';
+    }
 }
+
 function render(lista) {
     const box = document.getElementById('lista');
+    if (!lista || lista.length === 0) {
+        box.innerHTML = '<div class="empty">Nessun rinnovo trovato.</div>';
+        return;
+    }
     box.innerHTML = lista.map((r, i) => {
         const nome = getField(r, 'nominativo', 'nome') || 'N/D';
         const dataOp = formatDataIT(getField(r, 'data_operazione'));
@@ -63,14 +106,75 @@ function render(lista) {
         const tipo = String(getField(r, 'tipo') || 'rinnovo').toLowerCase();
         const badge = tipo === 'nuovo' ? 'badge-nuovo' : tipo === 'omaggio' ? 'badge-omaggio' : 'badge-rinnovo';
         const label = tipo === 'nuovo' ? 'NUOVO' : tipo === 'omaggio' ? 'OMAGGIO' : 'RINNOVO';
-        return `<div class="item"><div class="item-main"><div class="item-name"><span style="color:#888;font-size:12px;margin-right:6px;">${i+1} -</span>${nome}</div><div class="item-sub">${dataOp} | Scad: ${scad}</div></div><span class="badge ${badge}">${label}</span></div>`;
+        const id = r.id;
+        return `
+            <div class="item">
+                <div class="item-main">
+                    <div class="item-name"><span style="color:#888;font-size:12px;margin-right:6px;">${i+1} -</span>${nome}</div>
+                    <div class="item-sub">${dataOp} | Scad: ${scad}</div>
+                </div>
+                <div class="item-actions">
+                    <span class="badge ${badge}">${label}</span>
+                    <button class="btn btn-info" onclick="apriInfo(${id})" title="Info">ℹ️</button>
+                    <button class="btn btn-edit" onclick="apriModifica(${id})" title="Modifica">✏️</button>
+                    <button class="btn btn-saldo" onclick="apriSaldo(${id})" title="Saldo">💰</button>
+                    <button class="btn btn-wa" onclick="whatsapp('${nome.replace(/'/g,"\\'")}', '${dataOp}', '${scad}')" title="WhatsApp">💬</button>
+                    <button class="btn btn-del" onclick="cancella(${id}, '${nome.replace(/'/g,"\\'")}')" title="Elimina">🗑️</button>
+                </div>
+            </div>`;
     }).join('');
 }
+
+function apriInfo(id) {
+    const r = tuttiRinnovi.find(x => x.id == id);
+    if (!r) return;
+    alert(`Nominativo: ${getField(r,'nominativo')}\nTipo: ${getField(r,'tipo')}\nData: ${formatDataIT(getField(r,'data_operazione'))}\nScadenza: ${formatDataIT(getField(r,'scadenza'))}\nNote: ${r.note || '-'}`);
+}
+
+function apriModifica(id) {
+    const r = tuttiRinnovi.find(x => x.id == id);
+    if (!r) return;
+    const nuovaNota = prompt('Modifica note:', r.note || '');
+    if (nuovaNota === null) return;
+    mostraToast('Modifica note (da collegare al backend)');
+}
+
+function apriSaldo(id) {
+    const r = tuttiRinnovi.find(x => x.id == id);
+    if (!r) return;
+    const data = prompt('Inserisci Data Credito Saldo (GG/MM/AAAA):', new Date().toLocaleDateString('it-IT'));
+    if (!data) return;
+    mostraToast('Saldo registrato per ' + data + ' (da collegare al backend)');
+}
+
+function whatsapp(nome, dataOp, scadenza) {
+    const testo = `Messaggio automatico del bot. Ciao ${nome}, il tuo rinnovo è stato eseguito in data ${dataOp} con scadenza ${scadenza}. Grazie.`;
+    window.open('https://wa.me/?text=' + encodeURIComponent(testo), '_blank');
+}
+
+async function cancella(id, nome) {
+    if (!confirm('Eliminare il rinnovo di "' + nome + '"?')) return;
+    try {
+        const res = await fetch('/api/azione', {
+            method: 'POST',
+            headers: getHeaders('application/json'),
+            body: JSON.stringify({ dati: { azione: 'elimina_rinnovo', id: id } })
+        });
+        if (!res.ok) throw new Error('Errore');
+        mostraToast('Rinnovo eliminato');
+        caricaDati();
+    } catch (e) {
+        mostraToast('Errore eliminazione');
+    }
+}
+
 document.getElementById('search').addEventListener('input', e => {
     const t = e.target.value.toLowerCase();
     const f = tuttiRinnovi.filter(r => String(getField(r, 'nominativo', 'nome') || '').toLowerCase().includes(t));
-    render(f); aggiornaContatore(f.length);
+    render(f);
+    aggiornaContatore(f.length);
 });
+
 caricaDati();
 </script>
 </body>
