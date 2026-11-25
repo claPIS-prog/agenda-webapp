@@ -13,10 +13,10 @@ body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margi
 h2 { text-align: center; color: #333; margin-top:0; }
 h3 { text-align: center; font-size: 16px; color: #444; margin: 20px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
 label { display: block; font-weight: bold; margin: 10px 0 4px; font-size: 13px; }
-input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+input, textarea, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
 .row { display: flex; gap: 8px; } .row > div { flex: 1; }
 .btn-save { width: 100%; background: #4caf50; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; margin-top: 20px; cursor: pointer; }
-.btn-saldo { background: #0088cc !important; } /* Colore diverso per il saldo */
+.btn-saldo { background: #0088cc !important; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px; border-radius: 6px; opacity: 0; transition: 0.3s; z-index:9999;}
 .toast.show { opacity: 1; }
 .alert-warning { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; font-size: 12px; margin-bottom: 15px; text-align: center; border: 1px solid #ffeeba; }
@@ -26,7 +26,6 @@ hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
 </head>
 <body>
 <div class="container">
-<!-- TITOLO RINOMINATO -->
 <h2>📊 Saldo Rinnovi</h2>
 
 <!-- SEZIONE SALDO INIZIALE -->
@@ -46,7 +45,6 @@ hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
     <label>Info / Note:</label>
     <textarea id="s_note" rows="2" placeholder="Es: Stock iniziale magazzino"></textarea>
     
-    <!-- PULSANTE RINOMINATO -->
     <button class="btn-save btn-saldo" onclick="salvaSaldo()">💾 Salva Saldo Iniziale</button>
 </div>
 
@@ -56,8 +54,20 @@ hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
 <div id="acquisto-section">
     <h3>Nuovo Acquisto Credito</h3>
     
+    <label>Numeratore Transazione:</label>
+    <input type="text" id="c_numeratore" readonly class="readonly-field" value="(generato al salvataggio)">
+    
     <label>Fornitore:</label>
-    <input type="text" id="c_forn" placeholder="Nome fornitore">
+    <select id="c_forn">
+        <option value="">-- Seleziona --</option>
+        <option value="Pierino">Pierino</option>
+        <option value="Altro">Altro</option>
+    </select>
+    
+    <label>Modalità di Pagamento:</label>
+    <select id="c_pagamento">
+        <option value="">-- Caricamento... --</option>
+    </select>
     
     <div class="row">
         <div><label>Data Acquisto:</label><input type="date" id="c_data"></div>
@@ -90,6 +100,24 @@ function getHeaders(t) {
 document.getElementById('s_data').value = new Date().toISOString().split('T')[0];
 document.getElementById('c_data').value = new Date().toISOString().split('T')[0];
 
+// Carica modalità di pagamento dal database
+async function caricaMetodiPagamento() {
+    try {
+        const res = await fetch('/api/metodi_pagamento', { headers: getHeaders() });
+        if (!res.ok) return;
+        const metodi = await res.json();
+        const sel = document.getElementById('c_pagamento');
+        sel.innerHTML = '<option value="">-- Seleziona --</option>';
+        (metodi || []).forEach(m => {
+            const nome = m.nome || m.nominativo || '';
+            if (nome) sel.innerHTML += `<option value="${nome}">${nome}</option>`;
+        });
+    } catch (e) {
+        console.error('Errore caricamento metodi pagamento:', e);
+    }
+}
+caricaMetodiPagamento();
+
 function calcUnit(prefix) {
     const q = parseFloat(document.getElementById(prefix+'_qta').value) || 0;
     const t = parseFloat(document.getElementById(prefix+'_tot').value) || 0;
@@ -100,7 +128,7 @@ async function salvaSaldo() {
     const d = {
         data_acquisto: document.getElementById('s_data').value,
         quantita: parseInt(document.getElementById('s_qta').value) || 0,
-        valore_totale: parseFloat(document.getElementById('s_tot').value) || 0, // Inviamo comunque il dato
+        valore_totale: parseFloat(document.getElementById('s_tot').value) || 0,
         valore_singolo: parseFloat(document.getElementById('s_unit').value) || 0,
         note: document.getElementById('s_note').value
     };
@@ -119,19 +147,19 @@ async function salvaSaldo() {
         
         showToast("✅ Saldo Iniziale impostato!");
     } catch(e) { 
-        // Mostriamo l'errore in un toast invece del popup del browser
-        alert("❌ Errore 500: " + e.message); 
+        alert("❌ Errore: " + e.message); 
     }
 }
 
 async function salvaAcquisto() {
     if(!document.getElementById('c_forn').value.trim()) {
-        alert("⚠️ Inserisci il nome del fornitore");
+        alert("⚠️ Seleziona il fornitore");
         return;
     }
     
     const d = {
         fornitore: document.getElementById('c_forn').value.trim(),
+        modalita_pagamento: document.getElementById('c_pagamento').value,
         data_acquisto: document.getElementById('c_data').value,
         quantita: parseInt(document.getElementById('c_qta').value) || 1,
         valore_totale: parseFloat(document.getElementById('c_tot').value) || 0,
@@ -151,8 +179,9 @@ async function salvaAcquisto() {
         }
         
         const res = await r.json();
+        document.getElementById('c_numeratore').value = 'Acquisto #' + res.id;
         showToast(`✅ Acquisto #${res.id} salvato!`);
-        setTimeout(() => tg.close(), 1500);
+        setTimeout(() => tg.close(), 1800);
     } catch(e) { 
         alert("❌ Errore: " + e.message); 
     }
