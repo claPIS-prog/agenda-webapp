@@ -247,32 +247,43 @@ function getHeaders(contentType) {
 async function caricaDati() {
     const box = document.getElementById('lista');
     box.innerHTML = '<div class="loading">⏳ Caricamento rinnovi...</div>';
-    try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
+    
+    // Timeout di sicurezza
+    const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout: il server non risponde')), 8000)
+    );
 
-        const res = await fetch('/api/lista_rinnovi?nocache=' + Date.now(), {
-            signal: controller.signal,
+    try {
+        const fetchPromise = fetch('/api/lista_rinnovi?nocache=' + Date.now(), {
             headers: getHeaders(),
             cache: 'no-store'
         });
-        clearTimeout(timeout);
+
+        const res = await Promise.race([fetchPromise, timeoutPromise]);
 
         if (!res.ok) {
             const text = await res.text();
-            throw new Error(`Errore Server ${res.status}: ${text.substring(0, 200)}`);
+            throw new Error(`Errore Server ${res.status}: ${text.substring(0, 150)}`);
         }
 
         const data = await res.json();
         tuttiRinnovi = Array.isArray(data) ? data : [];
+        
+        if (tuttiRinnovi.length === 0) {
+            box.innerHTML = '<div class="empty">Nessun rinnovo trovato nel database.</div>';
+            aggiornaContatore(0);
+            return;
+        }
+
         aggiornaContatore(tuttiRinnovi.length);
         render(tuttiRinnovi);
 
     } catch (e) {
-        const msg = e.name === 'AbortError' ? 'Timeout: il server non risponde.' : e.message;
-        box.innerHTML = `<div class="error"><strong>❌ Errore:</strong><br>${msg}<br><br>
+        box.innerHTML = `<div class="error"><strong>❌ Impossibile caricare i dati:</strong><br>${e.message}<br><br>
+            <small>Controlla che il backend sia aggiornato e che l'endpoint /api/lista_rinnovi risponda.</small><br><br>
             <button onclick="caricaDati()" style="padding:8px 16px; background:#0088cc; color:white; border:none; border-radius:4px; cursor:pointer;">🔄 Riprova</button>
         </div>`;
+        aggiornaContatore(0);
     }
 }
 
