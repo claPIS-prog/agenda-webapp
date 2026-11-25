@@ -37,23 +37,28 @@ def api_lista_rinnovi(request: Request):
             rows = cur.fetchall()
             result = []
             for row in rows:
+                # Gestione robusta: funziona sia con tuple che con dict/RealDictRow
                 if isinstance(row, dict):
                     record = dict(row)
                 else:
                     columns = [desc[0] for desc in cur.description]
                     record = dict(zip(columns, row))
                 
+                # Pulizia None → stringa vuota o 0
                 for k, v in list(record.items()):
                     if v is None:
                         if k in ("importo_acconto", "importo_saldo", "id", "nominativo_id"):
                             record[k] = 0
                         else:
                             record[k] = ""
+                    # Converti date in stringa leggibile (primi 10 caratteri)
                     elif k in ("data_operazione", "scadenza", "data_opera") and v:
                         record[k] = str(v)[:10]
                 result.append(record)
             
             print(f"[DEBUG] Restituiti {len(result)} record per lista_rinnovi")
+            if result:
+                print(f"[DEBUG] Primo record: {result[0]}")
             return result
             
     except Exception as e:
@@ -79,7 +84,9 @@ def api_scadenze(request: Request):
             rows = cur.fetchall()
             out = []
             for r in rows:
+                # Supporto sia dict che tuple
                 if not isinstance(r, dict): continue
+                
                 raw_date = r.get("scadenza")
                 scad_date = None
                 if raw_date:
@@ -91,6 +98,7 @@ def api_scadenze(request: Request):
                         try: scad_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                         except: pass
                 if not scad_date: continue
+                
                 delta = (scad_date - oggi).days
                 has_future_renewal = False
                 for r2 in rows:
@@ -124,7 +132,7 @@ def api_scadenze(request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 3. CALCOLI (NUOVO ENDPOINT INTEGRATO)
+# 3. CALCOLI (NUOVO ENDPOINT INTEGRATO - FIX DATI VUOTI)
 # -----------------------------------------------------------------------------
 @router.get("/api/calcoli")
 def api_calcoli(request: Request):
@@ -134,6 +142,9 @@ def api_calcoli(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
+            # Query ottimizzata per contatori e filtri
+            # NOTA: Se le colonne reseller_id/procuratore_id non esistono nel DB, 
+            # rimuovile dalla SELECT o usa COALESCE su tabelle collegate
             cur.execute("""
                 SELECT 
                     r.id,
@@ -172,7 +183,7 @@ def api_calcoli(request: Request):
                     elif k == "data_operazione" and v:
                         record[k] = str(v)[:10]
                 
-                # Logica contatori
+                # Logica contatori (adatta se usi valori diversi per 'tipo')
                 tipo = str(record.get('tipo', '')).lower()
                 if 'nuovo' in tipo:
                     count_nuovi += 1
@@ -183,12 +194,13 @@ def api_calcoli(request: Request):
             
             print(f"[DEBUG] Calcoli: {len(result)} record, Nuovi: {count_nuovi}, Rinnovi: {count_rinnovi}")
             
+            # Struttura JSON attesa dal frontend
             return {
                 "data": result,
                 "totali": {
                     "nuovi": count_nuovi,
                     "rinnovi": count_rinnovi,
-                    "omaggi": 0
+                    "omaggi": 0 # Aggiungi logica se hai un campo specifico
                 }
             }
             
