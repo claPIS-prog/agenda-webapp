@@ -127,6 +127,18 @@ def api_azione(payload: AzionePayload, request: Request):
             elif azione == "cancella_rinnovo":
                 cur.execute("DELETE FROM rinnovi WHERE id = %s", (dati.get("id"),))
 
+            elif azione == "salda_credito":
+                rinnovo_id = dati.get("id")
+                data_saldo = dati.get("data_credito_saldo")
+                if rinnovo_id and data_saldo:
+                    cur.execute("""
+                        INSERT INTO saldo_rinnovi (rinnovo_id, data_credito_rinnovo_saldo)
+                        VALUES (%s, %s)
+                        ON CONFLICT (rinnovo_id) DO UPDATE 
+                        SET data_credito_rinnovo_saldo = EXCLUDED.data_credito_rinnovo_saldo
+                    """, (rinnovo_id, data_saldo))
+                    cur.execute("UPDATE rinnovi SET num_credito_dare = 0 WHERE id = %s", (rinnovo_id,))
+
             else:
                 print(f"[ATTENZIONE] Azione non gestita: {azione}")
         
