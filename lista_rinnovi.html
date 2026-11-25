@@ -339,10 +339,6 @@ function apriInfo(id) {
     html += `<div class="info-row"><div class="info-label">Data Operazione:</div><div class="info-value">${formatDataIT(getField(r, 'data_operazione', 'data_opera'))}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Scadenza:</div><div class="info-value">${formatDataIT(getField(r, 'scadenza'))}</div></div>`;
     
-    html += '<div class="info-section-title">Importi</div>';
-    html += `<div class="info-row"><div class="info-label">Acconto:</div><div class="info-value">${r.importo_acconto ? '€ ' + r.importo_acconto : '-'}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Saldo:</div><div class="info-value">${r.importo_saldo ? '€ ' + r.importo_saldo : '-'}</div></div>`;
-    
     html += '<div class="info-section-title">Note</div>';
     html += `<div class="info-row" style="flex-direction:column;"><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;width:100%;">${v(r.note)}</div></div>`;
     html += '</div>';
@@ -386,18 +382,6 @@ function apriModifica(id) {
                 </div>
              </div>`;
 
-    html += `<div class="section-title">Importi</div>`;
-    html += `<div class="row">
-                <div>
-                    <label>Acconto (€)</label>
-                    <input type="number" step="0.01" id="m_importo_acconto" value="${r.importo_acconto || 0}">
-                </div>
-                <div>
-                    <label>Saldo (€)</label>
-                    <input type="number" step="0.01" id="m_importo_saldo" value="${r.importo_saldo || 0}">
-                </div>
-             </div>`;
-
     html += `<div class="section-title">Note</div>`;
     html += `<label>Note</label>
              <textarea id="m_note">${(r.note || '').replace(/</g, '&lt;')}</textarea>`;
@@ -420,8 +404,6 @@ async function salvaModifica() {
         tipo: document.getElementById('m_tipo').value,
         data_operazione: document.getElementById('m_data_operazione').value,
         scadenza: document.getElementById('m_scadenza').value,
-        importo_acconto: parseFloat(document.getElementById('m_importo_acconto').value) || 0,
-        importo_saldo: parseFloat(document.getElementById('m_importo_saldo').value) || 0,
         note: document.getElementById('m_note').value.trim()
     };
 
