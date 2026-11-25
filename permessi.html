@@ -34,7 +34,22 @@ input:checked + .slider:before { transform: translateX(24px); }
 <div class="container">
 <h2>🔐 Gestione Permessi</h2>
 <div class="counter-wrapper"><div class="counter">Configurazione</div></div>
-<select id="user_select" class="select-user"><option value="">-- Seleziona un Amico --</option></select>
+<select id="user_select" class="select-user"><option value="">-- Seleziona Nominativo --</option></select>
+
+<div class="row" style="display:flex; gap:10px; margin-bottom:15px;">
+    <div style="flex:1;">
+        <label style="font-size:13px; font-weight:bold;">Data Inizio Validità</label>
+        <input type="date" id="data_inizio" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
+    </div>
+    <div style="flex:1;">
+        <label style="font-size:13px; font-weight:bold;">Data Revoca</label>
+        <input type="date" id="data_revoca" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
+    </div>
+</div>
+<div style="margin-bottom:15px;">
+    <label style="font-size:13px; font-weight:bold;">Data Fine Validità</label>
+    <input type="date" id="data_fine" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
+</div>
 <div id="modules_container" class="module-list"></div>
 <button id="btn_save" class="btn-save" onclick="salvaPermessi()" style="display:none;">💾 Salva Permessi</button>
 </div>
@@ -83,15 +98,15 @@ const MODULE_LABELS = {
 
 async function init() {
     try {
-        const res = await fetch('/api/amici', { headers: getHeaders() });
+        const res = await fetch('/api/nominativi', { headers: getHeaders() });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-        amici = await res.json();
+        const nominativi = await res.json();
         const sel = document.getElementById('user_select');
-        sel.innerHTML = '<option value="">-- Seleziona un Amico --</option>' + 
-            amici.map(a => '<option value="' + a.id + '">' + (a.nome || a.telegram_id) + '</option>').join('');
+        sel.innerHTML = '<option value="">-- Seleziona Nominativo --</option>' + 
+            nominativi.map(n => '<option value="' + n.id + '">' + (n.nominativo || n.nome || 'N/D') + '</option>').join('');
         sel.addEventListener('change', caricaPermessi);
     } catch (e) {
-        document.getElementById('modules_container').innerHTML = '<div class="error">Errore caricamento: ' + e.message + '</div>';
+        document.getElementById('modules_container').innerHTML = '<div class="error">Errore caricamento nominativi: ' + e.message + '</div>';
     }
 }
 
@@ -136,11 +151,19 @@ async function salvaPermessi() {
     const userId = document.getElementById('user_select').value;
     if (!userId) return;
     
+    const payload = {
+        user_id: parseInt(userId),
+        permessi: currentPerms,
+        data_inizio_validita: document.getElementById('data_inizio').value || null,
+        data_revoca: document.getElementById('data_revoca').value || null,
+        data_fine_validita: document.getElementById('data_fine').value || null
+    };
+    
     try {
         const res = await fetch('/api/salva_permessi', {
             method: 'POST',
             headers: getHeaders('application/json'),
-            body: JSON.stringify({ user_id: parseInt(userId), permessi: currentPerms })
+            body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         mostraToast('✅ Permessi salvati con successo!');
