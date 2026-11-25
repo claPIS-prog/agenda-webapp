@@ -1,183 +1,370 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gestione Permessi</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="/auth.js"></script>
-<style>
-body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-h2 { text-align: center; margin-top: 0; color: #333; }
-.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
-.counter-wrapper { text-align: center; }
-.select-user { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; margin-bottom: 20px; box-sizing: border-box; }
-.module-list { display: flex; flex-direction: column; gap: 12px; }
-.module-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9f9f9; border-radius: 6px; border-left: 4px solid #0088cc; }
-.module-name { font-weight: bold; color: #333; font-size: 14px; }
-.switch { position: relative; display: inline-block; width: 50px; height: 26px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-input:checked + .slider { background-color: #4caf50; }
-input:checked + .slider:before { transform: translateX(24px); }
-.btn-save { width: 100%; padding: 14px; background: #4caf50; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 15px; cursor: pointer; margin-top: 20px; }
-.btn-save:active { background: #388e3c; }
-.empty { text-align: center; color: #888; padding: 30px; }
-.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
-.toast.show { opacity: 1; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Permessi</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        .btn-config {
+            display: block;
+            margin: 0 auto 20px;
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-config:hover { background: #2980b9; }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #555;
+        }
+        select, input[type="date"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .date-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .module-list {
+            margin-top: 20px;
+        }
+        .module-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: #fafafa;
+        }
+        .module-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .toggle {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 26px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #27ae60; }
+        input:checked + .slider:before { transform: translateX(24px); }
+        
+        .btn-save {
+            width: 100%;
+            padding: 12px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .btn-save:hover { background: #229954; }
+        .btn-save:disabled { background: #95a5a6; cursor: not-allowed; }
+        
+        .error-msg {
+            background: #e74c3c;
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            display: none;
+        }
+        .success-msg {
+            background: #27ae60;
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-<div class="container">
-<h2>🔐 Gestione Permessi</h2>
-<div class="counter-wrapper"><div class="counter">Configurazione</div></div>
-<select id="user_select" class="select-user"><option value="">-- Seleziona Nominativo --</option></select>
-
-<div class="row" style="display:flex; gap:10px; margin-bottom:15px;">
-    <div style="flex:1;">
-        <label style="font-size:13px; font-weight:bold;">Data Inizio Validità</label>
-        <input type="date" id="data_inizio" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
+    <div class="container">
+        <h2>🔐 Gestione Permessi</h2>
+        
+        <button class="btn-config" onclick="caricaUtenti()">⚙️ Configurazione</button>
+        
+        <div class="form-group">
+            <label for="utente-select">Seleziona Utente:</label>
+            <select id="utente-select" onchange="caricaPermessi()">
+                <option value="">-- Seleziona --</option>
+            </select>
+        </div>
+        
+        <div class="date-row">
+            <div class="form-group">
+                <label for="data-inizio">Data Inizio Validità</label>
+                <input type="date" id="data-inizio">
+            </div>
+            <div class="form-group">
+                <label for="data-revoca">Data Revoca</label>
+                <input type="date" id="data-revoca">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="data-fine">Data Fine Validità</label>
+            <input type="date" id="data-fine">
+        </div>
+        
+        <div class="module-list" id="module-list">
+            <!-- Moduli caricati dinamicamente -->
+        </div>
+        
+        <button class="btn-save" id="btn-save" onclick="salvaPermessi()" disabled>
+            💾 Salva Permessi
+        </button>
+        
+        <div class="error-msg" id="error-msg"></div>
+        <div class="success-msg" id="success-msg"></div>
     </div>
-    <div style="flex:1;">
-        <label style="font-size:13px; font-weight:bold;">Data Revoca</label>
-        <input type="date" id="data_revoca" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
-    </div>
-</div>
-<div style="margin-bottom:15px;">
-    <label style="font-size:13px; font-weight:bold;">Data Fine Validità</label>
-    <input type="date" id="data_fine" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; box-sizing:border-box;">
-</div>
-<div id="modules_container" class="module-list"></div>
-<button id="btn_save" class="btn-save" onclick="salvaPermessi()" style="display:none;">💾 Salva Permessi</button>
-</div>
-<div class="toast" id="toast"></div>
-<script>
-const tg = window.Telegram.WebApp; tg.expand();
 
-function getHeaders(contentType) {
-    const headers = {};
-    if (contentType) headers['Content-Type'] = contentType;
-    const initData = tg.initData;
-    if (initData) headers['X-Telegram-Init-Data'] = initData;
-    return headers;
-}
-
-let amici = [];
-let currentPerms = {};
-const ALL_MODULES = [
-    "nominativo", "lista", "scadenze", "rinnovi", "storico_rinnovi", 
-    "saldo_rinnovi", "reseller", "procuratori", "server", "nota", 
-    "credenziali", "permessi", "dispositivi", "sistemi_op", "buffett", 
-    "pagamenti", "notifiche", "operatori_it", "tabelle"
-];
-
-const MODULE_LABELS = {
-    "nominativo": "📝 Nuovo Nominativo",
-    "lista": "📋 Lista Contatti",
-    "scadenze": "⏰ Scadenze",
-    "rinnovi": "🔄 Nuovo Rinnovo",
-    "storico_rinnovi": "📜 Storico Rinnovi",
-    "saldo_rinnovi": "📊 Saldo Rinnovi",
-    "reseller": "🏢 Reseller",
-    "procuratori": "⚖️ Procuratori",
-    "server": "🖥️ Server",
-    "nota": "💬 Invia Nota",
-    "credenziali": "🔑 Credenziali & File",
-    "permessi": "🔐 Gestione Permessi",
-    "dispositivi": "📱 Dispositivi",
-    "sistemi_op": "💻 Sistemi Op.",
-    "buffett": "🍔 Buffett",
-    "pagamenti": "💳 Pagamenti",
-    "notifiche": "🔔 Notifiche",
-    "operatori_it": "🌐 Operatori IT",
-    "tabelle": "🗂️ Tabelle Supporto"
-};
-
-async function init() {
-    try {
-        const res = await fetch('/api/nominativi', { headers: getHeaders() });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const nominativi = await res.json();
-        const sel = document.getElementById('user_select');
-        sel.innerHTML = '<option value="">-- Seleziona Nominativo --</option>' + 
-            nominativi.map(n => '<option value="' + n.id + '">' + (n.nominativo || n.nome || 'N/D') + '</option>').join('');
-        sel.addEventListener('change', caricaPermessi);
-    } catch (e) {
-        document.getElementById('modules_container').innerHTML = '<div class="error">Errore caricamento nominativi: ' + e.message + '</div>';
-    }
-}
-
-async function caricaPermessi() {
-    const userId = document.getElementById('user_select').value;
-    if (!userId) {
-        document.getElementById('modules_container').innerHTML = '';
-        document.getElementById('btn_save').style.display = 'none';
-        return;
-    }
-    
-    try {
-        const res = await fetch('/api/permessi/' + userId, { headers: getHeaders() });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        currentPerms = await res.json();
-        renderModules();
-        document.getElementById('btn_save').style.display = 'block';
-    } catch (e) {
-        mostraToast('❌ Errore caricamento permessi');
-    }
-}
-
-function renderModules() {
-    const container = document.getElementById('modules_container');
-    container.innerHTML = ALL_MODULES.map(mod => {
-        const isActive = currentPerms[mod] === true;
-        const label = MODULE_LABELS[mod] || mod;
-        return '<div class="module-item">' +
-            '<span class="module-name">' + label + '</span>' +
-            '<label class="switch">' +
-            '<input type="checkbox" data-mod="' + mod + '" ' + (isActive ? 'checked' : '') + ' onchange="togglePerm(\'' + mod + '\', this.checked)">' +
-            '<span class="slider"></span>' +
-            '</label></div>';
-    }).join('');
-}
-
-function togglePerm(mod, state) {
-    currentPerms[mod] = state;
-}
-
-async function salvaPermessi() {
-    const userId = document.getElementById('user_select').value;
-    if (!userId) return;
-    
-    const payload = {
-        user_id: parseInt(userId),
-        permessi: currentPerms,
-        data_inizio_validita: document.getElementById('data_inizio').value || null,
-        data_revoca: document.getElementById('data_revoca').value || null,
-        data_fine_validita: document.getElementById('data_fine').value || null
-    };
-    
-    try {
-        const res = await fetch('/api/salva_permessi', {
-            method: 'POST',
-            headers: getHeaders('application/json'),
-            body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        mostraToast('✅ Permessi salvati con successo!');
-    } catch (e) {
-        mostraToast('❌ Errore salvataggio: ' + e.message);
-    }
-}
-
-function mostraToast(msg) {
-    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-init();
-</script>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        const ALL_MODULES = [
+            "nominativo", "lista", "scadenze", "rinnovi", "storico_rinnovi",
+            "saldo_rinnovi", "reseller", "procuratori", "server", "nota",
+            "credenziali", "permessi", "dispositivi", "sistemi_op", "buffett",
+            "pagamenti", "operatori_it", "tabelle", "crediti", "calcoli"
+        ];
+        
+        const MODULE_LABELS = {
+            "nominativo": "📝 Nuovo Nominativo",
+            "lista": "📋 Lista Contatti",
+            "scadenze": "⏰ Scadenze",
+            "rinnovi": "🔄 Nuovo Rinnovo",
+            "storico_rinnovi": "📜 Storico Rinnovi",
+            "saldo_rinnovi": "💰 Saldo Rinnovi",
+            "reseller": "🏢 Reseller",
+            "procuratori": "👥 Procuratori",
+            "server": "🖥️ Server",
+            "nota": "💬 Note",
+            "credenziali": "🔑 Credenziali",
+            "permessi": "🔐 Permessi",
+            "dispositivi": "📱 Dispositivi",
+            "sistemi_op": "⚙️ Sistemi Operativi",
+            "buffett": "🍽️ Buffett",
+            "pagamenti": "💳 Pagamenti",
+            "operatori_it": "📡 Operatori IT",
+            "tabelle": "🗂️ Tabelle",
+            "crediti": "💎 Crediti",
+            "calcoli": "📊 Calcoli"
+        };
+        
+        let utenti = [];
+        let permessiCorrenti = {};
+        
+        async function caricaUtenti() {
+            try {
+                const res = await fetch('/api/amici');
+                if (!res.ok) throw new Error('Errore caricamento utenti');
+                utenti = await res.json();
+                
+                const select = document.getElementById('utente-select');
+                select.innerHTML = '<option value="">-- Seleziona --</option>';
+                utenti.forEach(u => {
+                    const opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.textContent = u.nome;
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                showError('Errore: ' + e.message);
+            }
+        }
+        
+        async function caricaPermessi() {
+            const userId = document.getElementById('utente-select').value;
+            if (!userId) {
+                document.getElementById('btn-save').disabled = true;
+                document.getElementById('module-list').innerHTML = '';
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/permessi/${userId}`);
+                if (!res.ok) throw new Error('Errore caricamento permessi');
+                const data = await res.json();
+                
+                permessiCorrenti = data.permessi;
+                
+                // Carica date
+                if (data.date) {
+                    document.getElementById('data-inizio').value = data.date.data_inizio_validita || '';
+                    document.getElementById('data-revoca').value = data.date.data_revoca || '';
+                    document.getElementById('data-fine').value = data.date.data_fine_validita || '';
+                }
+                
+                // Renderizza moduli
+                renderModuli();
+                document.getElementById('btn-save').disabled = false;
+            } catch (e) {
+                showError('Errore: ' + e.message);
+            }
+        }
+        
+        function renderModuli() {
+            const container = document.getElementById('module-list');
+            container.innerHTML = '';
+            
+            ALL_MODULES.forEach(mod => {
+                const item = document.createElement('div');
+                item.className = 'module-item';
+                
+                const label = document.createElement('span');
+                label.className = 'module-name';
+                label.textContent = MODULE_LABELS[mod] || mod;
+                
+                const toggle = document.createElement('label');
+                toggle.className = 'toggle';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = permessiCorrenti[mod] || false;
+                checkbox.onchange = (e) => {
+                    permessiCorrenti[mod] = e.target.checked;
+                };
+                
+                const slider = document.createElement('span');
+                slider.className = 'slider';
+                
+                toggle.appendChild(checkbox);
+                toggle.appendChild(slider);
+                item.appendChild(label);
+                item.appendChild(toggle);
+                container.appendChild(item);
+            });
+        }
+        
+        async function salvaPermessi() {
+            const userId = document.getElementById('utente-select').value;
+            if (!userId) {
+                showError('Seleziona un utente');
+                return;
+            }
+            
+            const btn = document.getElementById('btn-save');
+            btn.disabled = true;
+            btn.textContent = '⏳ Salvataggio...';
+            
+            try {
+                const payload = {
+                    user_id: parseInt(userId),
+                    permessi: permessiCorrenti,
+                    data_inizio_validita: document.getElementById('data-inizio').value,
+                    data_revoca: document.getElementById('data-revoca').value,
+                    data_fine_validita: document.getElementById('data-fine').value
+                };
+                
+                const res = await fetch('/api/salva_permessi', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Errore salvataggio');
+                }
+                
+                showSuccess('✅ Permessi salvati con successo!');
+                setTimeout(() => hideMessages(), 3000);
+            } catch (e) {
+                showError('❌ ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '💾 Salva Permessi';
+            }
+        }
+        
+        function showError(msg) {
+            const el = document.getElementById('error-msg');
+            el.textContent = msg;
+            el.style.display = 'block';
+            document.getElementById('success-msg').style.display = 'none';
+        }
+        
+        function showSuccess(msg) {
+            const el = document.getElementById('success-msg');
+            el.textContent = msg;
+            el.style.display = 'block';
+            document.getElementById('error-msg').style.display = 'none';
+        }
+        
+        function hideMessages() {
+            document.getElementById('error-msg').style.display = 'none';
+            document.getElementById('success-msg').style.display = 'none';
+        }
+        
+        // Carica utenti all'avvio
+        caricaUtenti();
+    </script>
 </body>
 </html>
