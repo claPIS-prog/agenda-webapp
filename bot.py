@@ -43,8 +43,8 @@ def get_main_keyboard():
          KeyboardButton("🔑 Credenziali", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/credenziali.html?t={ts}")),
          KeyboardButton("🗂️ Tabelle", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/tabelle.html?t={ts}"))],
          
-        [KeyboardButton("🔐 Permessi", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/permessi.html?t={ts}")),
-         KeyboardButton("💰 Contabilità", web_app=WebAppInfo(url="https://agenda-webapp.onrender.com/contabilita.html"))]
+       [KeyboardButton("🔐 Sicurezza", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/sicurezza.html?t={ts}")),
+        KeyboardButton("💰 Contabilità", web_app=WebAppInfo(url="https://agenda-webapp.onrender.com/contabilita.html"))]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
