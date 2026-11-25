@@ -314,7 +314,7 @@ function render(lista) {
                     <span class="badge ${badgeClass}">${badgeText}</span>
                     <button class="btn btn-info" onclick="apriInfo(${id})" title="Info">ℹ️</button>
                     <button class="btn btn-edit" onclick="apriModifica(${id})" title="Modifica">✏️</button>
-                    <button class="btn btn-wa" onclick="whatsapp('${(nome || '').replace(/'/g, "\\'")}')" title="WhatsApp">💬</button>
+                    <button class="btn btn-wa" onclick="whatsapp('${(nome || '').replace(/'/g, "\\'")}', '${dataOp}', '${scadenza}')" title="WhatsApp">💬</button>
                     <button class="btn btn-del" onclick="cancella(${id}, '${(nome || '').replace(/'/g, "\\'")}')" title="Elimina">🗑️</button>
                 </div>
             </div>
@@ -457,8 +457,8 @@ async function salvaModifica() {
     }
 }
 
-function whatsapp(nome) {
-    const testo = 'Ciao ' + nome + ', ti contatto dal bot AgendaGest.';
+function whatsapp(nome, dataOp, scadenza) {
+    const testo = `Messaggio automatico del bot. Ciao ${nome}, il tuo rinnovo è stato eseguito in data ${dataOp} con scadenza ${scadenza}. Grazie.`;
     window.open('https://wa.me/?text=' + encodeURIComponent(testo), '_blank');
 }
 
