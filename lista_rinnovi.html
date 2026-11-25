@@ -29,74 +29,33 @@ h2 {
     color: #333; 
     font-size: 20px;
 }
-.counter-wrapper { 
-    text-align: center; 
-    margin-bottom: 15px;
-}
+.counter-wrapper { text-align: center; margin-bottom: 15px; }
 .counter { 
-    text-align: center; 
-    background: #0088cc; 
-    color: white; 
-    padding: 8px 15px; 
-    border-radius: 20px; 
-    font-size: 14px; 
-    font-weight: bold; 
-    display: inline-block; 
+    text-align: center; background: #0088cc; color: white; 
+    padding: 8px 15px; border-radius: 20px; font-size: 14px; 
+    font-weight: bold; display: inline-block; 
 }
 .search { 
-    width: 100%; 
-    padding: 10px; 
-    border: 1px solid #ddd; 
-    border-radius: 5px; 
-    box-sizing: border-box; 
-    font-size: 15px; 
-    margin-bottom: 15px; 
+    width: 100%; padding: 10px; border: 1px solid #ddd; 
+    border-radius: 5px; box-sizing: border-box; font-size: 15px; margin-bottom: 15px; 
 }
 .item { 
-    background: #fff; 
-    padding: 12px 15px; 
-    margin: 8px 0; 
-    border-radius: 8px; 
-    border: 1px solid #eee; 
+    background: #fff; padding: 12px 15px; margin: 8px 0; 
+    border-radius: 8px; border: 1px solid #eee; 
     box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between; 
+    display: flex; align-items: center; justify-content: space-between; 
 }
-.item-main {
-    flex-grow: 1;
-    overflow: hidden;
-    margin-right: 8px;
-}
+.item-main { flex-grow: 1; overflow: hidden; margin-right: 8px; }
 .item-name { 
-    font-weight: bold; 
-    font-size: 15px; 
-    color: #222; 
-    margin-bottom: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: bold; font-size: 15px; color: #222; margin-bottom: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.item-sub {
-    font-size: 13px;
-    color: #666;
-}
-.item-actions { 
-    display: flex; 
-    gap: 5px; 
-    flex-shrink: 0; 
-    align-items: center;
-}
+.item-sub { font-size: 13px; color: #666; }
+.item-actions { display: flex; gap: 5px; flex-shrink: 0; align-items: center; }
 .btn { 
-    padding: 6px 9px; 
-    border: none; 
-    border-radius: 4px; 
-    font-size: 12px; 
-    cursor: pointer; 
-    font-weight: bold; 
-    text-align: center; 
-    white-space: nowrap; 
-    min-width: 32px; 
+    padding: 6px 9px; border: none; border-radius: 4px; 
+    font-size: 12px; cursor: pointer; font-weight: bold; 
+    text-align: center; white-space: nowrap; min-width: 32px; 
 }
 .btn-info { background: #0088cc; color: white; }
 .btn-edit { background: #ff9800; color: white; }
@@ -104,12 +63,8 @@ h2 {
 .btn-del { background: #f44336; color: white; }
 
 .badge {
-    padding: 4px 9px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: bold;
-    white-space: nowrap;
-    margin-right: 4px;
+    padding: 4px 9px; border-radius: 12px; font-size: 11px;
+    font-weight: bold; white-space: nowrap; margin-right: 4px;
 }
 .badge-rinnovo { background: #e8f5e9; color: #2e7d32; }
 .badge-nuovo { background: #fff3e0; color: #ef6c00; }
@@ -133,7 +88,7 @@ h2 {
 }
 .modal-overlay.active { display: flex; }
 .modal { 
-    background: white; border-radius: 12px; padding: 25px; width: 90%; max-width: 450px; 
+    background: white; border-radius: 12px; padding: 25px; width: 90%; max-width: 480px; 
     max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative; 
 }
 .modal h3 { margin-top: 0; text-align: center; color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 15px; }
@@ -145,6 +100,20 @@ h2 {
 .info-section-title { 
     font-size: 12px; color: #0088cc; font-weight: bold; text-transform: uppercase; 
     margin-top: 12px; margin-bottom: 6px; border-bottom: 1px solid #e0e0e0; padding-bottom: 2px; 
+}
+
+/* Form styles */
+label { display: block; font-weight: bold; margin: 10px 0 4px; color: #333; font-size: 13px; }
+input, select, textarea { 
+    width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; 
+    box-sizing: border-box; font-size: 14px; font-family: inherit; 
+}
+textarea { resize: vertical; min-height: 70px; }
+.row { display: flex; gap: 10px; }
+.row > div { flex: 1; }
+.section-title { 
+    font-size: 12px; color: #0088cc; font-weight: bold; margin: 14px 0 6px; 
+    text-transform: uppercase; border-bottom: 1px solid #e0e0e0; padding-bottom: 3px; 
 }
 </style>
 </head>
@@ -169,6 +138,19 @@ h2 {
     </div>
 </div>
 
+<!-- Modal Modifica -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <button class="close-modal" onclick="chiudiEdit()">×</button>
+        <h3>✏️ Modifica Rinnovo</h3>
+        <div id="editForm"></div>
+        <div style="display:flex; gap:10px; margin-top:18px;">
+            <button class="btn" style="flex:1; background:#9e9e9e; color:white; padding:12px;" onclick="chiudiEdit()">Annulla</button>
+            <button class="btn" style="flex:1; background:#4caf50; color:white; padding:12px;" onclick="salvaModifica()">💾 Salva</button>
+        </div>
+    </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -177,6 +159,7 @@ tg.expand();
 tg.ready();
 
 let tuttiRinnovi = [];
+let idModifica = null;
 
 function getField(obj, ...keys) {
     for (const k of keys) {
@@ -187,48 +170,78 @@ function getField(obj, ...keys) {
     return null;
 }
 
-// Converte qualsiasi data in formato italiano GG/MM/AAAA
+// Converte in formato italiano GG/MM/AAAA
 function formatDataIT(val) {
     if (!val) return '-';
     let str = String(val).trim();
     
-    // Già in formato GG/MM/AAAA
     if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
     
-    // Formato YYYY-MM-DD o YYYY-MM-DD HH:MM:SS
     if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
-        const parti = str.substring(0, 10).split('-');
-        return `${parti[2]}/${parti[1]}/${parti[0]}`;
+        const p = str.substring(0, 10).split('-');
+        return `${p[2]}/${p[1]}/${p[0]}`;
     }
     
-    // Formato DD-MM-YYYY
     if (/^\d{2}-\d{2}-\d{4}/.test(str)) {
         return str.substring(0, 10).replace(/-/g, '/');
     }
     
-    // Prova a parsare come Date
     try {
         const d = new Date(str);
         if (!isNaN(d.getTime())) {
             const gg = String(d.getDate()).padStart(2, '0');
             const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const aaaa = d.getFullYear();
-            return `${gg}/${mm}/${aaaa}`;
+            return `${gg}/${mm}/${d.getFullYear()}`;
         }
     } catch (e) {}
     
     return str.substring(0, 10);
 }
 
+// Converte da qualsiasi formato a YYYY-MM-DD (per input type="date")
+function toInputDate(val) {
+    if (!val) return '';
+    let str = String(val).trim();
+    
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10);
+    
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(str)) {
+        const p = str.split('/');
+        return `${p[2]}-${p[1]}-${p[0]}`;
+    }
+    
+    if (/^\d{2}-\d{2}-\d{4}/.test(str)) {
+        const p = str.split('-');
+        return `${p[2]}-${p[1]}-${p[0]}`;
+    }
+    
+    try {
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+            return d.toISOString().substring(0, 10);
+        }
+    } catch (e) {}
+    
+    return '';
+}
+
 function mostraToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
     t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
+    setTimeout(() => t.classList.remove('show'), 2800);
 }
 
 function aggiornaContatore(n) {
     document.getElementById('counter').textContent = 'Totale: ' + n;
+}
+
+function getHeaders(contentType) {
+    const headers = {};
+    if (contentType) headers['Content-Type'] = contentType;
+    const initData = tg.initData;
+    if (initData) headers['X-Telegram-Init-Data'] = initData;
+    return headers;
 }
 
 async function caricaDati() {
@@ -239,7 +252,7 @@ async function caricaDati() {
 
         const res = await fetch('/api/lista_rinnovi?nocache=' + Date.now(), {
             signal: controller.signal,
-            headers: { 'Accept': 'application/json' }
+            headers: getHeaders()
         });
         clearTimeout(timeoutId);
 
@@ -249,18 +262,10 @@ async function caricaDati() {
         }
 
         const data = await res.json();
-        console.log("Dati grezzi:", data);
-
-        let lista = [];
-        if (Array.isArray(data)) {
-            lista = data;
-        } else if (data && Array.isArray(data.data)) {
-            lista = data.data;
-        } else if (data && Array.isArray(data.rinnovi)) {
-            lista = data.rinnovi;
-        } else {
-            throw new Error("Formato dati non valido");
-        }
+        let lista = Array.isArray(data) ? data : 
+                    (data?.data || data?.rinnovi || data?.results || []);
+        
+        if (!Array.isArray(lista)) throw new Error("Formato dati non valido");
 
         tuttiRinnovi = lista;
         aggiornaContatore(lista.length);
@@ -291,15 +296,10 @@ function render(lista) {
 
         let badgeClass = 'badge-rinnovo';
         let badgeText = 'RINNOVO';
-        if (tipoRaw === 'nuovo') {
-            badgeClass = 'badge-nuovo';
-            badgeText = 'NUOVO';
-        } else if (tipoRaw === 'omaggio') {
-            badgeClass = 'badge-omaggio';
-            badgeText = 'OMAGGIO';
-        }
+        if (tipoRaw === 'nuovo') { badgeClass = 'badge-nuovo'; badgeText = 'NUOVO'; }
+        else if (tipoRaw === 'omaggio') { badgeClass = 'badge-omaggio'; badgeText = 'OMAGGIO'; }
 
-        const id = r.id || r.nominativo_id || index;
+        const id = r.id;
 
         return `
             <div class="item">
@@ -323,11 +323,8 @@ function render(lista) {
 }
 
 function apriInfo(id) {
-    const r = tuttiRinnovi.find(x => x.id == id || x.nominativo_id == id);
-    if (!r) {
-        mostraToast('Record non trovato');
-        return;
-    }
+    const r = tuttiRinnovi.find(x => x.id == id);
+    if (!r) { mostraToast('Record non trovato'); return; }
 
     const v = (val) => val ? val : '-';
     const tipoRaw = String(getField(r, 'tipo', 'type') || 'rinnovo').toLowerCase();
@@ -359,8 +356,105 @@ function chiudiInfo() {
 }
 
 function apriModifica(id) {
-    mostraToast('✏️ Funzione Modifica in arrivo');
-    // Qui in futuro apriremo un form di modifica
+    const r = tuttiRinnovi.find(x => x.id == id);
+    if (!r) { mostraToast('Record non trovato'); return; }
+
+    idModifica = id;
+
+    const tipo = String(getField(r, 'tipo', 'type') || 'rinnovo').toLowerCase();
+
+    let html = '';
+    html += `<div class="section-title">Dati principali</div>`;
+    html += `<label>Nominativo</label>
+             <input type="text" id="m_nominativo" value="${(getField(r, 'nominativo', 'nome') || '').replace(/"/g, '&quot;')}" readonly style="background:#f5f5f5;">`;
+    
+    html += `<label>Tipo</label>
+             <select id="m_tipo">
+                <option value="rinnovo" ${tipo === 'rinnovo' ? 'selected' : ''}>🔄 Rinnovo</option>
+                <option value="nuovo" ${tipo === 'nuovo' ? 'selected' : ''}>🆕 Nuovo</option>
+                <option value="omaggio" ${tipo === 'omaggio' ? 'selected' : ''}>🎁 Omaggio</option>
+             </select>`;
+
+    html += `<div class="row">
+                <div>
+                    <label>Data Operazione</label>
+                    <input type="date" id="m_data_operazione" value="${toInputDate(getField(r, 'data_operazione', 'data_opera'))}">
+                </div>
+                <div>
+                    <label>Scadenza</label>
+                    <input type="date" id="m_scadenza" value="${toInputDate(getField(r, 'scadenza'))}">
+                </div>
+             </div>`;
+
+    html += `<div class="section-title">Importi</div>`;
+    html += `<div class="row">
+                <div>
+                    <label>Acconto (€)</label>
+                    <input type="number" step="0.01" id="m_importo_acconto" value="${r.importo_acconto || 0}">
+                </div>
+                <div>
+                    <label>Saldo (€)</label>
+                    <input type="number" step="0.01" id="m_importo_saldo" value="${r.importo_saldo || 0}">
+                </div>
+             </div>`;
+
+    html += `<div class="section-title">Note</div>`;
+    html += `<label>Note</label>
+             <textarea id="m_note">${(r.note || '').replace(/</g, '&lt;')}</textarea>`;
+
+    document.getElementById('editForm').innerHTML = html;
+    document.getElementById('editModal').classList.add('active');
+}
+
+function chiudiEdit() {
+    document.getElementById('editModal').classList.remove('active');
+    idModifica = null;
+}
+
+async function salvaModifica() {
+    if (!idModifica) return;
+
+    const dati = {
+        azione: 'modifica_rinnovo',
+        id: idModifica,
+        tipo: document.getElementById('m_tipo').value,
+        data_operazione: document.getElementById('m_data_operazione').value,
+        scadenza: document.getElementById('m_scadenza').value,
+        importo_acconto: parseFloat(document.getElementById('m_importo_acconto').value) || 0,
+        importo_saldo: parseFloat(document.getElementById('m_importo_saldo').value) || 0,
+        note: document.getElementById('m_note').value.trim()
+    };
+
+    try {
+        // Prima prova con /api/azione (stile Contatti)
+        let res = await fetch('/api/azione', {
+            method: 'POST',
+            headers: getHeaders('application/json'),
+            body: JSON.stringify({ dati: dati })
+        });
+
+        if (!res.ok) {
+            // Fallback su endpoint dedicato
+            res = await fetch('/api/rinnovi/modifica', {
+                method: 'POST',
+                headers: getHeaders('application/json'),
+                body: JSON.stringify(dati)
+            });
+        }
+
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`HTTP ${res.status} - ${errText.substring(0, 150)}`);
+        }
+
+        chiudiEdit();
+        mostraToast('✅ Rinnovo modificato con successo!');
+        await caricaDati();
+
+    } catch (e) {
+        console.error(e);
+        mostraToast('❌ Errore nel salvataggio: ' + e.message);
+    }
 }
 
 function whatsapp(nome) {
@@ -370,9 +464,29 @@ function whatsapp(nome) {
 
 async function cancella(id, nome) {
     if (!confirm('Cancellare il rinnovo di "' + nome + '"?\n\nQuesta azione è irreversibile.')) return;
-    
-    mostraToast('🗑️ Funzione Elimina in arrivo (serve endpoint backend)');
-    // Quando avrai l'endpoint, qui faremo la chiamata POST
+
+    try {
+        let res = await fetch('/api/azione', {
+            method: 'POST',
+            headers: getHeaders('application/json'),
+            body: JSON.stringify({ dati: { azione: 'cancella_rinnovo', id: id } })
+        });
+
+        if (!res.ok) {
+            res = await fetch('/api/rinnovi/cancella', {
+                method: 'POST',
+                headers: getHeaders('application/json'),
+                body: JSON.stringify({ id: id })
+            });
+        }
+
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        mostraToast('🗑️ Rinnovo cancellato');
+        await caricaDati();
+    } catch (e) {
+        mostraToast('❌ Errore: ' + e.message + ' (serve endpoint backend)');
+    }
 }
 
 // Filtro ricerca
