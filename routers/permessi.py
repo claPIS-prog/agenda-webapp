@@ -14,28 +14,52 @@ def api_amici(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
+            # Prima verifica quali colonne esistono in autorizzati
             cur.execute("""
-                SELECT DISTINCT a.id, a.telegram_id, a.nome,
-                       p.data_inizio_validita, p.data_revoca, p.data_fine_validita
-                FROM autorizzati a
-                LEFT JOIN permessi p ON p.user_id = a.id
-                ORDER BY a.nome
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'autorizzati'
             """)
+            existing_cols = [row[0] for row in cur.fetchall()]
+            
+            # Costruisci SELECT dinamica
+            select_cols = ["a.id", "a.telegram_id", "a.nome"]
+            date_cols = ["data_inizio_validita", "data_revoca", "data_fine_validita"]
+            
+            # Controlla se le colonne date esistono in autorizzati
+            has_dates_in_autorizzati = all(col in existing_cols for col in date_cols)
+            
+            if has_dates_in_autorizzati:
+                # Le date sono in autorizzati
+                select_cols.extend([f"a.{col}" for col in date_cols])
+                query = f"SELECT {', '.join(select_cols)} FROM autorizzati a ORDER BY a.nome"
+            else:
+                # Le date sono in permessi (come nel tuo caso)
+                select_cols.extend([f"p.{col}" for col in date_cols])
+                query = f"""
+                    SELECT DISTINCT {', '.join(select_cols)}
+                    FROM autorizzati a
+                    LEFT JOIN permessi p ON p.user_id = a.id
+                    ORDER BY a.nome
+                """
+            
+            cur.execute(query)
             rows = cur.fetchall()
+            
             result = []
-            seen = set()
             for r in rows:
-                if r["id"] not in seen:
-                    seen.add(r["id"])
-                    result.append({
-                        "id": r["id"],
-                        "telegram_id": r["telegram_id"],
-                        "nome": r["nome"],
-                        "data_inizio_validita": str(r.get("data_inizio_validita", ""))[:10] if r.get("data_inizio_validita") else "",
-                        "data_revoca": str(r.get("data_revoca", ""))[:10] if r.get("data_revoca") else "",
-                        "data_fine_validita": str(r.get("data_fine_validita", ""))[:10] if r.get("data_fine_validita") else ""
-                    })
+                record = dict(r) if isinstance(r, dict) else dict(zip([desc[0] for desc in cur.description], r))
+                # Converti date in stringa
+                for col in date_cols:
+                    if col in record and record[col]:
+                        record[col] = str(record[col])[:10]
+                    else:
+                        record[col] = ""
+                result.append(record)
             return result
+    except Exception as e:
+        print(f"[ERRORE /api/amici] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
 
@@ -112,6 +136,9 @@ def api_get_permessi(user_id: int, request: Request):
                     "data_fine_validita": str(date_row["data_fine_validita"])[:10] if date_row and date_row.get("data_fine_validita") else ""
                 }
             }
+    except Exception as e:
+        print(f"[ERRORE /api/permessi/{user_id}] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
 
