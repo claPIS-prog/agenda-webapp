@@ -47,16 +47,17 @@ small { color: #666; font-size: 11px; display: block; margin-top: 2px; }
     <div><label>Saldo (€):</label><input type="number" step="0.01" id="r_sal" value="0"></div>
 </div>
 
-<div class="sec-title">🎫 Utilizzo Credito</div>
-<label>Seleziona Credito:</label>
-<select id="r_cred" onchange="fillCred()">
-    <option value="">-- Nessuno --</option>
-</select>
-<small>Compila automaticamente Qta e Valore Unitario</small>
-
+<div class="sec-title">🎫 Crediti</div>
 <div class="row">
-    <div><label>Qta Usata:</label><input type="number" id="r_qta" value="0"></div>
-    <div><label>Val. Unitario (€):</label><input type="number" step="0.01" id="r_val" value="0"></div>
+    <div><label>Credito Richiesto:</label><input type="number" id="r_cred_rich" value="0" oninput="calcCredSaldo()"></div>
+    <div><label>Credito Dato:</label><input type="number" id="r_cred_dato" value="0" oninput="calcCredSaldo()"></div>
+</div>
+<div class="row">
+    <div><label>Credito Saldo:</label><input type="number" id="r_cred_saldo" readonly class="readonly-field" value="0"></div>
+</div>
+<div class="row">
+    <div><label>Data Cred. Richiesto:</label><input type="date" id="r_data_cred_rich"></div>
+    <div><label>Data Cred. Dato:</label><input type="date" id="r_data_cred_dato"></div>
 </div>
 
 <label>Note:</label>
@@ -106,19 +107,10 @@ async function init(){
     } catch(e) { console.error("Errore caricamento crediti:", e); }
 }
 
-// Auto-compila quantità e valore quando si seleziona un credito
-function fillCred(){
-    const id = document.getElementById('r_cred').value;
-    if(!id){ 
-        document.getElementById('r_qta').value = 0; 
-        document.getElementById('r_val').value = 0; 
-        return; 
-    }
-    const c = creds.find(x => x.id == id);
-    if(c){
-        document.getElementById('r_qta').value = c.quantita;
-        document.getElementById('r_val').value = c.valore;
-    }
+function calcCredSaldo() {
+    const rich = parseInt(document.getElementById('r_cred_rich').value) || 0;
+    const dato = parseInt(document.getElementById('r_cred_dato').value) || 0;
+    document.getElementById('r_cred_saldo').value = rich - dato;
 }
 
 async function salva(){
@@ -135,9 +127,11 @@ async function salva(){
         scadenza: document.getElementById('r_scad').value,
         importo_acconto: parseFloat(document.getElementById('r_acc').value) || 0,
         importo_saldo: parseFloat(document.getElementById('r_sal').value) || 0,
-        num_credito_rich: parseInt(document.getElementById('r_qta').value) || 0,
-        val_singolo_nc_rich: parseFloat(document.getElementById('r_val').value) || 0,
-        credito_id: document.getElementById('r_cred').value ? parseInt(document.getElementById('r_cred').value) : null,
+        num_credito_rich: parseInt(document.getElementById('r_cred_rich').value) || 0,
+        num_credito_dato: parseInt(document.getElementById('r_cred_dato').value) || 0,
+        num_credito_dare: parseInt(document.getElementById('r_cred_saldo').value) || 0,
+        data_credito_rinnovo_rich: document.getElementById('r_data_cred_rich').value,
+        data_credito_rinnovo_dato: document.getElementById('r_data_cred_dato').value,
         note: document.getElementById('r_note').value
     };
     
