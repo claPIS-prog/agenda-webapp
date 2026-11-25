@@ -3,40 +3,160 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Lista Rinnovi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-    body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-    .container { max-width: 600px; margin: 0 auto; }
-    .search-box { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; position: sticky; top: 10px; z-index: 10; }
-    .search-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; box-sizing: border-box; outline: none; }
-    
-    .list-item { background: white; padding: 15px; margin-bottom: 8px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; transition: transform 0.1s; }
-    .list-item:active { transform: scale(0.98); background: #f9f9f9; }
-    .item-main { flex-grow: 1; overflow: hidden; margin-right: 10px; }
-    .item-name { font-weight: 600; font-size: 15px; color: #333; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .item-sub { font-size: 13px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    
-    .item-badge { background: #e3f2fd; color: #1565c0; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; white-space: nowrap; }
-    .badge-nuovo { background: #fff3e0; color: #ef6c00; }
-    .badge-rinnovo { background: #e8f5e9; color: #2e7d32; }
-    
-    .error-box { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 8px; margin-top: 20px; word-break: break-word; }
-    .loading { text-align: center; color: #0088cc; padding: 40px; font-weight: bold; }
-    .empty-state { text-align: center; color: #888; padding: 40px; }
-    .debug-box { background: #fff8e1; border: 1px solid #ffe082; padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 15px; color: #5d4037; display: none; }
+body { 
+    font-family: -apple-system, Arial, sans-serif; 
+    background: #f5f5f5; 
+    margin: 0; 
+    padding: 15px; 
+}
+.container { 
+    background: white; 
+    border-radius: 10px; 
+    padding: 20px; 
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08); 
+    max-width: 600px; 
+    margin: 0 auto; 
+}
+h2 { 
+    text-align: center; 
+    margin-top: 0; 
+    color: #333; 
+    font-size: 20px;
+}
+.counter-wrapper { 
+    text-align: center; 
+    margin-bottom: 15px;
+}
+.counter { 
+    text-align: center; 
+    background: #0088cc; 
+    color: white; 
+    padding: 8px 15px; 
+    border-radius: 20px; 
+    font-size: 14px; 
+    font-weight: bold; 
+    display: inline-block; 
+}
+.search { 
+    width: 100%; 
+    padding: 10px; 
+    border: 1px solid #ddd; 
+    border-radius: 5px; 
+    box-sizing: border-box; 
+    font-size: 15px; 
+    margin-bottom: 15px; 
+}
+.item { 
+    background: #fff; 
+    padding: 12px 15px; 
+    margin: 8px 0; 
+    border-radius: 8px; 
+    border: 1px solid #eee; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+}
+.item-main {
+    flex-grow: 1;
+    overflow: hidden;
+    margin-right: 10px;
+}
+.item-name { 
+    font-weight: bold; 
+    font-size: 15px; 
+    color: #222; 
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.item-sub {
+    font-size: 13px;
+    color: #666;
+}
+.item-actions { 
+    display: flex; 
+    gap: 6px; 
+    margin-left: 8px; 
+    flex-shrink: 0; 
+    align-items: center;
+}
+.badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+}
+.badge-rinnovo {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+.badge-nuovo {
+    background: #fff3e0;
+    color: #ef6c00;
+}
+.badge-omaggio {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+.empty { 
+    text-align: center; 
+    color: #888; 
+    padding: 30px; 
+}
+.error { 
+    text-align: center; 
+    color: #c62828; 
+    padding: 20px; 
+    background: #ffebee; 
+    border-radius: 6px; 
+}
+.loading {
+    text-align: center;
+    color: #0088cc;
+    padding: 40px;
+    font-weight: bold;
+}
+.toast { 
+    position: fixed; 
+    bottom: 20px; 
+    left: 50%; 
+    transform: translateX(-50%); 
+    background: #333; 
+    color: white; 
+    padding: 12px 24px; 
+    border-radius: 6px; 
+    z-index: 9999; 
+    opacity: 0; 
+    transition: opacity 0.3s; 
+    font-size: 14px; 
+}
+.toast.show { 
+    opacity: 1; 
+}
 </style>
 </head>
 <body>
 <div class="container">
-    <div class="search-box">
-        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Cerca nominativo...">
+    <h2>🔄 Lista Rinnovi</h2>
+    <div class="counter-wrapper">
+        <div class="counter" id="counter">Totale: 0</div>
     </div>
-    <div id="debugBox" class="debug-box"></div>
-    <div id="listaContainer">
+    <input type="text" class="search" id="search" placeholder="🔍 Cerca per nominativo...">
+    <div id="lista">
         <div class="loading">⏳ Caricamento rinnovi...</div>
     </div>
 </div>
+
+<div class="toast" id="toast"></div>
 
 <script>
 const tg = window.Telegram.WebApp;
@@ -54,29 +174,37 @@ function getField(obj, ...keys) {
     return null;
 }
 
+function mostraToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function aggiornaContatore(n) {
+    document.getElementById('counter').textContent = 'Totale: ' + n;
+}
+
 async function caricaDati() {
-    const container = document.getElementById('listaContainer');
-    const debugBox = document.getElementById('debugBox');
-    
+    const box = document.getElementById('lista');
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000);
-        
-        const res = await fetch('/api/lista_rinnovi?nocache=' + Date.now(), { 
+
+        const res = await fetch('/api/lista_rinnovi?nocache=' + Date.now(), {
             signal: controller.signal,
             headers: { 'Accept': 'application/json' }
         });
         clearTimeout(timeoutId);
-        
+
         if (!res.ok) {
             const text = await res.text();
-            throw new Error(`Errore Server ${res.status}: ${text.substring(0, 200)}`);
+            throw new Error(`Errore Server ${res.status}: ${text.substring(0, 180)}`);
         }
-        
+
         const data = await res.json();
-        console.log("Dati grezzi ricevuti:", data);
-        
-        // Accetta sia array diretto che oggetti tipo {data: []} o {rinnovi: []}
+        console.log("Dati grezzi:", data);
+
         let lista = [];
         if (Array.isArray(data)) {
             lista = data;
@@ -84,98 +212,72 @@ async function caricaDati() {
             lista = data.data;
         } else if (data && Array.isArray(data.rinnovi)) {
             lista = data.rinnovi;
-        } else if (data && Array.isArray(data.results)) {
-            lista = data.results;
         } else {
-            throw new Error("Formato dati non valido. Ricevuto: " + typeof data);
+            throw new Error("Formato dati non valido");
         }
-        
-        // Controllo se i dati sembrano placeholder (problema backend)
-        if (lista.length > 0) {
-            const primo = lista[0];
-            const nomeTest = getField(primo, 'nominativo', 'nome');
-            if (nomeTest === 'nominativo' || nomeTest === 'data_opera' || String(nomeTest).toLowerCase() === 'nominativo') {
-                debugBox.style.display = 'block';
-                debugBox.innerHTML = `<strong>⚠️ Attenzione:</strong> I dati sembrano contenere i nomi dei campi invece dei valori reali.<br>
-                Questo è quasi sicuramente un problema nel backend (endpoint /api/lista_rinnovi).<br>
-                Chiavi del primo record: <code>${Object.keys(primo).join(', ')}</code>`;
-            }
-        }
-        
+
         tuttiRinnovi = lista;
-        renderLista(tuttiRinnovi);
-        
-    } catch(e) {
+        aggiornaContatore(lista.length);
+        render(lista);
+
+    } catch (e) {
         let msg = e.message;
-        if (e.name === 'AbortError') msg = "Timeout: Il server non ha risposto entro 12 secondi.";
-        container.innerHTML = `<div class="error-box">
-            <strong>❌ Errore:</strong><br>${msg}<br><br>
+        if (e.name === 'AbortError') msg = "Timeout: il server non ha risposto entro 12 secondi.";
+        box.innerHTML = `<div class="error"><strong>❌ Errore:</strong><br>${msg}<br><br>
             <button onclick="location.reload()" style="padding:8px 16px; background:#0088cc; color:white; border:none; border-radius:4px; cursor:pointer;">🔄 Riprova</button>
         </div>`;
     }
 }
 
-function renderLista(lista) {
-    const container = document.getElementById('listaContainer');
-    container.innerHTML = '';
-    
-    if (!lista || lista.length === 0) { 
-        container.innerHTML = '<div class="empty-state">Nessun rinnovo trovato.</div>'; 
-        return; 
+function render(lista) {
+    const box = document.getElementById('lista');
+
+    if (!lista || lista.length === 0) {
+        box.innerHTML = '<div class="empty">Nessun rinnovo trovato.</div>';
+        return;
     }
-    
-    lista.forEach(r => {
-        // Prova diversi possibili nomi di campo (per compatibilità)
-        const nome = getField(r, 'nominativo', 'nome', 'ragione_sociale') || 
-                     ('ID: ' + (getField(r, 'nominativo_id', 'id') || '?'));
-        
-        let dataOp = getField(r, 'data_operazione', 'data_opera', 'data', 'data_op') || '-';
+
+    box.innerHTML = lista.map((r, index) => {
+        const nome = getField(r, 'nominativo', 'nome') || ('ID: ' + (getField(r, 'nominativo_id', 'id') || '?'));
+        let dataOp = getField(r, 'data_operazione', 'data_opera', 'data') || '-';
         dataOp = String(dataOp).substring(0, 10);
-        
         let scadenza = getField(r, 'scadenza', 'scad', 'data_scadenza') || '-';
         scadenza = String(scadenza).substring(0, 10);
-        
-        const tipoRaw = String(getField(r, 'tipo', 'type', 'categoria') || 'rinnovo').toUpperCase();
-        
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'list-item';
-        
-        const mainDiv = document.createElement('div');
-        mainDiv.className = 'item-main';
-        
-        const nameDiv = document.createElement('div');
-        nameDiv.className = 'item-name';
-        nameDiv.textContent = nome;
-        
-        const subDiv = document.createElement('div');
-        subDiv.className = 'item-sub';
-        subDiv.textContent = `${dataOp} | Scad: ${scadenza}`;
-        
-        mainDiv.appendChild(nameDiv);
-        mainDiv.appendChild(subDiv);
-        
-        const badgeDiv = document.createElement('div');
-        badgeDiv.className = `item-badge ${tipoRaw === 'NUOVO' ? 'badge-nuovo' : 'badge-rinnovo'}`;
-        badgeDiv.textContent = tipoRaw;
-        
-        itemDiv.appendChild(mainDiv);
-        itemDiv.appendChild(badgeDiv);
-        
-        // Opzionale: click sull'item (puoi aggiungere logica dopo)
-        itemDiv.addEventListener('click', () => {
-            console.log('Cliccato rinnovo:', r);
-            // tg.showAlert(`Nominativo: ${nome}`);
-        });
-        
-        container.appendChild(itemDiv);
-    });
+        const tipoRaw = String(getField(r, 'tipo', 'type') || 'rinnovo').toLowerCase();
+
+        let badgeClass = 'badge-rinnovo';
+        let badgeText = 'RINNOVO';
+        if (tipoRaw === 'nuovo') {
+            badgeClass = 'badge-nuovo';
+            badgeText = 'NUOVO';
+        } else if (tipoRaw === 'omaggio') {
+            badgeClass = 'badge-omaggio';
+            badgeText = 'OMAGGIO';
+        }
+
+        return `
+            <div class="item">
+                <div class="item-main">
+                    <div class="item-name">
+                        <span style="color:#888; font-size:12px; margin-right:6px;">${index + 1} -</span>
+                        ${nome}
+                    </div>
+                    <div class="item-sub">${dataOp} &nbsp;|&nbsp; Scad: ${scadenza}</div>
+                </div>
+                <div class="item-actions">
+                    <span class="badge ${badgeClass}">${badgeText}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 // Filtro ricerca
-document.getElementById('searchInput').addEventListener('input', function(e) {
+document.getElementById('search').addEventListener('input', function(e) {
     const term = e.target.value.toLowerCase().trim();
     if (!term) {
-        renderLista(tuttiRinnovi);
+        render(tuttiRinnovi);
+        aggiornaContatore(tuttiRinnovi.length);
         return;
     }
     const filtrati = tuttiRinnovi.filter(r => {
@@ -183,7 +285,8 @@ document.getElementById('searchInput').addEventListener('input', function(e) {
         const id = String(getField(r, 'nominativo_id', 'id') || '');
         return nome.includes(term) || id.includes(term);
     });
-    renderLista(filtrati);
+    render(filtrati);
+    aggiornaContatore(filtrati.length);
 });
 
 caricaDati();
