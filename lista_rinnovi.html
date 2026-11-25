@@ -10,65 +10,125 @@
     .container { max-width: 600px; margin: 0 auto; }
     .search-box { background: white; padding: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; position: sticky; top: 10px; z-index: 10; }
     .search-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; box-sizing: border-box; outline: none; }
-    .list-item { background: white; padding: 15px; margin-bottom: 8px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
-    .item-main { flex-grow: 1; overflow: hidden; }
+    
+    /* Stile Item Lista */
+    .list-item { background: white; padding: 15px; margin-bottom: 8px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; transition: transform 0.1s; }
+    .list-item:active { transform: scale(0.98); background: #f9f9f9; }
+    .item-main { flex-grow: 1; overflow: hidden; margin-right: 10px; }
     .item-name { font-weight: 600; font-size: 15px; color: #333; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .item-sub { font-size: 13px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .item-badge { background: #e3f2fd; color: #1565c0; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; margin-left: 10px; white-space: nowrap; }
+    
+    /* Badge Tipo */
+    .item-badge { background: #e3f2fd; color: #1565c0; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; white-space: nowrap; }
+    .badge-nuovo { background: #fff3e0; color: #ef6c00; }
+    .badge-rinnovo { background: #e8f5e9; color: #2e7d32; }
+    
     .error-box { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 8px; margin-top: 20px; word-break: break-word; }
     .loading { text-align: center; color: #0088cc; padding: 40px; font-weight: bold; }
+    .empty-state { text-align: center; color: #888; padding: 40px; }
 </style>
 </head>
 <body>
 <div class="container">
-    <div class="search-box"><input type="text" id="searchInput" class="search-input" placeholder="🔍 Cerca nominativo..."></div>
-    <div id="listaContainer"><div class="loading">⏳ Caricamento rinnovi...</div></div>
+    <div class="search-box">
+        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Cerca nominativo...">
+    </div>
+    <div id="listaContainer">
+        <div class="loading">⏳ Caricamento rinnovi...</div>
+    </div>
 </div>
+
 <script>
-const tg = window.Telegram.WebApp; tg.expand();
+const tg = window.Telegram.WebApp;
+tg.expand();
+
 let tuttiRinnovi = [];
 
 async function caricaDati() {
     const container = document.getElementById('listaContainer');
     try {
+        // Timeout di sicurezza
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout 10s
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
         
         const res = await fetch('/api/lista_rinnovi?nocache=' + Date.now(), { signal: controller.signal });
         clearTimeout(timeoutId);
         
         if (!res.ok) throw new Error(`Errore Server ${res.status}`);
+        
         const data = await res.json();
+        console.log("Dati grezzi ricevuti:", data); // DEBUG
+        
         if (!Array.isArray(data)) throw new Error("Formato dati non valido");
         
         tuttiRinnovi = data;
         renderLista(tuttiRinnovi);
+        
     } catch(e) {
         let msg = e.message;
-        if(e.name === 'AbortError') msg = "Timeout: Il server non ha risposto.";
-        container.innerHTML = `<div class="error-box"><strong>❌ Errore:</strong><br>${msg}<br><br><button onclick="location.reload()" style="padding:8px 16px; background:#0088cc; color:white; border:none; border-radius:4px;">🔄 Riprova</button></div>`;
+        if(e.name === 'AbortError') msg = "Timeout: Il server non ha risposto entro 10 secondi.";
+        container.innerHTML = `<div class="error-box"><strong>❌ Errore:</strong><br>${msg}<br><br><button onclick="location.reload()" style="padding:8px 16px; background:#0088cc; color:white; border:none; border-radius:4px; cursor:pointer;">🔄 Riprova</button></div>`;
     }
 }
 
 function renderLista(lista) {
     const container = document.getElementById('listaContainer');
-    if (lista.length === 0) { container.innerHTML = '<div style="text-align:center; color:#888; padding:40px;">Nessun rinnovo trovato.</div>'; return; }
+    container.innerHTML = ''; // Pulizia completa
     
-    let html = '';
+    if (lista.length === 0) { 
+        container.innerHTML = '<div class="empty-state">Nessun rinnovo trovato.</div>'; 
+        return; 
+    }
+    
+    // Creazione elementi DOM esplicita per evitare errori di interpolazione
     lista.forEach(r => {
-        const nome = r.nominativo || ('ID: ' + r.nominativo_id);
-        const dataOp = r.data_operazione ? String(r.data_operazione).substring(0,10) : '-';
-        const scadenza = r.scadenza ? String(r.scadenza).substring(0,10) : '-';
-        const tipo = (r.tipo || 'rinnovo').toUpperCase();
-        const badgeColor = tipo === 'NUOVO' ? '#fff3e0; color:#ef6c00' : '#e8f5e9; color:#2e7d32';
-        html += `<div class="list-item"><div class="item-main"><div class="item-name">${nome}</div><div class="item-sub">${dataOp} | Scad: ${scadenza}</div></div><div class="item-badge" style="background:${badgeColor}">${tipo}</div></div>`;
+        // Lettura valori SICURA con fallback
+        const nome = (r.nominativo && r.nominativo !== "") ? r.nominativo : ('ID: ' + (r.nominativo_id || '?'));
+        const dataOp = r.data_operazione ? String(r.data_operazione).substring(0, 10) : '-';
+        const scadenza = r.scadenza ? String(r.scadenza).substring(0, 10) : '-';
+        const tipoRaw = r.tipo || 'rinnovo';
+        const tipo = tipoRaw.toUpperCase();
+        
+        // Debug log per ogni record
+        console.log(`Render Record: nome=${nome}, dataOp=${dataOp}, scad=${scadenza}, tipo=${tipo}`);
+        
+        // Costruzione HTML
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'list-item';
+        
+        const mainDiv = document.createElement('div');
+        mainDiv.className = 'item-main';
+        
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'item-name';
+        nameDiv.textContent = nome; // Usa textContent, NON innerHTML
+        
+        const subDiv = document.createElement('div');
+        subDiv.className = 'item-sub';
+        subDiv.textContent = `${dataOp} | Scad: ${scadenza}`;
+        
+        mainDiv.appendChild(nameDiv);
+        mainDiv.appendChild(subDiv);
+        
+        const badgeDiv = document.createElement('div');
+        badgeDiv.className = `item-badge ${tipo === 'NUOVO' ? 'badge-nuovo' : 'badge-rinnovo'}`;
+        badgeDiv.textContent = tipo;
+        
+        itemDiv.appendChild(mainDiv);
+        itemDiv.appendChild(badgeDiv);
+        
+        container.appendChild(itemDiv);
     });
-    container.innerHTML = html;
 }
 
+// Filtro ricerca
 document.getElementById('searchInput').addEventListener('input', function(e) {
     const term = e.target.value.toLowerCase();
-    renderLista(tuttiRinnovi.filter(r => (r.nominativo && r.nominativo.toLowerCase().includes(term))));
+    const filtrati = tuttiRinnovi.filter(r => 
+        (r.nominativo && r.nominativo.toLowerCase().includes(term)) ||
+        (String(r.nominativo_id || '').includes(term))
+    );
+    renderLista(filtrati);
 });
 
 caricaDati();
