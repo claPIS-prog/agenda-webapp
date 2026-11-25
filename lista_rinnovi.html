@@ -139,12 +139,31 @@ function apriModifica(id) {
     mostraToast('Modifica note (da collegare al backend)');
 }
 
-function apriSaldo(id) {
+async function apriSaldo(id) {
     const r = tuttiRinnovi.find(x => x.id == id);
     if (!r) return;
+    const nome = getField(r, 'nominativo') || 'N/D';
     const data = prompt('Inserisci Data Credito Saldo (GG/MM/AAAA):', new Date().toLocaleDateString('it-IT'));
     if (!data) return;
-    mostraToast('Saldo registrato per ' + data + ' (da collegare al backend)');
+
+    try {
+        const res = await fetch('/api/azione', {
+            method: 'POST',
+            headers: getHeaders('application/json'),
+            body: JSON.stringify({
+                dati: {
+                    azione: 'salda_credito',
+                    id: id,
+                    data_credito_saldo: data
+                }
+            })
+        });
+        if (!res.ok) throw new Error('Errore server');
+        mostraToast('✅ Credito saldato in data ' + data);
+        caricaDati();
+    } catch (e) {
+        mostraToast('❌ Errore nel salvataggio');
+    }
 }
 
 function whatsapp(nome, dataOp, scadenza) {
