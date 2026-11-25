@@ -56,20 +56,8 @@ hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
 <div id="acquisto-section">
     <h3>Nuovo Acquisto Credito</h3>
     
-    <label>Numeratore Transazione:</label>
-    <input type="text" id="c_numeratore" readonly class="readonly-field" value="(generato al salvataggio)">
-    
     <label>Fornitore:</label>
-    <select id="c_forn">
-        <option value="">-- Seleziona --</option>
-        <option value="Pierino">Pierino</option>
-        <option value="Altro">Altro</option>
-    </select>
-    
-    <label>Modalità di Pagamento:</label>
-    <select id="c_pagamento">
-        <option value="">-- Caricamento... --</option>
-    </select>
+    <input type="text" id="c_forn" placeholder="Nome fornitore">
     
     <div class="row">
         <div><label>Data Acquisto:</label><input type="date" id="c_data"></div>
@@ -101,27 +89,6 @@ function getHeaders(t) {
 
 document.getElementById('s_data').value = new Date().toISOString().split('T')[0];
 document.getElementById('c_data').value = new Date().toISOString().split('T')[0];
-
-// Carica modalità di pagamento dai dati esistenti
-async function caricaMetodiPagamento() {
-    try {
-        const res = await fetch('/api/metodi_pagamento', { headers: getHeaders() });
-        if (!res.ok) return;
-        const metodi = await res.json();
-        const sel = document.getElementById('c_pagamento');
-        sel.innerHTML = '<option value="">-- Seleziona --</option>';
-        metodi.forEach(m => {
-            const nome = m.nome || m.nominativo || '';
-            if (nome) {
-                sel.innerHTML += `<option value="${nome}">${nome}</option>`;
-            }
-        });
-    } catch (e) {
-        console.error('Errore caricamento metodi pagamento:', e);
-    }
-}
-
-caricaMetodiPagamento();
 
 function calcUnit(prefix) {
     const q = parseFloat(document.getElementById(prefix+'_qta').value) || 0;
@@ -159,13 +126,12 @@ async function salvaSaldo() {
 
 async function salvaAcquisto() {
     if(!document.getElementById('c_forn').value.trim()) {
-        alert("⚠️ Seleziona il fornitore");
+        alert("⚠️ Inserisci il nome del fornitore");
         return;
     }
     
     const d = {
         fornitore: document.getElementById('c_forn').value.trim(),
-        modalita_pagamento: document.getElementById('c_pagamento').value,
         data_acquisto: document.getElementById('c_data').value,
         quantita: parseInt(document.getElementById('c_qta').value) || 1,
         valore_totale: parseFloat(document.getElementById('c_tot').value) || 0,
@@ -179,12 +145,14 @@ async function salvaAcquisto() {
             headers:getHeaders('application/json'), 
             body:JSON.stringify({dati:d}) 
         });
-        if(!r.ok) throw new Error('Errore server: ' + r.status);
+        if(!r.ok) {
+            const errText = await r.text();
+            throw new Error(errText || ('Errore server: ' + r.status));
+        }
         
         const res = await r.json();
-        document.getElementById('c_numeratore').value = 'Acquisto #' + res.id;
         showToast(`✅ Acquisto #${res.id} salvato!`);
-        setTimeout(() => tg.close(), 1800);
+        setTimeout(() => tg.close(), 1500);
     } catch(e) { 
         alert("❌ Errore: " + e.message); 
     }
