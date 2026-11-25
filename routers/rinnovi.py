@@ -45,6 +45,8 @@ def api_lista_rinnovi(request: Request):
                 rows.append(record)
                 
             print(f"[DEBUG] Restituiti {len(rows)} record per lista_rinnovi")
+            if rows:
+                print(f"[DEBUG] Primo record: {rows[0]}")
             return rows
             
     except Exception as e:
