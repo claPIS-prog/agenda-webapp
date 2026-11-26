@@ -16,6 +16,7 @@ def api_nominativi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
+            # Legge dalla tabella 'nominativi' che contiene tutti i clienti
             cur.execute("SELECT id, nominativo as nome FROM nominativi ORDER BY nominativo")
             return cur.fetchall()
     finally:
@@ -30,6 +31,7 @@ def api_amici(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
+            # Join per avere il nome completo dal nominativo se manca in autorizzati
             cur.execute("""
                 SELECT a.id, a.telegram_id, a.password, 
                        COALESCE(a.nome, n.nominativo) as nome
