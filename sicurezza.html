@@ -35,7 +35,13 @@ label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; c
 select, input[type="date"], input[type="text"], input[type="number"], textarea {
     width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white; color: #222;
 }
-textarea { min-height: 70px; resize: vertical; }
+input[readonly] {
+    background: #f3f4f6;
+    color: #374151;
+    border-color: #d1d5db;
+    cursor: default;
+}
+textarea { min-height: 70px; resize: vertical; background: #ffffff; }
 .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .module-list { margin-top: 20px; }
 .module-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; background: white; }
@@ -189,20 +195,19 @@ input:checked + .slider:before { transform: translateX(24px); }
     <div id="section-ingressi" class="section">
         <button type="button" class="btn-back" onclick="tornaMenu()">← Indietro</button>
         <div class="form-card">
-            <div class="form-card-title">🚪 Nuovo Ingresso</div>
+            <div class="form-card-title">🚪 Ingressi (Sola Lettura + Note/Info)</div>
             <div class="form-group">
                 <label for="ingresso-nominativo">Nominativo:</label>
-                <input type="text" id="ingresso-nominativo" list="listaNominativiDatalist" placeholder="Inserisci o seleziona nominativo...">
-                <datalist id="listaNominativiDatalist"></datalist>
+                <input type="text" id="ingresso-nominativo" readonly>
             </div>
             <div class="date-row">
                 <div class="form-group">
                     <label for="ingresso-data-in">DataIngresso (GG/MM/AAAA):</label>
-                    <input type="text" id="ingresso-data-in" placeholder="GG/MM/AAAA" maxlength="10" oninput="aggiornaTempoIngresso()">
+                    <input type="text" id="ingresso-data-in" readonly>
                 </div>
                 <div class="form-group">
                     <label for="ingresso-data-out">DataUscita (GG/MM/AAAA):</label>
-                    <input type="text" id="ingresso-data-out" placeholder="GG/MM/AAAA" maxlength="10" oninput="aggiornaTempoIngresso()">
+                    <input type="text" id="ingresso-data-out" readonly>
                 </div>
             </div>
             <div class="form-group">
@@ -212,18 +217,18 @@ input:checked + .slider:before { transform: translateX(24px); }
             <div class="date-row">
                 <div class="form-group">
                     <label for="ingresso-form-vis">FormVisualizzato:</label>
-                    <input type="text" id="ingresso-form-vis" placeholder="Es. Sicurezza / Lista Rinnovi">
+                    <input type="text" id="ingresso-form-vis" readonly>
                 </div>
                 <div class="form-group">
                     <label for="ingresso-posizione">Posizione:</label>
-                    <input type="text" id="ingresso-posizione" placeholder="Es. Menu / Dettaglio">
+                    <input type="text" id="ingresso-posizione" readonly>
                 </div>
             </div>
             <div class="form-group">
-                <label for="ingresso-note">Note / Dettaglio:</label>
-                <textarea id="ingresso-note" placeholder="Eventuali note sull'ingresso..."></textarea>
+                <label for="ingresso-note">Note / Dettaglio (modificabile):</label>
+                <textarea id="ingresso-note" placeholder="Aggiungi o aggiorna note / informazioni..."></textarea>
             </div>
-            <button type="button" class="btn-save" id="btn-salva-ingresso" onclick="salvaIngresso()">💾 Salva Ingresso</button>
+            <button type="button" class="btn-save" id="btn-salva-ingresso" onclick="salvaIngresso()">💾 Salva / Aggiorna</button>
             <div class="error-msg" id="ingressi-error-msg"></div>
             <div class="success-msg" id="ingressi-success-msg"></div>
         </div>
@@ -296,7 +301,7 @@ function apriSezione(tab) {
         if (document.getElementById('utente-select').options.length <= 1) caricaUtenti();
     } else if (tab === 'ingressi') {
         document.getElementById('section-ingressi').classList.add('active');
-        inizializzaDateIngressi();
+        inizializzaCampiOutputIngressi();
         caricaNominativiPerIngressi();
         caricaIngressi();
     } else {
@@ -349,19 +354,32 @@ function calcolaDifferenzaMinuti(dataInStr, dataOutStr) {
     return Math.round(diffMs / 60000);
 }
 
-function aggiornaTempoIngresso() {
-    const inVal = document.getElementById('ingresso-data-in').value;
-    const outVal = document.getElementById('ingresso-data-out').value;
-    document.getElementById('ingresso-tempo').value = calcolaDifferenzaMinuti(inVal, outVal);
+function rilevaNominativoSessione() {
+    const tgUser = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
+    if (tgUser) {
+        const nomeCompleto = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ').trim();
+        return nomeCompleto || tgUser.username || String(tgUser.id || 'Operatore');
+    }
+    return 'Admin';
 }
 
-function inizializzaDateIngressi() {
-    const inEl = document.getElementById('ingresso-data-in');
-    const outEl = document.getElementById('ingresso-data-out');
+function inizializzaCampiOutputIngressi(datiCustom = null) {
     const oggiIt = formattaDataItaliana(new Date());
-    if (!inEl.value.trim()) inEl.value = oggiIt;
-    if (!outEl.value.trim()) outEl.value = oggiIt;
-    aggiornaTempoIngresso();
+    const nom = (datiCustom && datiCustom.nominativo) ? String(datiCustom.nominativo) : rilevaNominativoSessione();
+    const dIn = (datiCustom && datiCustom.data_ingresso) ? String(datiCustom.data_ingresso) : oggiIt;
+    const dOut = (datiCustom && datiCustom.data_uscita) ? String(datiCustom.data_uscita) : oggiIt;
+    const formVis = (datiCustom && datiCustom.form_visualizzato) ? String(datiCustom.form_visualizzato) : 'Sicurezza / Ingressi';
+    const pos = (datiCustom && datiCustom.posizione) ? String(datiCustom.posizione) : 'Form Ingressi';
+    const tempoCalcolato = (datiCustom && typeof datiCustom.tempo === 'number')
+        ? datiCustom.tempo
+        : calcolaDifferenzaMinuti(dIn, dOut);
+
+    document.getElementById('ingresso-nominativo').value = nom;
+    document.getElementById('ingresso-data-in').value = dIn;
+    document.getElementById('ingresso-data-out').value = dOut;
+    document.getElementById('ingresso-tempo').value = tempoCalcolato;
+    document.getElementById('ingresso-form-vis').value = formVis;
+    document.getElementById('ingresso-posizione').value = pos;
 }
 
 async function caricaNominativiPerIngressi() {
@@ -369,20 +387,11 @@ async function caricaNominativiPerIngressi() {
         const res = await fetch('/api/nominativi?nocache=' + Date.now());
         if (!res.ok) return;
         const rows = await res.json();
-        const nomiUnici = [...new Set(
+        elencoNominativi = [...new Set(
             (Array.isArray(rows) ? rows : [])
                 .map(r => (r.nominativo || r.nome || '').trim())
                 .filter(Boolean)
         )];
-        elencoNominativi = nomiUnici;
-
-        const dl = document.getElementById('listaNominativiDatalist');
-        dl.innerHTML = '';
-        nomiUnici.forEach(n => {
-            const opt = document.createElement('option');
-            opt.value = n;
-            dl.appendChild(opt);
-        });
     } catch (e) {}
 }
 
@@ -449,15 +458,7 @@ async function salvaIngresso() {
     const note = document.getElementById('ingresso-note').value.trim();
 
     if (!nominativo) {
-        mostraErroreIngressi('Inserisci il Nominativo.');
-        return;
-    }
-    if (!parseDataItaliana(dataIngresso)) {
-        mostraErroreIngressi('DataIngresso non valida: usa il formato GG/MM/AAAA.');
-        return;
-    }
-    if (!parseDataItaliana(dataUscita)) {
-        mostraErroreIngressi('DataUscita non valida: usa il formato GG/MM/AAAA.');
+        mostraErroreIngressi('Nominativo non disponibile.');
         return;
     }
 
@@ -466,10 +467,10 @@ async function salvaIngresso() {
 
     const btn = document.getElementById('btn-salva-ingresso');
     btn.disabled = true;
-    btn.textContent = '⏳ Salvataggio...';
+    btn.textContent = '⏳ Aggiornamento...';
     try {
         const res = await fetch('/api/ingressi', {
-            method: 'POST',
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 dati: {
@@ -487,7 +488,7 @@ async function salvaIngresso() {
             const err = await res.json().catch(() => ({}));
             throw new Error(err.detail || 'HTTP ' + res.status);
         }
-        mostraSuccessoIngressi('✅ Ingresso salvato!');
+        mostraSuccessoIngressi('✅ Dati aggiornati e nota salvata!');
         document.getElementById('ingresso-note').value = '';
         await caricaIngressi(document.getElementById('filtro-nominativo-ingressi').value);
         setTimeout(() => nascondiMessaggiIngressi(), 3000);
@@ -495,7 +496,7 @@ async function salvaIngresso() {
         mostraErroreIngressi('❌ ' + e.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = '💾 Salva Ingresso';
+        btn.textContent = '💾 Salva / Aggiorna';
     }
 }
 
@@ -551,7 +552,7 @@ async function apriNoteDettaglioIngresso(nominativo, ingressoId) {
     const v = (val) => (val !== undefined && val !== null && String(val).trim() !== '') ? val : '-';
 
     let html = '<div class="info-grid">';
-    html += '<div class="info-section-title">Dettaglio Ingresso Selezionato</div>';
+    html += '<div class="info-section-title">Dettaglio Ingresso (Output)</div>';
     html += `<div class="info-row"><div class="info-label">Nominativo:</div><div class="info-value">${v(nominativo)}</div></div>`;
     html += `<div class="info-row"><div class="info-label">DataIngresso:</div><div class="info-value">${v(target.data_ingresso)}</div></div>`;
     html += `<div class="info-row"><div class="info-label">DataUscita:</div><div class="info-value">${v(target.data_uscita)}</div></div>`;
@@ -559,7 +560,7 @@ async function apriNoteDettaglioIngresso(nominativo, ingressoId) {
     html += `<div class="info-row"><div class="info-label">FormVisualizzato:</div><div class="info-value">${v(target.form_visualizzato)}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Posizione:</div><div class="info-value">${v(target.posizione)}</div></div>`;
     html += '<div class="info-section-title">Note / Dettaglio</div>';
-    html += `<div class="info-row" style="flex-direction:column;"><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;">${v(target.note)}</div></div>`;
+    html += `<div class="info-row" style="flex-direction:column;"><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;white-space:pre-line;">${v(target.note)}</div></div>`;
     html += '</div>';
 
     html += `<div class="history-box"><div class="info-section-title">Storico filtrato per Nominativo (${filtratiPerNominativo.length})</div>`;
@@ -567,7 +568,7 @@ async function apriNoteDettaglioIngresso(nominativo, ingressoId) {
         html += `<div class="history-item">
             <div><strong>${v(r.data_ingresso)} → ${v(r.data_uscita)}</strong> (${Number(r.tempo || 0)} min)</div>
             <div>Form: ${v(r.form_visualizzato)} | Posizione: ${v(r.posizione)}</div>
-            <div>Note: ${v(r.note)}</div>
+            <div style="white-space:pre-line;">Note: ${v(r.note)}</div>
         </div>`;
     });
     html += '</div>';

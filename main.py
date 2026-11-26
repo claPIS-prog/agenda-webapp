@@ -667,7 +667,7 @@ def api_saldo_rinnovo_cancella(id: int, request: Request):
         conn.close()
     return {"ok": True}
 
-# === INGRESSI ===
+# === INGRESSI (MODIFICA / SOVRASCRITTURA PER NOMINATIVO) ===
 def _leggi_ingressi(nominativo: str = ""):
     conn = db_conn()
     try:
@@ -700,7 +700,8 @@ def api_ingressi_dettaglio(nominativo: str = "", request: Request = None):
     return _leggi_ingressi(nominativo)
 
 @app.post("/api/ingressi")
-async def api_ingressi_nuovo(request: Request):
+@app.put("/api/ingressi")
+async def api_ingressi_salva_modifica(request: Request):
     get_current_user(request)
     d = estrai_dati(await request.json())
     nominativo = str(d.get("nominativo", "") or "").strip()
@@ -717,20 +718,58 @@ async def api_ingressi_nuovo(request: Request):
     tempo_minuti = _calcola_tempo_minuti(dt_in, dt_out, d.get("tempo", d.get("Tempo")))
     form_vis = str(d.get("form_visualizzato", d.get("FormVisualizzato", "")) or "").strip()
     posizione = str(d.get("posizione", d.get("Posizione", "")) or "").strip()
-    note_val = str(d.get("note", d.get("Note", "")) or "").strip()
+    nuova_nota = str(d.get("note", d.get("Note", "")) or "").strip()
+    adesso_iso = datetime.now().isoformat()
 
     conn = db_conn()
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO ingressi
-                    (nominativo, data_ingresso, data_uscita, tempo, form_visualizzato, posizione, note, creato_il)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                RETURNING id
-            """, (nominativo, data_ingresso, data_uscita, tempo_minuti, form_vis, posizione, note_val, datetime.now().isoformat()))
-            new_id = cur.fetchone()["id"]
+                SELECT id, note
+                FROM ingressi
+                WHERE LOWER(TRIM(nominativo)) = LOWER(TRIM(%s))
+                ORDER BY id DESC
+                LIMIT 1
+            """, (nominativo,))
+            esistente = cur.fetchone()
+
+            if esistente:
+                record_id = esistente["id"]
+                nota_precedente = str(esistente.get("note") or "").strip()
+                if nuova_nota:
+                    if nota_precedente and nuova_nota not in nota_precedente:
+                        nota_finale = f"{nota_precedente}\n{nuova_nota}"
+                    elif nota_precedente:
+                        nota_finale = nota_precedente
+                    else:
+                        nota_finale = nuova_nota
+                else:
+                    nota_finale = nota_precedente
+
+                cur.execute("""
+                    UPDATE ingressi SET
+                        nominativo = %s,
+                        data_ingresso = %s,
+                        data_uscita = %s,
+                        tempo = %s,
+                        form_visualizzato = %s,
+                        posizione = %s,
+                        note = %s,
+                        creato_il = %s
+                    WHERE id = %s
+                """, (nominativo, data_ingresso, data_uscita, tempo_minuti, form_vis, posizione, nota_finale, adesso_iso, record_id))
+            else:
+                cur.execute("""
+                    INSERT INTO ingressi
+                        (nominativo, data_ingresso, data_uscita, tempo, form_visualizzato, posizione, note, creato_il)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
+                """, (nominativo, data_ingresso, data_uscita, tempo_minuti, form_vis, posizione, nuova_nota, adesso_iso))
+                record_id = cur.fetchone()["id"]
+                nota_finale = nuova_nota
+
         conn.commit()
-        return {"ok": True, "id": new_id, "tempo": tempo_minuti}
+        return {"ok": True, "id": record_id, "tempo": tempo_minuti, "note": nota_finale}
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
