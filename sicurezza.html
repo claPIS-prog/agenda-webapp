@@ -35,13 +35,14 @@ label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; c
 select, input[type="date"], input[type="text"], input[type="number"], textarea {
     width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white; color: #222;
 }
-input[readonly] {
+input[readonly], textarea[readonly] {
     background: #f3f4f6;
     color: #374151;
     border-color: #d1d5db;
     cursor: default;
 }
 textarea { min-height: 70px; resize: vertical; background: #ffffff; }
+textarea[readonly] { min-height: 60px; }
 .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .module-list { margin-top: 20px; }
 .module-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; background: white; }
@@ -66,7 +67,7 @@ input:checked + .slider:before { transform: translateX(24px); }
 .search-box .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #888; font-size: 14px; pointer-events: none; }
 .filter-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
 .filter-row select { flex: 1; }
-.list-item { background: white; padding: 10px 12px; border-bottom: 1px solid #efeff4; display: flex; align-items: center; gap: 10px; }
+.list-item { background: white; padding: 10px 12px; border-bottom: 1px solid #efeff4; display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .list-item:first-child { border-top-left-radius: 10px; border-top-right-radius: 10px; }
 .list-item:last-child { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; border-bottom: none; }
 .list-item .number { font-weight: 700; font-size: 15px; color: #888; min-width: 22px; text-align: right; flex-shrink: 0; }
@@ -195,9 +196,15 @@ input:checked + .slider:before { transform: translateX(24px); }
     <div id="section-ingressi" class="section">
         <button type="button" class="btn-back" onclick="tornaMenu()">← Indietro</button>
         <div class="form-card">
-            <div class="form-card-title">🚪 Ingressi (Sola Lettura + Note/Info)</div>
+            <div class="form-card-title">🚪 Ingressi (Lettura Dati + Aggiungi Nota)</div>
             <div class="form-group">
-                <label for="ingresso-nominativo">Nominativo:</label>
+                <label for="ingresso-seleziona-nominativo">Seleziona Nominativo da leggere:</label>
+                <select id="ingresso-seleziona-nominativo" onchange="caricaDatiIngressoNominativo(this.value)">
+                    <option value="">-- Seleziona nominativo --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ingresso-nominativo">Nominativo (Output):</label>
                 <input type="text" id="ingresso-nominativo" readonly>
             </div>
             <div class="date-row">
@@ -225,10 +232,14 @@ input:checked + .slider:before { transform: translateX(24px); }
                 </div>
             </div>
             <div class="form-group">
-                <label for="ingresso-note">Note / Dettaglio (modificabile):</label>
-                <textarea id="ingresso-note" placeholder="Aggiungi o aggiorna note / informazioni..."></textarea>
+                <label for="ingresso-note-esistenti">Note / Info già salvate:</label>
+                <textarea id="ingresso-note-esistenti" readonly placeholder="Nessuna nota salvata per questo nominativo..."></textarea>
             </div>
-            <button type="button" class="btn-save" id="btn-salva-ingresso" onclick="salvaIngresso()">💾 Salva / Aggiorna</button>
+            <div class="form-group">
+                <label for="ingresso-note">Nuova Nota / Info da aggiungere:</label>
+                <textarea id="ingresso-note" placeholder="Scrivi la nota o informazione da aggiungere..."></textarea>
+            </div>
+            <button type="button" class="btn-save" id="btn-salva-ingresso" onclick="salvaIngresso()">💾 Salva Nota e Aggiorna</button>
             <div class="error-msg" id="ingressi-error-msg"></div>
             <div class="success-msg" id="ingressi-success-msg"></div>
         </div>
@@ -293,7 +304,7 @@ let listaPermessi = [];
 let listaIngressi = [];
 let elencoNominativi = [];
 
-function apriSezione(tab) {
+async function apriSezione(tab) {
     document.getElementById('menu-principale').style.display = 'none';
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     if (tab === 'gestione') {
@@ -302,8 +313,12 @@ function apriSezione(tab) {
     } else if (tab === 'ingressi') {
         document.getElementById('section-ingressi').classList.add('active');
         inizializzaCampiOutputIngressi();
-        caricaNominativiPerIngressi();
-        caricaIngressi();
+        await caricaNominativiPerIngressi();
+        await caricaIngressi();
+        const nomCorrente = document.getElementById('ingresso-nominativo').value.trim();
+        if (nomCorrente) {
+            await caricaDatiIngressoNominativo(nomCorrente);
+        }
     } else {
         document.getElementById('section-lista').classList.add('active');
         caricaLista();
@@ -370,6 +385,7 @@ function inizializzaCampiOutputIngressi(datiCustom = null) {
     const dOut = (datiCustom && datiCustom.data_uscita) ? String(datiCustom.data_uscita) : oggiIt;
     const formVis = (datiCustom && datiCustom.form_visualizzato) ? String(datiCustom.form_visualizzato) : 'Sicurezza / Ingressi';
     const pos = (datiCustom && datiCustom.posizione) ? String(datiCustom.posizione) : 'Form Ingressi';
+    const noteSalvate = (datiCustom && datiCustom.note) ? String(datiCustom.note) : '';
     const tempoCalcolato = (datiCustom && typeof datiCustom.tempo === 'number')
         ? datiCustom.tempo
         : calcolaDifferenzaMinuti(dIn, dOut);
@@ -380,6 +396,7 @@ function inizializzaCampiOutputIngressi(datiCustom = null) {
     document.getElementById('ingresso-tempo').value = tempoCalcolato;
     document.getElementById('ingresso-form-vis').value = formVis;
     document.getElementById('ingresso-posizione').value = pos;
+    document.getElementById('ingresso-note-esistenti').value = noteSalvate;
 }
 
 async function caricaNominativiPerIngressi() {
@@ -392,7 +409,70 @@ async function caricaNominativiPerIngressi() {
                 .map(r => (r.nominativo || r.nome || '').trim())
                 .filter(Boolean)
         )];
+        popolaSelectLetturaNominativi(listaIngressi);
     } catch (e) {}
+}
+
+function popolaSelectLetturaNominativi(itemsIngressi = []) {
+    const sel = document.getElementById('ingresso-seleziona-nominativo');
+    if (!sel) return;
+    const sessioneNom = rilevaNominativoSessione();
+    const nomiIngressi = (Array.isArray(itemsIngressi) ? itemsIngressi : [])
+        .map(it => (it.nominativo || '').trim())
+        .filter(Boolean);
+    const tutti = [...new Set([sessioneNom, ...elencoNominativi, ...nomiIngressi])].sort((a, b) => a.localeCompare(b, 'it'));
+
+    sel.innerHTML = '<option value="">-- Seleziona nominativo --</option>';
+    tutti.forEach(nome => {
+        const opt = document.createElement('option');
+        opt.value = nome;
+        opt.textContent = nome;
+        sel.appendChild(opt);
+    });
+    const corrente = document.getElementById('ingresso-nominativo').value.trim();
+    if (corrente && tutti.includes(corrente)) {
+        sel.value = corrente;
+    }
+}
+
+async function caricaDatiIngressoNominativo(nominativo) {
+    const nomPulito = String(nominativo || '').trim();
+    if (!nomPulito) return;
+
+    let record = listaIngressi.find(
+        it => (it.nominativo || '').trim().toLowerCase() === nomPulito.toLowerCase()
+    );
+
+    try {
+        const res = await fetch(`/api/ingressi/dettaglio?nominativo=${encodeURIComponent(nomPulito)}&nocache=` + Date.now());
+        if (res.ok) {
+            const rows = await res.json();
+            if (Array.isArray(rows) && rows.length > 0) {
+                record = rows[0];
+            }
+        }
+    } catch (e) {}
+
+    const oggiIt = formattaDataItaliana(new Date());
+    const dIn = (record && record.data_ingresso) ? record.data_ingresso : oggiIt;
+    const dOut = (record && record.data_uscita) ? record.data_uscita : oggiIt;
+    const tempoVal = (record && typeof record.tempo === 'number')
+        ? record.tempo
+        : calcolaDifferenzaMinuti(dIn, dOut);
+    const formVis = (record && record.form_visualizzato) ? record.form_visualizzato : 'Sicurezza / Ingressi';
+    const pos = (record && record.posizione) ? record.posizione : 'Form Ingressi';
+    const noteSalvate = (record && record.note) ? record.note : '';
+
+    document.getElementById('ingresso-nominativo').value = nomPulito;
+    document.getElementById('ingresso-data-in').value = dIn;
+    document.getElementById('ingresso-data-out').value = dOut;
+    document.getElementById('ingresso-tempo').value = tempoVal;
+    document.getElementById('ingresso-form-vis').value = formVis;
+    document.getElementById('ingresso-posizione').value = pos;
+    document.getElementById('ingresso-note-esistenti').value = noteSalvate;
+
+    const sel = document.getElementById('ingresso-seleziona-nominativo');
+    if (sel) sel.value = nomPulito;
 }
 
 function aggiornaSelectFiltroNominativi(items) {
@@ -432,6 +512,7 @@ async function caricaIngressi(nominativoFiltro = null) {
             aggiornaSelectFiltroNominativi([...listaIngressi, ...(sel.value ? [{ nominativo: sel.value }] : [])]);
             sel.value = filtro;
         }
+        popolaSelectLetturaNominativi(listaIngressi);
         document.getElementById('ingressi-total-badge').textContent = 'Totale: ' + listaIngressi.length;
         renderIngressi(listaIngressi);
     } catch (e) {
@@ -458,7 +539,7 @@ async function salvaIngresso() {
     const note = document.getElementById('ingresso-note').value.trim();
 
     if (!nominativo) {
-        mostraErroreIngressi('Nominativo non disponibile.');
+        mostraErroreIngressi('Seleziona o carica un nominativo.');
         return;
     }
 
@@ -491,12 +572,13 @@ async function salvaIngresso() {
         mostraSuccessoIngressi('✅ Dati aggiornati e nota salvata!');
         document.getElementById('ingresso-note').value = '';
         await caricaIngressi(document.getElementById('filtro-nominativo-ingressi').value);
+        await caricaDatiIngressoNominativo(nominativo);
         setTimeout(() => nascondiMessaggiIngressi(), 3000);
     } catch (e) {
         mostraErroreIngressi('❌ ' + e.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = '💾 Salva / Aggiorna';
+        btn.textContent = '💾 Salva Nota e Aggiorna';
     }
 }
 
@@ -517,6 +599,11 @@ function renderIngressi(items) {
         const formVis = item.form_visualizzato || '-';
         const pos = item.posizione || '-';
         const nomSicuro = nom.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+        div.onclick = () => {
+            caricaDatiIngressoNominativo(nom);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
 
         div.innerHTML = `
             <div class="number">${index + 1}</div>
