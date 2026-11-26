@@ -12,7 +12,6 @@ router = APIRouter()
 # -----------------------------------------------------------------------------
 @router.get("/api/amici")
 def api_amici(request: Request):
-    """Restituisce tutti i nominativi per la dropdown di gestione."""
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -26,7 +25,6 @@ def api_amici(request: Request):
 # -----------------------------------------------------------------------------
 @router.get("/api/lista_permessi")
 def api_lista_permessi(request: Request):
-    """Restituisce solo i nominativi che hanno almeno un permesso attivo."""
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -102,7 +100,6 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Crea record placeholder in autorizzati se non esiste (per il FK)
             cur.execute("SELECT id FROM autorizzati WHERE id = %s", (payload.user_id,))
             if not cur.fetchone():
                 cur.execute("SELECT nominativo FROM nominativi WHERE id = %s", (payload.user_id,))
@@ -143,11 +140,10 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
     return {"ok": True}
 
 # -----------------------------------------------------------------------------
-# 5. ELIMINA PERMESSI (per bottone cestino in Lista Permessi)
+# 5. ELIMINA PERMESSI (QUESTO È QUELLO CHE MANCAVA!)
 # -----------------------------------------------------------------------------
 @router.delete("/api/permessi/{user_id}")
 def api_elimina_permessi(user_id: int, request: Request):
-    """Elimina tutti i permessi di un nominativo."""
     get_current_user(request)
     conn = db_conn()
     try:
@@ -179,7 +175,6 @@ def api_aggiungi_amico(payload: AmicoPayload, request: Request):
                 RETURNING id
             """, (payload.telegram_id, payload.password, payload.nome))
             new_id = cur.fetchone()["id"]
-            # Crea permessi con attivo=FALSE di default
             for mod in ALL_MODULES:
                 cur.execute("""
                     INSERT INTO permessi (user_id, modulo, attivo)
