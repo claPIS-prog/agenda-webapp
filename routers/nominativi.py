@@ -146,7 +146,7 @@ def api_azione(payload: AzionePayload, request: Request):
             # -------------------------------------------------
             if azione == "cancella":
                 cur.execute("DELETE FROM nominativi WHERE id = %s", (dati.get("id"),))
-            
+
             elif azione == "nuovo":
                 cur.execute("""
                     INSERT INTO nominativi (
@@ -157,18 +157,18 @@ def api_azione(payload: AzionePayload, request: Request):
                         data_iscrizione, data_fine, informazioni
                     ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
-                    dati.get("nominativo",""), dati.get("tipo",""), dati.get("user_id",""), 
-                    dati.get("password",""), float(dati.get("prezzo",0)), dati.get("cadenza",""), 
-                    dati.get("tipo_linea",""), dati.get("server",""), dati.get("reseller",""),
-                    dati.get("dispositivo",""), dati.get("sistema_operativo",""),
-                    dati.get("buffett",""), dati.get("metodo_pagamento",""), dati.get("operatore_it",""),
-                    dati.get("cellulare",""), dati.get("procuratore",""),
-                    dati.get("apk_utilizzata",""), int(dati.get("uso_vpn",0)),
-                    dati.get("quale_vpn",""), dati.get("citta",""),
-                    dati.get("data_iscrizione",""), dati.get("data_fine",""),
-                    dati.get("informazioni","")
+                    dati.get("nominativo", ""), dati.get("tipo", ""), dati.get("user_id", ""),
+                    dati.get("password", ""), float(dati.get("prezzo", 0)), dati.get("cadenza", ""),
+                    dati.get("tipo_linea", ""), dati.get("server", ""), dati.get("reseller", ""),
+                    dati.get("dispositivo", ""), dati.get("sistema_operativo", ""),
+                    dati.get("buffett", ""), dati.get("metodo_pagamento", ""), dati.get("operatore_it", ""),
+                    dati.get("cellulare", ""), dati.get("procuratore", ""),
+                    dati.get("apk_utilizzata", ""), int(dati.get("uso_vpn", 0)),
+                    dati.get("quale_vpn", ""), dati.get("citta", ""),
+                    dati.get("data_iscrizione", ""), dati.get("data_fine", ""),
+                    dati.get("informazioni", "")
                 ))
-            
+
             elif azione == "modifica":
                 cur.execute("""
                     UPDATE nominativi SET 
@@ -179,14 +179,14 @@ def api_azione(payload: AzionePayload, request: Request):
                         data_iscrizione=%s, data_fine=%s, informazioni=%s 
                     WHERE id=%s
                 """, (
-                    dati.get("nominativo"), dati.get("tipo"), 
+                    dati.get("nominativo"), dati.get("tipo"),
                     dati.get("user_id"), dati.get("password"),
-                    float(dati.get("prezzo",0)), dati.get("cadenza"), dati.get("tipo_linea"), 
+                    float(dati.get("prezzo", 0)), dati.get("cadenza"), dati.get("tipo_linea"),
                     dati.get("server"), dati.get("reseller"),
                     dati.get("dispositivo"), dati.get("sistema_operativo"),
                     dati.get("buffett"), dati.get("metodo_pagamento"), dati.get("operatore_it"),
                     dati.get("cellulare"), dati.get("procuratore"),
-                    dati.get("apk_utilizzata"), int(dati.get("uso_vpn",0)),
+                    dati.get("apk_utilizzata"), int(dati.get("uso_vpn", 0)),
                     dati.get("quale_vpn"), dati.get("citta"),
                     dati.get("data_iscrizione"), dati.get("data_fine"),
                     dati.get("informazioni"), dati.get("id")
@@ -231,3 +231,15 @@ def api_azione(payload: AzionePayload, request: Request):
                     cur.execute("""
                         INSERT INTO saldo_rinnovi (rinnovo_id, data_credito_rinnovo_saldo)
                         VALUES (%s, %s)
+                        ON CONFLICT (rinnovo_id) DO UPDATE 
+                        SET data_credito_rinnovo_saldo = EXCLUDED.data_credito_rinnovo_saldo
+                    """, (rinnovo_id, data_saldo))
+                    cur.execute("UPDATE rinnovi SET num_credito_dare = 0 WHERE id = %s", (rinnovo_id,))
+
+            else:
+                print(f"[ATTENZIONE] Azione non gestita: {azione}")
+
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
