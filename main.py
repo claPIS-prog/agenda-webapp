@@ -588,4 +588,501 @@ async def _salva_saldo_rinnovo_da_request(request: Request):
     try:
         with conn.cursor() as cur:
             rinnovo_raw = dati.get("rinnovo_id")
-            rinnovo_id = int(rinnovo_raw) if rinnovo_raw not in (None
+            rinnovo_id = int(rinnovo_raw) if rinnovo_raw not in (None, "", "null") else None
+
+            num_dato = 0.0
+            val_singolo = float(dati.get("prezzo_unitario", dati.get("val_singolo_nc_rich", dati.get("prezzo", 0))) or 0)
+            if rinnovo_id is not None:
+                cur.execute("SELECT num_credito_dato, val_singolo_nc_rich FROM rinnovi WHERE id = %s", (rinnovo_id,))
+                row = cur.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Rinnovo non trovato")
+                num_dato = float(row["num_credito_dato"] or 0)
+                if not val_singolo:
+                    val_singolo = float(row["val_singolo_nc_rich"] or 0)
+
+            num_saldo = int(dati.get("num_credito_saldo", dati.get("quantita_stock", dati.get("quantita", 0))) or 0)
+            data_rif = (
+                dati.get("data_credito_rinnovo_saldo")
+                or dati.get("data_riferimento")
+                or dati.get("data_operazione")
+                or datetime.now().strftime("%d/%m/%Y")
+            )
+            note_val = (
+                dati.get("informazioni_note")
+                or dati.get("info_note")
+                or dati.get("note")
+                or ""
+            )
+            val_tot_raw = dati.get("valore_totale", dati.get("val_nc_saldo"))
+            val_saldo = float(val_tot_raw) if val_tot_raw not in (None, "") else (num_saldo * val_singolo)
+            val_dato = float(dati.get("val_nc_dato") or (num_dato * val_singolo))
+
+            cur.execute("""
+                INSERT INTO saldo_rinnovi
+                    (rinnovo_id, num_credito_saldo, data_credito_rinnovo_saldo, val_nc_dato, val_nc_saldo, informazioni_note, creato_il)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)
+                RETURNING id
+            """, (rinnovo_id, num_saldo, data_rif, val_dato, val_saldo, note_val, datetime.now().isoformat()))
+            new_id = cur.fetchone()["id"]
+        conn.commit()
+        return {"ok": True, "id": new_id}
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/api/saldo_rinnovi")
+def api_saldo_rinnovi(request: Request):
+    get_current_user(request)
+    return _elenco_saldo_rinnovi()
+
+@app.post("/api/saldo_rinnovi")
+@app.put("/api/saldo_rinnovi")
+async def api_saldo_rinnovi_post(request: Request):
+    get_current_user(request)
+    return await _salva_saldo_rinnovo_da_request(request)
+
+@app.get("/api/rinnovi_per_saldo")
+def api_rinnovi_per_saldo(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT r.id, r.num_credito_rich, r.num_credito_dato, r.num_credito_dare, r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato, r.val_nc_rich, r.val_singolo_nc_rich, n.nominativo FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id ORDER BY n.nominativo")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.api_route("/api/saldo_rinnovo", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/api/rinnovi/saldo", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/api/crediti_saldo", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def api_saldo_rinnovo_nuovo(request: Request):
+    get_current_user(request)
+    if request.method == "GET":
+        return _elenco_saldo_rinnovi()
+    if request.method == "DELETE":
+        id_raw = request.query_params.get("id")
+        if id_raw:
+            conn = db_conn()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM saldo_rinnovi WHERE id = %s", (int(id_raw),))
+                conn.commit()
+            finally:
+                conn.close()
+        return {"ok": True}
+    return await _salva_saldo_rinnovo_da_request(request)
+
+@app.delete("/api/saldo_rinnovo/{id}")
+def api_saldo_rinnovo_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM saldo_rinnovi WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# === INGRESSI (CON ORA ENTRATA / ORA USCITA E CALCOLO TEMPO DATA + ORA) ===
+def _leggi_ingressi(nominativo: str = ""):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            query = """
+                SELECT id, nominativo, data_ingresso, COALESCE(ora_entrata, '') AS ora_entrata,
+                       data_uscita, COALESCE(ora_uscita, '') AS ora_uscita, tempo,
+                       form_visualizzato, posizione, note, creato_il
+                FROM ingressi
+                WHERE 1=1
+            """
+            params = []
+            if nominativo and nominativo.strip():
+                query += " AND LOWER(TRIM(nominativo)) = LOWER(TRIM(%s))"
+                params.append(nominativo.strip())
+            query += " ORDER BY COALESCE(creato_il, '') DESC, id DESC"
+            cur.execute(query, params)
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/ingressi")
+def api_ingressi(nominativo: str = "", q: str = "", request: Request = None):
+    get_current_user(request)
+    filtro = nominativo.strip() if nominativo and nominativo.strip() else (q.strip() if q and q.strip() else "")
+    return _leggi_ingressi(filtro)
+
+@app.get("/api/ingressi/dettaglio")
+def api_ingressi_dettaglio(nominativo: str = "", request: Request = None):
+    get_current_user(request)
+    return _leggi_ingressi(nominativo)
+
+@app.post("/api/ingressi")
+@app.put("/api/ingressi")
+async def api_ingressi_salva_modifica(request: Request):
+    get_current_user(request)
+    d = estrai_dati(await request.json())
+    nominativo = str(d.get("nominativo", "") or "").strip()
+    if not nominativo:
+        raise HTTPException(status_code=400, detail="Nominativo obbligatorio")
+
+    raw_in = d.get("data_ingresso", d.get("DataIngresso", ""))
+    raw_ora_in = d.get("ora_entrata", d.get("OraEntrata", ""))
+    raw_out = d.get("data_uscita", d.get("DataUscita", ""))
+    raw_ora_out = d.get("ora_uscita", d.get("OraUscita", ""))
+
+    dt_in = _parse_data_ora_it(raw_in, raw_ora_in)
+    dt_out = _parse_data_ora_it(raw_out, raw_ora_out)
+
+    data_ingresso = _format_data_it(dt_in, raw_in)
+    ora_entrata = _format_ora_it(dt_in, raw_ora_in)
+    data_uscita = _format_data_it(dt_out, raw_out)
+    ora_uscita = _format_ora_it(dt_out, raw_ora_out)
+    tempo_minuti = _calcola_tempo_minuti(dt_in, dt_out, d.get("tempo", d.get("Tempo")))
+    form_vis = str(d.get("form_visualizzato", d.get("FormVisualizzato", "")) or "").strip()
+    posizione = str(d.get("posizione", d.get("Posizione", "")) or "").strip()
+    nuova_nota = str(d.get("note", d.get("Note", "")) or "").strip()
+    adesso_iso = datetime.now().isoformat()
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, note
+                FROM ingressi
+                WHERE LOWER(TRIM(nominativo)) = LOWER(TRIM(%s))
+                ORDER BY id DESC
+                LIMIT 1
+            """, (nominativo,))
+            esistente = cur.fetchone()
+
+            if esistente:
+                record_id = esistente["id"]
+                nota_precedente = str(esistente.get("note") or "").strip()
+                if nuova_nota:
+                    if nota_precedente and nuova_nota not in nota_precedente:
+                        nota_finale = f"{nota_precedente}\n{nuova_nota}"
+                    elif nota_precedente:
+                        nota_finale = nota_precedente
+                    else:
+                        nota_finale = nuova_nota
+                else:
+                    nota_finale = nota_precedente
+
+                cur.execute("""
+                    UPDATE ingressi SET
+                        nominativo = %s,
+                        data_ingresso = %s,
+                        ora_entrata = %s,
+                        data_uscita = %s,
+                        ora_uscita = %s,
+                        tempo = %s,
+                        form_visualizzato = %s,
+                        posizione = %s,
+                        note = %s,
+                        creato_il = %s
+                    WHERE id = %s
+                """, (nominativo, data_ingresso, ora_entrata, data_uscita, ora_uscita, tempo_minuti, form_vis, posizione, nota_finale, adesso_iso, record_id))
+            else:
+                cur.execute("""
+                    INSERT INTO ingressi
+                        (nominativo, data_ingresso, ora_entrata, data_uscita, ora_uscita, tempo, form_visualizzato, posizione, note, creato_il)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
+                """, (nominativo, data_ingresso, ora_entrata, data_uscita, ora_uscita, tempo_minuti, form_vis, posizione, nuova_nota, adesso_iso))
+                record_id = cur.fetchone()["id"]
+                nota_finale = nuova_nota
+
+        conn.commit()
+        return {"ok": True, "id": record_id, "tempo": tempo_minuti, "note": nota_finale}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.delete("/api/ingressi/{id}")
+def api_ingressi_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ingressi WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# === LISTE DI SUPPORTO ===
+@app.get("/api/resellers")
+def api_resellers(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM resellers ORDER BY nominativo"); return cur.fetchall()
+    finally: conn.close()
+
+@app.get("/api/procuratori")
+def api_procuratori(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM procuratori ORDER BY nominativo"); return cur.fetchall()
+    finally: conn.close()
+
+@app.get("/api/servers")
+def api_servers(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo FROM servers ORDER BY nominativo"); return cur.fetchall()
+    finally: conn.close()
+
+@app.get("/api/dispositivi")
+def api_dispositivi():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nome FROM dispositivi ORDER BY nome"); return cur.fetchall()
+    finally: conn.close()
+
+@app.get("/api/sistemi_operativi")
+def api_sistemi_operativi():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nome FROM sistemi_operativi ORDER BY nome"); return cur.fetchall()
+    finally: conn.close()
+
+@app.get("/api/buffett")
+def api_buffett():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nome FROM buffett ORDER BY nome"); return cur.fetchall()
+    finally: conn.close()
+
+@app.get("/api/metodi_pagamento")
+def api_metodi_pagamento():
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nome FROM metodi_pagamento ORDER BY nome"); return cur.fetchall()
+    finally: conn.close()
+
+TABELLE_COLONNE = {'dispositivi':'nome','sistemi_operativi':'nome','buffett':'nome','metodi_pagamento':'nome','resellers':'nominativo','servers':'nominativo','procuratori':'nominativo','operatori_it':'nome'}
+
+class ListaPayload(BaseModel):
+    nome: str
+    tabella: str
+
+@app.post("/api/lista/nuovo")
+def api_lista_nuovo(payload: ListaPayload, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            col = TABELLE_COLONNE.get(payload.tabella, 'nome')
+            cur.execute(f"INSERT INTO {payload.tabella} ({col}) VALUES (%s)", (payload.nome,))
+        conn.commit()
+    finally: conn.close()
+    return {"ok": True}
+
+@app.post("/api/lista/modifica")
+def api_lista_modifica(id: int, nome: str, tabella: str, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            col = TABELLE_COLONNE.get(tabella, 'nome')
+            cur.execute(f"UPDATE {tabella} SET {col} = %s WHERE id = %s", (nome, id))
+        conn.commit()
+    finally: conn.close()
+    return {"ok": True}
+
+@app.delete("/api/lista/cancella/{id}")
+def api_lista_cancella(id: int, tabella: str, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f"DELETE FROM {tabella} WHERE id = %s", (id,))
+        conn.commit()
+    finally: conn.close()
+    return {"ok": True}
+
+# === OPERATORI IT ===
+@app.get("/api/operatori_it")
+def api_operatori_it(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nome FROM operatori_it ORDER BY nome"); return cur.fetchall()
+    finally: conn.close()
+
+@app.post("/api/operatori_it")
+async def api_operatori_it_nuovo(request: Request):
+    get_current_user(request)
+    dati = estrai_dati(await request.json())
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO operatori_it (nome) VALUES (%s)", (dati.get("nome",""),))
+        conn.commit()
+    finally: conn.close()
+    return {"ok": True}
+
+@app.put("/api/operatori_it/{id}")
+async def api_operatori_it_modifica(id: int, request: Request):
+    get_current_user(request)
+    dati = estrai_dati(await request.json())
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE operatori_it SET nome = %s WHERE id = %s", (dati.get("nome",""), id))
+        conn.commit()
+    finally: conn.close()
+    return {"ok": True}
+
+@app.delete("/api/operatori_it/{id}")
+def api_operatori_it_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM operatori_it WHERE id = %s", (id,))
+        conn.commit()
+    finally: conn.close()
+    return {"ok": True}
+
+# === NOTE ===
+@app.get("/api/note")
+def api_note(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT n.id, n.nominativo_id, n.messaggio, n.creato_il, nom.nominativo FROM note n JOIN nominativi nom ON nom.id = n.nominativo_id ORDER BY COALESCE(n.creato_il, '') DESC, n.id DESC")
+            return cur.fetchall()
+    finally: conn.close()
+
+@app.post("/api/note")
+async def api_note_nuovo(request: Request):
+    get_current_user(request)
+    dati = estrai_dati(await request.json())
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO note (nominativo_id, messaggio, creato_il) VALUES (%s,%s,%s)", (int(dati.get("nominativo_id")), dati.get("messaggio",""), datetime.now().isoformat()))
+        conn.commit()
+    finally: conn.close()
+    return {"ok": True}
+
+@app.delete("/api/note/{id}")
+def api_note_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM note WHERE id = %s", (id,))
+        conn.commit()
+    finally: conn.close()
+    return {"ok": True}
+
+# === CREDENZIALI ===
+@app.get("/api/credenziali")
+def api_credenziali(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, nominativo, nome_file, link, percorso, user_id, password, file_token, scadenza, informazioni, creato_il FROM credenziali ORDER BY COALESCE(creato_il, '') DESC, id DESC")
+            return cur.fetchall()
+    finally: conn.close()
+
+@app.post("/api/credenziali")
+async def api_credenziali_nuovo(request: Request):
+    get_current_user(request)
+    d = estrai_dati(await request.json())
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO credenziali (nominativo, nome_file, link, percorso, user_id, password, file_token, scadenza, informazioni, creato_il) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (d.get("nominativo",""),d.get("nome_file",""),d.get("link",""),d.get("percorso",""),d.get("user_id",""),d.get("password",""),d.get("file_token",""),d.get("scadenza",""),d.get("informazioni",""), datetime.now().isoformat()))
+        conn.commit()
+    finally: conn.close()
+    return {"ok": True}
+
+@app.put("/api/credenziali/{id}")
+async def api_credenziali_modifica(id: int, request: Request):
+    get_current_user(request)
+    d = estrai_dati(await request.json())
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE credenziali SET nominativo=%s, nome_file=%s, link=%s, percorso=%s, user_id=%s, password=%s, file_token=%s, scadenza=%s, informazioni=%s WHERE id=%s", (d.get("nominativo",""),d.get("nome_file",""),d.get("link",""),d.get("percorso",""),d.get("user_id",""),d.get("password",""),d.get("file_token",""),d.get("scadenza",""),d.get("informazioni",""), id))
+        conn.commit()
+    finally: conn.close()
+    return {"ok": True}
+
+@app.delete("/api/credenziali/{id}")
+def api_credenziali_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT file_token, percorso FROM credenziali WHERE id = %s", (id,))
+            item = cur.fetchone()
+            if not item: raise HTTPException(status_code=404, detail="Record non trovato")
+            if item['percorso'] and item['file_token']:
+                try:
+                    cur.execute("SELECT user_id, password FROM credenziali WHERE id = %s", (id,))
+                    creds = cur.fetchone()
+                    if creds:
+                        body = json.dumps({"token": item['file_token'], "user": creds['user_id'], "password": creds['password']}).encode('utf-8')
+                        req = urllib.request.Request(item['percorso'], data=body, method='POST')
+                        req.add_header('Content-Type', 'application/json')
+                        urllib.request.urlopen(req, timeout=5)
+                except Exception as e:
+                    print(f"Avviso cancellazione remota: {e}")
+            cur.execute("DELETE FROM credenziali WHERE id = %s", (id,))
+        conn.commit()
+    finally: conn.close()
+    return {"ok": True}
+
+# === LISTA CALCOLI ===
+@app.get("/api/calcoli/lista")
+def api_calcoli_lista(nominativo: str = "", tipo: str = "", data_da: str = "", data_a: str = "", request: Request = None):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            query = """SELECT r.id, r.tipo, r.data_operazione, r.scadenza, r.orario_scadenza,
+                r.importo_acconto, r.importo_saldo,
+                r.num_credito_rich, r.num_credito_dato, r.num_credito_dare,
+                r.val_singolo_nc_rich, r.val_nc_rich,
+                r.note, n.nominativo
+                FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id WHERE 1=1"""
+            params = []
+            if nominativo:
+                query += " AND n.nominativo = %s"
+                params.append(nominativo)
+            if tipo:
+                query += " AND r.tipo = %s"
+                params.append(tipo)
+            if data_da:
+                query += " AND r.data_operazione >= %s"
+                params.append(data_da)
+            if data_a:
+                query += " AND r.data_operazione <= %s"
+                params.append(data_a)
+            query += " ORDER BY r.
