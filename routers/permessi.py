@@ -8,7 +8,7 @@ from datetime import datetime
 router = APIRouter()
 
 # -----------------------------------------------------------------------------
-# 1. DROPDOWN NOMINATIVI (Tutti i clienti potenziali)
+# 1. DROPDOWN NOMINATIVI (Tutti i clienti potenziali )
 # -----------------------------------------------------------------------------
 @router.get("/api/nominativi")
 def api_nominativi(request: Request):
