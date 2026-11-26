@@ -7,6 +7,25 @@ from datetime import datetime
 
 router = APIRouter()
 
+
+def _row_to_dict(cur, row):
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row
+    cols = [desc[0] for desc in cur.description]
+    return dict(zip(cols, row))
+
+
+def _rows_to_dicts(cur, rows):
+    if not rows:
+        return []
+    if isinstance(rows[0], dict):
+        return rows
+    cols = [desc[0] for desc in cur.description]
+    return [dict(zip(cols, r)) for r in rows]
+
+
 # -----------------------------------------------------------------------------
 # 1. DROPDOWN NOMINATIVI (Tutti i clienti potenziali)
 # -----------------------------------------------------------------------------
@@ -16,11 +35,11 @@ def api_nominativi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Legge dalla tabella 'nominativi' che contiene tutti i clienti
-            cur.execute("SELECT id, nominativo as nome FROM nominativi ORDER BY nominativo")
-            return cur.fetchall()
+            cur.execute("SELECT id, nominativo AS nome, nominativo FROM nominativi ORDER BY nominativo")
+            return _rows_to_dicts(cur, cur.fetchall())
     finally:
         conn.close()
+
 
 # -----------------------------------------------------------------------------
 # 2. GRIGLIA AMICI (Solo chi ha credenziali in 'autorizzati')
@@ -31,22 +50,17 @@ def api_amici(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Join per avere il nome completo dal nominativo se manca in autorizzati
             cur.execute("""
-                SELECT a.id, a.telegram_id, a.password, 
-                       COALESCE(a.nome, n.nominativo) as nome
+                SELECT a.id, a.telegram_id, a.password,
+                       COALESCE(a.nome, n.nominativo) AS nome
                 FROM autorizzati a
                 LEFT JOIN nominativi n ON n.id = a.id
                 ORDER BY nome
             """)
-            rows = cur.fetchall()
-            result = []
-            for r in rows:
-                record = dict(r) if isinstance(r, dict) else dict(zip([desc[0] for desc in cur.description], r))
-                result.append(record)
-            return result
+            return _rows_to_dicts(cur, cur.fetchall())
     finally:
         conn.close()
+
 
 # -----------------------------------------------------------------------------
 # 3. DATI SINGOLO AMICO (Per pre-popolare il form di modifica)
@@ -58,13 +72,13 @@ def api_get_amico(user_id: int, request: Request):
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT telegram_id, password FROM autorizzati WHERE id = %s", (user_id,))
-            row = cur.fetchone()
+            row = _row_to_dict(cur, cur.fetchone())
             if row:
-                d = dict(row) if isinstance(row, dict) else dict(zip(["telegram_id", "password"], row))
-                return d
+                return row
             return {"telegram_id": None, "password": None}
     finally:
         conn.close()
+
 
 # -----------------------------------------------------------------------------
 # 4. SALVA / AGGIORNA AMICO
@@ -76,19 +90,17 @@ def api_salva_amico(payload: AmicoPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # payload.telegram_id qui rappresenta l'ID del nominativo selezionato
-            user_id = payload.telegram_id 
-            
-            # Verifica se esiste già in autorizzati
+            user_id = payload.telegram_id
+
             cur.execute("SELECT id FROM autorizzati WHERE id = %s", (user_id,))
             exists = cur.fetchone()
-            
+
             if exists:
                 cur.execute("""
-                    UPDATE autorizzati SET 
-                        telegram_id = %s, 
-                        password = %s, 
-                        nome = %s 
+                    UPDATE autorizzati SET
+                        telegram_id = %s,
+                        password = %s,
+                        nome = %s
                     WHERE id = %s
                 """, (user_id, payload.password, payload.nome, user_id))
             else:
@@ -96,15 +108,14 @@ def api_salva_amico(payload: AmicoPayload, request: Request):
                     INSERT INTO autorizzati (id, telegram_id, password, nome)
                     VALUES (%s, %s, %s, %s)
                 """, (user_id, user_id, payload.password, payload.nome))
-                
-                # Crea permessi default disattivati per il nuovo utente
+
                 for mod in ALL_MODULES:
                     cur.execute("""
                         INSERT INTO permessi (user_id, modulo, attivo)
                         VALUES (%s, %s, FALSE)
                         ON CONFLICT (user_id, modulo) DO NOTHING
                     """, (user_id, mod))
-            
+
             conn.commit()
             return {"ok": True}
     except Exception as e:
@@ -112,6 +123,7 @@ def api_salva_amico(payload: AmicoPayload, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
 
 # -----------------------------------------------------------------------------
 # 5. ELIMINA AMICO
@@ -133,8 +145,9 @@ def api_elimina_amico(amico_id: int, request: Request):
     finally:
         conn.close()
 
+
 # -----------------------------------------------------------------------------
-# 6. PERMESSI UTENTE (Mantenuto per compatibilità con altri form)
+# 6. PERMESSI UTENTE
 # -----------------------------------------------------------------------------
 @router.get("/api/permessi/{user_id}")
 def api_get_permessi(user_id: int, request: Request):
@@ -143,33 +156,28 @@ def api_get_permessi(user_id: int, request: Request):
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT modulo, attivo FROM permessi WHERE user_id = %s", (user_id,))
-            rows = cur.fetchall()
-            perms = {}
-            for row in rows:
-                d = dict(row) if isinstance(row, dict) else dict(zip(["modulo", "attivo"], row))
-                perms[d["modulo"]] = d["attivo"]
+            rows = _rows_to_dicts(cur, cur.fetchall())
+            perms = {row["modulo"]: bool(row["attivo"]) for row in rows}
             for mod in ALL_MODULES:
                 if mod not in perms:
                     perms[mod] = False
-            
+
             cur.execute("""
                 SELECT data_inizio_validita, data_revoca, data_fine_validita
                 FROM permessi WHERE user_id = %s LIMIT 1
             """, (user_id,))
-            date_row = cur.fetchone()
-            
+            date_row = _row_to_dict(cur, cur.fetchone())
+
             dates = {"data_inizio_validita": "", "data_revoca": "", "data_fine_validita": ""}
             if date_row:
-                d = dict(date_row) if isinstance(date_row, dict) else dict(zip(
-                    ["data_inizio_validita", "data_revoca", "data_fine_validita"], date_row
-                ))
                 for k in dates:
-                    if d.get(k):
-                        dates[k] = str(d[k])[:10]
-            
+                    if date_row.get(k):
+                        dates[k] = str(date_row[k])[:10]
+
             return {"permessi": perms, "date": dates}
     finally:
         conn.close()
+
 
 @router.post("/api/salva_permessi")
 def api_salva_permessi(payload: PermessiPayload, request: Request):
@@ -181,7 +189,7 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
             cur.execute("SELECT id FROM autorizzati WHERE id = %s", (payload.user_id,))
             if not cur.fetchone():
                 cur.execute("SELECT nominativo FROM nominativi WHERE id = %s", (payload.user_id,))
-                nom = cur.fetchone()
+                nom = _row_to_dict(cur, cur.fetchone())
                 nome = nom["nominativo"] if nom else f"Nominativo #{payload.user_id}"
                 cur.execute("""
                     INSERT INTO autorizzati (id, telegram_id, password, nome)
