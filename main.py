@@ -1085,4 +1085,308 @@ def api_calcoli_lista(nominativo: str = "", tipo: str = "", data_da: str = "", d
             if data_a:
                 query += " AND r.data_operazione <= %s"
                 params.append(data_a)
-            query += " ORDER BY r.
+            query += " ORDER BY r.data_operazione ASC"
+            cur.execute(query, params)
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+# === CALCOLI ===
+@app.get("/api/calcoli/calcola")
+def api_calcoli_calcola(nominativo_da: str = "", nominativo_a: str = "", reseller_da: str = "", reseller_a: str = "", procuratore_da: str = "", procuratore_a: str = "", periodo_da: str = "", periodo_a: str = "", request: Request = None):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            query = """SELECT r.tipo, r.importo_acconto, r.importo_saldo,
+                r.num_credito_rich, r.num_credito_dato, r.num_credito_dare,
+                r.val_singolo_nc_rich, r.val_nc_rich, n.nominativo
+                FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id WHERE 1=1"""
+            params = []
+            if nominativo_da:
+                query += " AND n.nominativo >= %s"; params.append(nominativo_da)
+            if nominativo_a:
+                query += " AND n.nominativo <= %s"; params.append(nominativo_a)
+            if reseller_da:
+                query += " AND n.reseller >= %s"; params.append(reseller_da)
+            if reseller_a:
+                query += " AND n.reseller <= %s"; params.append(reseller_a)
+            if procuratore_da:
+                query += " AND n.procuratore >= %s"; params.append(procuratore_da)
+            if procuratore_a:
+                query += " AND n.procuratore <= %s"; params.append(procuratore_a)
+            if periodo_da:
+                query += " AND r.data_operazione >= %s"; params.append(periodo_da)
+            if periodo_a:
+                query += " AND r.data_operazione <= %s"; params.append(periodo_a)
+            cur.execute(query, params)
+            rows = cur.fetchall()
+            
+            importo_nuovo = acconto_nuovo = acconto_saldo_nuovo = 0
+            importo_rinnovo = acconto_rinnovo = acconto_saldo_rinnovo = 0
+            importo_omaggio = acconto_omaggio = acconto_saldo_omaggio = 0
+            crediti_rich = crediti_dati = crediti_dare = 0
+            crediti_rich_omaggio = crediti_dati_omaggio = crediti_dare_omaggio = 0
+            totale_nc = totale_nc_omaggio = 0
+            
+            for r in rows:
+                val_acconto = float(r['importo_acconto'] or 0)
+                val_saldo = float(r['importo_saldo'] or 0)
+                val_tot = val_acconto + val_saldo
+                rich = int(r['num_credito_rich'] or 0)
+                dati = int(r['num_credito_dato'] or 0)
+                dare = int(r['num_credito_dare'] or 0)
+                nc = float(r['val_nc_rich'] or 0)
+                
+                if r['tipo'] == 'nuovo':
+                    importo_nuovo += val_tot
+                    acconto_nuovo += val_acconto
+                    acconto_saldo_nuovo += val_saldo
+                    crediti_rich += rich
+                    crediti_dati += dati
+                    crediti_dare += dare
+                    totale_nc += nc
+                elif r['tipo'] == 'omaggio':
+                    importo_omaggio += val_tot
+                    acconto_omaggio += val_acconto
+                    acconto_saldo_omaggio += val_saldo
+                    crediti_rich_omaggio += rich
+                    crediti_dati_omaggio += dati
+                    crediti_dare_omaggio += dare
+                    totale_nc_omaggio += nc
+                else:
+                    importo_rinnovo += val_tot
+                    acconto_rinnovo += val_acconto
+                    acconto_saldo_rinnovo += val_saldo
+            
+            totale_acconti_nuovi = acconto_nuovo + acconto_saldo_nuovo
+            totale_acconti_rinnovo = acconto_rinnovo + acconto_saldo_rinnovo
+            totale_acconti_omaggio = acconto_omaggio + acconto_saldo_omaggio
+            totale_generale = totale_acconti_nuovi + totale_acconti_rinnovo + totale_acconti_omaggio
+            
+            return {
+                "importo_nuovo": importo_nuovo, "acconto_nuovo": acconto_nuovo, "acconto_saldo_nuovo": acconto_saldo_nuovo,
+                "totale_acconti_nuovi": totale_acconti_nuovi,
+                "importo_rinnovo": importo_rinnovo, "acconto_rinnovo": acconto_rinnovo, "acconto_saldo_rinnovo": acconto_saldo_rinnovo,
+                "totale_acconti_rinnovo": totale_acconti_rinnovo,
+                "importo_omaggio": importo_omaggio, "acconto_omaggio": acconto_omaggio, "acconto_saldo_omaggio": acconto_saldo_omaggio,
+                "totale_acconti_omaggio": totale_acconti_omaggio,
+                "crediti_rich": crediti_rich, "crediti_dati": crediti_dati, "crediti_dare": crediti_dare, "totale_nc": totale_nc,
+                "crediti_rich_omaggio": crediti_rich_omaggio, "crediti_dati_omaggio": crediti_dati_omaggio, "crediti_dare_omaggio": crediti_dare_omaggio, "totale_nc_omaggio": totale_nc_omaggio,
+                "totale_generale": totale_generale,
+                "count_nuovi": sum(1 for r in rows if r['tipo'] == 'nuovo'),
+                "count_rinnovi": sum(1 for r in rows if r['tipo'] == 'rinnovo'),
+                "count_omaggi": sum(1 for r in rows if r['tipo'] == 'omaggio')
+            }
+    finally:
+        conn.close()
+
+@app.get("/api/calcoli")
+def api_calcoli(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM calcoli ORDER BY COALESCE(creato_il, '') DESC, id DESC")
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.post("/api/calcoli")
+async def api_calcoli_salva(request: Request):
+    get_current_user(request)
+    d = estrai_dati(await request.json())
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""INSERT INTO calcoli (
+                nominativo_da, nominativo_a, reseller_da, reseller_a, procuratore_da, procuratore_a, periodo_da, periodo_a,
+                importo_nuovo, acconto_nuovo, acconto_saldo_nuovo, totale_acconti_nuovi, info_saldo_nuovo, info_saldo_rinnovo_nuovo,
+                importo_rinnovo, acconto_rinnovo, acconto_saldo_rinnovo, totale_acconti_rinnovo, info_saldo_rinnovo,
+                importo_omaggio, acconto_omaggio, acconto_saldo_omaggio, totale_acconti_omaggio,
+                crediti_rich, crediti_dati, crediti_dare, totale_nc,
+                crediti_rich_omaggio, crediti_dati_omaggio, crediti_dare_omaggio, totale_nc_omaggio,
+                totale_generale, note, creato_il
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (d.get("nominativo_da",""), d.get("nominativo_a",""), d.get("reseller_da",""), d.get("reseller_a",""),
+                 d.get("procuratore_da",""), d.get("procuratore_a",""), d.get("periodo_da",""), d.get("periodo_a",""),
+                 float(d.get("importo_nuovo",0) or 0), float(d.get("acconto_nuovo",0) or 0), float(d.get("acconto_saldo_nuovo",0) or 0),
+                 float(d.get("totale_acconti_nuovi",0) or 0), d.get("info_saldo_nuovo",""), d.get("info_saldo_rinnovo_nuovo",""),
+                 float(d.get("importo_rinnovo",0) or 0), float(d.get("acconto_rinnovo",0) or 0), float(d.get("acconto_saldo_rinnovo",0) or 0),
+                 float(d.get("totale_acconti_rinnovo",0) or 0), d.get("info_saldo_rinnovo",""),
+                 float(d.get("importo_omaggio",0) or 0), float(d.get("acconto_omaggio",0) or 0), float(d.get("acconto_saldo_omaggio",0) or 0),
+                 float(d.get("totale_acconti_omaggio",0) or 0),
+                 int(d.get("crediti_rich",0) or 0), int(d.get("crediti_dati",0) or 0), int(d.get("crediti_dare",0) or 0), float(d.get("totale_nc",0) or 0),
+                 int(d.get("crediti_rich_omaggio",0) or 0), int(d.get("crediti_dati_omaggio",0) or 0), int(d.get("crediti_dare_omaggio",0) or 0), float(d.get("totale_nc_omaggio",0) or 0),
+                 float(d.get("totale_generale",0) or 0), d.get("note",""), datetime.now().isoformat()))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.delete("/api/calcoli/{id}")
+def api_calcoli_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM calcoli WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# === LISTA CREDITI ===
+def _leggi_righe_crediti(data_da: str = "", data_a: str = "", fornitore_da: str = "", fornitore_a: str = ""):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            query = "SELECT id, data_acquisto, fornitore, modalita_pagamento, quantita, valore, note, creato_il FROM crediti WHERE 1=1"
+            params = []
+            if data_da:
+                query += " AND data_acquisto >= %s"
+                params.append(data_da)
+            if data_a:
+                query += " AND data_acquisto <= %s"
+                params.append(data_a)
+            if fornitore_da:
+                query += " AND fornitore >= %s"
+                params.append(fornitore_da)
+            if fornitore_a:
+                query += " AND fornitore <= %s"
+                params.append(fornitore_a)
+            query += " ORDER BY COALESCE(data_acquisto, '') DESC, id DESC"
+            cur.execute(query, params)
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/lista_crediti")
+def api_lista_crediti(data_da: str = "", data_a: str = "", fornitore_da: str = "", fornitore_a: str = "", request: Request = None):
+    get_current_user(request)
+    return _leggi_righe_crediti(data_da, data_a, fornitore_da, fornitore_a)
+
+@app.get("/api/crediti_disponibili")
+def api_crediti_disponibili(data_da: str = "", data_a: str = "", fornitore_da: str = "", fornitore_a: str = "", request: Request = None):
+    get_current_user(request)
+    return _leggi_righe_crediti(data_da, data_a, fornitore_da, fornitore_a)
+
+async def _salva_acquisto_credito(d: dict, id_record: int | None = None):
+    qta = int(d.get("quantita", d.get("qta", 0)) or 0)
+    prezzo_unit = float(d.get("prezzo_unitario", d.get("prezzo", d.get("valore_singolo", 0))) or 0)
+    valore_raw = d.get("valore", d.get("valore_totale", d.get("importo")))
+    if valore_raw not in (None, ""):
+        valore = float(valore_raw or 0)
+    else:
+        valore = qta * prezzo_unit
+
+    data_acq = d.get("data_acquisto") or d.get("data") or datetime.now().strftime("%Y-%m-%d")
+    fornitore = d.get("fornitore") or d.get("nominativo") or d.get("tipo") or ""
+    mod_pag = d.get("modalita_pagamento") or d.get("metodo_pagamento") or ""
+    note = d.get("note") or d.get("informazioni") or ""
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            if id_record is not None:
+                cur.execute("""
+                    UPDATE crediti
+                    SET data_acquisto=%s, fornitore=%s, modalita_pagamento=%s, quantita=%s, valore=%s, note=%s
+                    WHERE id=%s
+                """, (data_acq, fornitore, mod_pag, qta, valore, note, id_record))
+                record_id = id_record
+            else:
+                cur.execute("""
+                    INSERT INTO crediti (data_acquisto, fornitore, modalita_pagamento, quantita, valore, note, creato_il)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
+                """, (data_acq, fornitore, mod_pag, qta, valore, note, datetime.now().isoformat()))
+                record_id = cur.fetchone()["id"]
+        conn.commit()
+        return {"ok": True, "id": record_id, "valore": valore}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+# === CREDITI ===
+@app.get("/api/crediti")
+def api_crediti(request: Request):
+    get_current_user(request)
+    return _leggi_righe_crediti()
+
+@app.post("/api/crediti")
+@app.post("/api/credito")
+@app.post("/api/saldo_iniziale")
+async def api_crediti_salva(request: Request):
+    get_current_user(request)
+    d = estrai_dati(await request.json())
+    return await _salva_acquisto_credito(d)
+
+@app.put("/api/crediti/{id}")
+@app.put("/api/credito/{id}")
+async def api_crediti_modifica(id: int, request: Request):
+    get_current_user(request)
+    d = estrai_dati(await request.json())
+    return await _salva_acquisto_credito(d, id_record=id)
+
+@app.delete("/api/crediti/{id}")
+@app.delete("/api/credito/{id}")
+def api_crediti_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM crediti WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@app.api_route("/api/{percorso:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+async def api_fallback_saldo(percorso: str, request: Request):
+    get_current_user(request)
+    p = percorso.lower()
+    if "credit" in p or "saldo_iniziale" in p:
+        if request.method == "GET":
+            return _leggi_righe_crediti()
+        if request.method == "DELETE":
+            id_raw = request.query_params.get("id")
+            if id_raw:
+                conn = db_conn()
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("DELETE FROM crediti WHERE id = %s", (int(id_raw),))
+                    conn.commit()
+                finally:
+                    conn.close()
+            return {"ok": True}
+        dati = {}
+        try:
+            dati = estrai_dati(await request.json())
+        except Exception:
+            dati = {}
+        return await _salva_acquisto_credito(dati)
+
+    if "saldo" in p or "rinnov" in p:
+        if request.method == "GET":
+            return _elenco_saldo_rinnovi()
+        if request.method == "DELETE":
+            id_raw = request.query_params.get("id")
+            if id_raw:
+                conn = db_conn()
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("DELETE FROM saldo_rinnovi WHERE id = %s", (int(id_raw),))
+                    conn.commit()
+                finally:
+                    conn.close()
+            return {"ok": True}
+        return await _salva_saldo_rinnovo_da_request(request)
+    raise HTTPException(status_code=404, detail=f"Endpoint non trovato: /api/{percorso}")
+
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
