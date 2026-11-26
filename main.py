@@ -410,16 +410,39 @@ def api_scadenze(request: Request):
     finally:
         conn.close()
 
-@app.get("/api/elenco_rinnovi")
-def api_elenco_rinnovi(request: Request):
-    get_current_user(request)
+def _leggi_elenco_rinnovi(q: str = ""):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT r.id, r.nominativo_id, r.tipo, r.data_operazione, r.mesi, r.scadenza, r.orario_scadenza, r.importo_acconto, r.importo_saldo, r.data_acconto, r.data_saldo, r.note, r.creato_il, r.num_credito_rich, r.num_credito_dato, r.num_credito_dare, r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato, r.val_singolo_nc_rich, r.val_nc_rich, n.nominativo FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id ORDER BY COALESCE(r.creato_il, '') DESC, r.id DESC")
+            query = """
+                SELECT r.id, r.nominativo_id, r.tipo, r.data_operazione, r.mesi, r.scadenza,
+                       r.orario_scadenza, r.importo_acconto, r.importo_saldo, r.data_acconto,
+                       r.data_saldo, r.note, r.creato_il, r.num_credito_rich, r.num_credito_dato,
+                       r.num_credito_dare, r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato,
+                       r.val_singolo_nc_rich, r.val_nc_rich, n.nominativo
+                FROM rinnovi r
+                JOIN nominativi n ON n.id = r.nominativo_id
+                WHERE 1=1
+            """
+            params = []
+            if q and q.strip():
+                query += " AND LOWER(n.nominativo) LIKE %s"
+                params.append(f"%{q.strip().lower()}%")
+            query += " ORDER BY COALESCE(r.creato_il, '') DESC, r.id DESC"
+            cur.execute(query, params)
             return cur.fetchall()
     finally:
         conn.close()
+
+@app.get("/api/elenco_rinnovi")
+def api_elenco_rinnovi(q: str = "", request: Request = None):
+    get_current_user(request)
+    return _leggi_elenco_rinnovi(q)
+
+@app.get("/api/lista_rinnovi")
+def api_lista_rinnovi(q: str = "", request: Request = None):
+    get_current_user(request)
+    return _leggi_elenco_rinnovi(q)
 
 class RinnovoPayload(BaseModel):
     dati: dict
