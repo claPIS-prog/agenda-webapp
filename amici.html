@@ -56,6 +56,11 @@ select, input {
     cursor: pointer; margin-top: 5px;
 }
 .btn-save:disabled { background: #ccc; }
+.btn-cancel {
+    width: 100%; padding: 10px; background: #95a5a6; color: white;
+    border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+    cursor: pointer; margin-top: 8px; display: none;
+}
 
 /* LISTA (Layout Lista Contatti) */
 .list-container { padding-bottom: 20px; }
@@ -115,15 +120,16 @@ select, input {
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
             <label>ID Telegram / Utente</label>
-            <input type="number" id="inp-id" placeholder="ID numerico">
+            <input type="number" id="inp-id" placeholder="ID numerico" oninput="aggiornaStatoBottone()">
         </div>
         <div class="form-group">
             <label>Password Accesso</label>
-            <input type="text" id="inp-pass" placeholder="Password">
+            <input type="text" id="inp-pass" placeholder="Password" oninput="aggiornaStatoBottone()">
         </div>
     </div>
 
-    <button class="btn-save" id="btn-save" onclick="salvaAmico()" disabled>💾 Salva Amico</button>
+    <button type="button" class="btn-save" id="btn-save" onclick="salvaAmico()" disabled>💾 Salva Amico</button>
+    <button type="button" class="btn-cancel" id="btn-cancel" onclick="annullaModifica()">✖ Annulla Modifica</button>
 </div>
 
 <!-- LISTA AMICI (GRIGLIA) -->
@@ -140,25 +146,34 @@ document.documentElement.style.setProperty('--tg-theme-hint-color', tg.themePara
 document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color || '#f4f4f5');
 
 let allFriends = [];
-let selectedNominativoId = null;
+let allNominativi = [];
+let editingFriendId = null;
+
+function aggiornaStatoBottone() {
+    const selVal = document.getElementById('sel-nominativo').value;
+    const tgId = document.getElementById('inp-id').value.trim();
+    const pass = document.getElementById('inp-pass').value.trim();
+    const btn = document.getElementById('btn-save');
+
+    btn.disabled = !(editingFriendId || selVal || tgId || pass);
+}
 
 // 1. CARICA DROPDOWN NOMINATIVI
 async function init() {
     try {
-        // Carica dropdown da /api/nominativi
         const resNom = await fetch('/api/nominativi?nocache=' + Date.now());
         if (!resNom.ok) throw new Error('Errore caricamento nominativi');
-        const nominativi = await resNom.json();
+        allNominativi = await resNom.json();
         
         const select = document.getElementById('sel-nominativo');
-        nominativi.forEach(n => {
+        select.innerHTML = '<option value="">-- Cerca e seleziona --</option>';
+        allNominativi.forEach(n => {
             const opt = document.createElement('option');
             opt.value = n.id;
-            opt.textContent = n.nome;
+            opt.textContent = n.nominativo || n.nome || `ID ${n.id}`;
             select.appendChild(opt);
         });
 
-        // Carica lista amici esistente
         await caricaListaAmici();
         document.getElementById('loading').style.display = 'none';
     } catch (e) {
@@ -169,51 +184,71 @@ async function init() {
 // 2. QUANDO SELEZIONO UN NOMINATIVO
 async function caricaDatiAmico() {
     const id = document.getElementById('sel-nominativo').value;
-    selectedNominativoId = id ? parseInt(id) : null;
-    const btn = document.getElementById('btn-save');
     const inpId = document.getElementById('inp-id');
     const inpPass = document.getElementById('inp-pass');
 
+    aggiornaStatoBottone();
+
     if (!id) {
-        inpId.value = '';
-        inpPass.value = '';
-        btn.disabled = true;
+        if (!editingFriendId) {
+            inpId.value = '';
+            inpPass.value = '';
+        }
         return;
     }
 
-    btn.disabled = false;
-    inpId.value = ''; 
-    inpPass.value = '';
+    const select = document.getElementById('sel-nominativo');
+    const nomeSelezionato = select.options[select.selectedIndex].text;
 
-    // Cerca se esiste già in autorizzati
-    try {
-        const res = await fetch(`/api/amici/${id}?nocache=` + Date.now());
-        if (res.ok) {
-            const data = await res.json();
-            if (data.telegram_id) inpId.value = data.telegram_id;
-            if (data.password) inpPass.value = data.password;
-        }
-    } catch (e) { console.error(e); }
+    // Controlla se esiste già nella lista amici con lo stesso nome
+    const esistente = allFriends.find(f => (f.nome || '').trim().toLowerCase() === nomeSelezionato.trim().toLowerCase());
+    if (esistente) {
+        editingFriendId = esistente.id;
+        inpId.value = esistente.telegram_id || '';
+        inpPass.value = esistente.password || '';
+        document.getElementById('btn-save').textContent = '✏️ Aggiorna Amico';
+        document.getElementById('btn-cancel').style.display = 'block';
+    } else if (!editingFriendId) {
+        // Precompila eventuali credenziali presenti in nominativi se disponibili
+        const nomObj = allNominativi.find(n => String(n.id) === String(id));
+        inpId.value = (nomObj && nomObj.user_id) ? nomObj.user_id : '';
+        inpPass.value = (nomObj && nomObj.password) ? nomObj.password : '';
+    }
+    aggiornaStatoBottone();
 }
 
-// 3. SALVA AMICO
+function annullaModifica() {
+    editingFriendId = null;
+    document.getElementById('sel-nominativo').value = '';
+    document.getElementById('inp-id').value = '';
+    document.getElementById('inp-pass').value = '';
+    const btn = document.getElementById('btn-save');
+    btn.textContent = '💾 Salva Amico';
+    btn.disabled = true;
+    document.getElementById('btn-cancel').style.display = 'none';
+}
+
+// 3. SALVA O AGGIORNA AMICO
 async function salvaAmico() {
-    if (!selectedNominativoId) return;
-    
     const btn = document.getElementById('btn-save');
     btn.textContent = '⏳ Salvataggio...';
     btn.disabled = true;
 
     const select = document.getElementById('sel-nominativo');
-    const nome = select.options[select.selectedIndex].text;
-    const telegram_id = document.getElementById('inp-id').value;
-    const password = document.getElementById('inp-pass').value;
+    const nomeSelezionato = select.value ? select.options[select.selectedIndex].text : '';
+    const telegram_id = document.getElementById('inp-id').value.trim();
+    const password = document.getElementById('inp-pass').value.trim();
+
+    const vecchioNome = editingFriendId
+        ? (allFriends.find(f => Number(f.id) === Number(editingFriendId))?.nome || '')
+        : '';
 
     try {
         const payload = {
-            telegram_id: parseInt(selectedNominativoId), // Usiamo ID nominativo come PK
+            id: editingFriendId,
+            telegram_id: telegram_id ? parseInt(telegram_id, 10) : null,
             password: password,
-            nome: nome
+            nome: nomeSelezionato || vecchioNome
         };
 
         const res = await fetch('/api/salva_amico', {
@@ -224,19 +259,12 @@ async function salvaAmico() {
 
         if (!res.ok) throw new Error('Errore salvataggio');
 
-        // Reset form e ricarica lista
-        document.getElementById('sel-nominativo').value = "";
-        document.getElementById('inp-id').value = "";
-        document.getElementById('inp-pass').value = "";
-        selectedNominativoId = null;
-        btn.disabled = true;
-        btn.textContent = '💾 Salva Amico';
-        
+        annullaModifica();
         await caricaListaAmici();
         tg.showPopup({ title: '✅ Fatto', message: 'Amico salvato correttamente.' });
     } catch (e) {
         btn.disabled = false;
-        btn.textContent = '💾 Salva Amico';
+        btn.textContent = editingFriendId ? '✏️ Aggiorna Amico' : '💾 Salva Amico';
         tg.showPopup({ title: '❌ Errore', message: e.message });
     }
 }
@@ -267,16 +295,18 @@ function renderList(items) {
     items.forEach((item, index) => {
         const div = document.createElement('div');
         div.className = 'item';
+        const nomeVisibile = item.nome || item.nominativo || 'Sconosciuto';
+        const nomeSicuro = nomeVisibile.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         
         div.innerHTML = `
             <div class="number">${index + 1}</div>
             <div class="content">
-                <div class="name">${item.nome || 'Sconosciuto'}</div>
+                <div class="name">${nomeVisibile}</div>
                 <div class="subtitle">ID: ${item.telegram_id || '-'}</div>
             </div>
             <div class="actions">
-                <button class="btn-icon btn-edit" onclick="editFriend(${item.id})">✏️</button>
-                <button class="btn-icon btn-delete" onclick="deleteFriend(${item.id}, '${item.nome}')">🗑️</button>
+                <button type="button" class="btn-icon btn-edit" onclick="event.stopPropagation(); editFriend(${item.id})">✏️</button>
+                <button type="button" class="btn-icon btn-delete" onclick="event.stopPropagation(); deleteFriend(${item.id}, '${nomeSicuro}')">🗑️</button>
             </div>
         `;
         container.appendChild(div);
@@ -285,10 +315,24 @@ function renderList(items) {
 
 // Azioni Lista
 function editFriend(id) {
-    // Seleziona nella dropdown e carica dati
+    const amico = allFriends.find(f => Number(f.id) === Number(id));
+    if (!amico) return;
+
+    editingFriendId = amico.id;
+    document.getElementById('inp-id').value = amico.telegram_id || '';
+    document.getElementById('inp-pass').value = amico.password || '';
+
     const select = document.getElementById('sel-nominativo');
-    select.value = id;
-    caricaDatiAmico();
+    const matchOpt = Array.from(select.options).find(
+        o => o.text.trim().toLowerCase() === (amico.nome || '').trim().toLowerCase()
+    );
+    select.value = matchOpt ? matchOpt.value : '';
+
+    const btn = document.getElementById('btn-save');
+    btn.disabled = false;
+    btn.textContent = '✏️ Aggiorna Amico';
+    document.getElementById('btn-cancel').style.display = 'block';
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -298,6 +342,9 @@ async function deleteFriend(id, nome) {
         try {
             const res = await fetch(`/api/amici/${id}`, { method: 'DELETE' });
             if (!res.ok) throw new Error('Errore eliminazione');
+            if (Number(editingFriendId) === Number(id)) {
+                annullaModifica();
+            }
             await caricaListaAmici();
         } catch (e) {
             tg.showPopup({ title: 'Errore', message: e.message });
