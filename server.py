@@ -109,8 +109,66 @@ def api_amici(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, telegram_id, nome FROM autorizzati ORDER BY id")
+            cur.execute("""
+                SELECT a.id, a.telegram_id,
+                       COALESCE(a.nome, n.nominativo) AS nome,
+                       COALESCE(a.nome, n.nominativo) AS nominativo
+                FROM autorizzati a
+                LEFT JOIN nominativi n ON n.id = a.id
+                ORDER BY nome, a.id
+            """)
             return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/lista_permessi")
+def api_lista_permessi(q: str = "", request: Request = None):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            query = """
+                SELECT a.id, a.telegram_id,
+                       COALESCE(a.nome, n.nominativo, 'Utente #' || a.id::text) AS nome,
+                       COALESCE(a.nome, n.nominativo, 'Utente #' || a.id::text) AS nominativo
+                FROM autorizzati a
+                LEFT JOIN nominativi n ON n.id = a.id
+                WHERE 1=1
+            """
+            params = []
+            if q and q.strip():
+                query += " AND (LOWER(COALESCE(a.nome, n.nominativo, '')) LIKE %s OR CAST(a.telegram_id AS TEXT) LIKE %s)"
+                pattern = f"%{q.strip().lower()}%"
+                params.extend([pattern, pattern])
+            query += " ORDER BY nome, a.id"
+            cur.execute(query, params)
+            utenti = cur.fetchall()
+
+            cur.execute("SELECT user_id, modulo, attivo FROM permessi")
+            perm_rows = cur.fetchall()
+            perms_by_user = {}
+            for pr in perm_rows:
+                uid = pr["user_id"]
+                if uid not in perms_by_user:
+                    perms_by_user[uid] = {mod: False for mod in ALL_MODULES}
+                if pr["modulo"] in ALL_MODULES:
+                    perms_by_user[uid][pr["modulo"]] = bool(pr["attivo"])
+
+            risultato = []
+            for u in utenti:
+                uid = u["id"]
+                mappa = perms_by_user.get(uid, {mod: False for mod in ALL_MODULES})
+                attivi = [mod for mod, attivo in mappa.items() if attivo]
+                risultato.append({
+                    "id": uid,
+                    "telegram_id": u["telegram_id"],
+                    "nome": u["nome"],
+                    "nominativo": u["nominativo"],
+                    "permessi": mappa,
+                    "moduli_attivi": attivi,
+                    "totale_moduli_attivi": len(attivi)
+                })
+            return risultato
     finally:
         conn.close()
 
@@ -155,7 +213,7 @@ def api_get_permessi(user_id: int, request: Request):
         with conn.cursor() as cur:
             cur.execute("SELECT modulo, attivo FROM permessi WHERE user_id = %s", (user_id,))
             rows = cur.fetchall()
-            perms = {row["modulo"]: row["attivo"] for row in rows}
+            perms = {row["modulo"]: bool(row["attivo"]) for row in rows}
             for mod in ALL_MODULES:
                 if mod not in perms:
                     perms[mod] = False
@@ -175,7 +233,7 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
         with conn.cursor() as cur:
             for modulo, attivo in payload.permessi.items():
                 if modulo in ALL_MODULES:
-                    cur.execute("INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, %s) ON CONFLICT (user_id, modulo) DO UPDATE SET attivo = excluded.attivo", (payload.user_id, modulo, attivo))
+                    cur.execute("INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, %s) ON CONFLICT (user_id, modulo) DO UPDATE SET attivo = excluded.attivo", (payload.user_id, modulo, bool(attivo)))
         conn.commit()
     finally:
         conn.close()
@@ -814,7 +872,6 @@ def api_lista_crediti(data_da: str = "", data_a: str = "", fornitore_da: str = "
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # ACQUISTATO (dalla tabella crediti)
             query_acq = "SELECT SUM(quantita) as tot_qta, SUM(valore) as tot_val FROM crediti WHERE 1=1"
             params_acq = []
             if data_da:
@@ -835,7 +892,6 @@ def api_lista_crediti(data_da: str = "", data_a: str = "", fornitore_da: str = "
             tot_acq_qta = int(acquisto['tot_qta'] or 0)
             tot_acq_val = float(acquisto['tot_val'] or 0)
             
-            # VENDUTO (dalla tabella rinnovi - num_credito_dato)
             query_vend = """SELECT SUM(r.num_credito_dato) as tot_qta_vend, 
                 SUM(r.num_credito_dato * r.val_singolo_nc_rich) as tot_val_vend
                 FROM rinnovi r WHERE r.num_credito_dato > 0"""
@@ -852,7 +908,6 @@ def api_lista_crediti(data_da: str = "", data_a: str = "", fornitore_da: str = "
             tot_vend_qta = int(vendita['tot_qta_vend'] or 0)
             tot_vend_val = float(vendita['tot_val_vend'] or 0)
             
-            # SALDO
             saldo_qta = tot_acq_qta - tot_vend_qta
             saldo_val = tot_acq_val - tot_vend_val
             

@@ -158,7 +158,6 @@ function optSelectTipo(selected) {
     return html;
 }
 
-// --- RENDER CON CONTATORE ---
 function render(filter) {
     filter = (filter || '').toLowerCase();
     const f = contatti.filter(c => (c.nominativo || '').toLowerCase().includes(filter));
