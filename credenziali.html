@@ -2,230 +2,461 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Credenziali & File</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Files</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="/auth.js"></script>
 <style>
-body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-h2 { text-align: center; margin-top: 0; color: #333; }
-.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
-.counter-wrapper { text-align: center; }
-.btn-add { width: 100%; padding: 12px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; margin-bottom: 15px; }
-.btn-add:active { background: #388e3c; }
-.item { background: #f9f9f9; padding: 12px; margin: 8px 0; border-radius: 6px; border-left: 4px solid #0088cc; }
-.item strong { color: #222; font-size: 15px; display: block; margin-bottom: 4px; }
-.item small { color: #666; display: block; font-size: 13px; margin: 2px 0; word-break: break-all; }
-.item .scaduta { color: #c62828; font-weight: bold; }
-.item .valida { color: #2e7d32; font-weight: bold; }
-.item-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-.btn { padding: 6px 10px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: bold; flex: 1; text-align: center; text-decoration: none; display: inline-block; min-width: 0; }
-.btn-edit { background: #ff9800; color: white; }
-.btn-edit:active { background: #f57c00; }
-.btn-del { background: #f44336; color: white; }
-.btn-del:active { background: #d32f2f; }
-.btn-link { background: #0088cc; color: white; }
-.btn-link:active { background: #006699; }
-.empty { text-align: center; color: #888; padding: 30px; }
-.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+:root {
+    --tg-theme-bg-color: #ffffff;
+    --tg-theme-text-color: #000000;
+    --tg-theme-hint-color: #999999;
+    --tg-theme-link-color: #2481cc;
+    --tg-theme-button-color: #2481cc;
+    --tg-theme-button-text-color: #ffffff;
+    --tg-theme-secondary-bg-color: #f4f4f5;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--tg-theme-secondary-bg-color);
+    margin: 0;
+    padding: 0;
+    color: var(--tg-theme-text-color);
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* HEADER */
+.header {
+    background-color: var(--tg-theme-bg-color);
+    padding: 15px;
+    text-align: center;
+    border-bottom: 1px solid #e0e0e0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+.header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--tg-theme-text-color);
+}
+.total-badge {
+    display: inline-block;
+    background: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+    padding: 4px 14px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+/* BUTTONS */
+.btn-add {
+    width: calc(100% - 30px);
+    margin: 15px;
+    padding: 14px;
+    background: #27ae60;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.btn-add:active { background: #219a52; }
+
+/* LIST */
+.list-container { padding: 0 15px 20px; }
+.record-card {
+    background: var(--tg-theme-bg-color);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.record-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--tg-theme-text-color);
+}
+.record-subtitle {
+    font-size: 13px;
+    color: var(--tg-theme-link-color);
+    margin-bottom: 4px;
+    word-break: break-all;
+}
+.record-subtitle a {
+    color: var(--tg-theme-link-color);
+    text-decoration: none;
+}
+.record-meta {
+    font-size: 12px;
+    color: var(--tg-theme-hint-color);
+    margin-bottom: 10px;
+}
+.record-meta .expired { color: #e74c3c; font-weight: 600; }
+.record-meta .valid { color: #27ae60; font-weight: 600; }
+.record-actions {
+    display: flex;
+    gap: 8px;
+}
+.btn-action {
+    flex: 1;
+    padding: 9px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+.btn-action:active { opacity: 0.8; }
+.btn-open { background: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); }
+.btn-edit { background: #f39c12; color: white; }
+.btn-delete { background: #e74c3c; color: white; }
+
+/* MODAL */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+}
 .modal-overlay.active { display: flex; }
-.modal { background: white; border-radius: 10px; padding: 20px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
-.modal h3 { margin-top: 0; }
-.modal label { display: block; font-weight: bold; margin: 10px 0 4px; font-size: 13px; color: #555; }
-.modal input, .modal textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
-.modal input[readonly] { background: #f0f0f0; color: #666; }
-.modal textarea { resize: vertical; min-height: 60px; }
-.modal .row { display: flex; gap: 10px; }
-.modal .row > div { flex: 1; }
-.modal-actions { display: flex; gap: 10px; margin-top: 15px; }
-.modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
-.btn-save { background: #4caf50; color: white; }
-.btn-cancel { background: #9e9e9e; color: white; }
-.section-title { font-size: 12px; color: #0088cc; font-weight: bold; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e0e0e0; padding-bottom: 3px; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 6px; z-index: 200; opacity: 0; transition: opacity 0.3s; }
-.toast.show { opacity: 1; }
+.modal {
+    background: var(--tg-theme-bg-color);
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    border-radius: 16px 16px 0 0;
+    padding: 20px;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+.modal h3 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: var(--tg-theme-text-color);
+}
+.form-group { margin-bottom: 12px; }
+.form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tg-theme-hint-color);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+.form-group input, .form-group textarea, .form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--tg-theme-secondary-bg-color);
+    color: var(--tg-theme-text-color);
+    outline: none;
+}
+.form-group input:focus, .form-group textarea:focus {
+    border-color: var(--tg-theme-button-color);
+}
+.form-group textarea { min-height: 60px; resize: vertical; }
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+.modal-actions button {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-cancel { background: #e0e0e0; color: #555; }
+.btn-save { background: #27ae60; color: white; }
+
+/* EMPTY STATE */
+.empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--tg-theme-hint-color);
+}
+
+/* LOADING */
+#loading {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+    font-weight: bold;
+    color: var(--tg-theme-button-color);
+}
 </style>
 </head>
 <body>
-<div class="container">
-<h2>🔑 Credenziali & File</h2>
-<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
+
+<div id="loading">⏳ Caricamento...</div>
+
+<div class="header">
+    <h2>📁 Files</h2>
+    <div class="total-badge" id="total-badge">Totale: 0</div>
+</div>
+
 <button class="btn-add" onclick="apriModal()">➕ Aggiungi Record</button>
-<div id="lista"><div class="empty">Caricamento...</div></div>
+
+<div class="list-container" id="list-container"></div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+        <h3 id="modal-title">➕ Nuovo Record</h3>
+        
+        <div class="form-group">
+            <label>📄 File</label>
+            <input type="text" id="f-nome_file" placeholder="Nome file">
+        </div>
+        
+        <div class="form-group">
+            <label>Link Download</label>
+            <input type="text" id="f-link" placeholder="https://...">
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label>Scadenza Upload</label>
+                <input type="date" id="f-scadenza">
+            </div>
+            <div class="form-group">
+                <label>Percorso (URL API Delete)</label>
+                <input type="text" id="f-percorso" placeholder="https://...">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>🔐 Credenziali Servizio</label>
+            <input type="text" id="f-nominativo" placeholder="Nominativo (Servizio)">
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label>User-ID / API Key</label>
+                <input type="text" id="f-user_id" placeholder="User-ID">
+            </div>
+            <div class="form-group">
+                <label>Password / API Secret</label>
+                <input type="text" id="f-password" placeholder="Password">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>File Token (per cancellazione remota)</label>
+            <input type="text" id="f-file_token" placeholder="Token">
+        </div>
+        
+        <div class="form-group">
+            <label>📝 Note / Informazioni</label>
+            <textarea id="f-informazioni" placeholder="Informazioni aggiuntive..."></textarea>
+        </div>
+        
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="chiudiModal()">Annulla</button>
+            <button class="btn-save" onclick="salvaRecord()">💾 Salva</button>
+        </div>
+    </div>
 </div>
-
-<div class="modal-overlay" id="modal">
-<div class="modal">
-<h3 id="modal_titolo">➕ Nuovo Record</h3>
-
-<div class="section-title">📄 File</div>
-<label>Nome File</label>
-<input type="text" id="m_nome_file" placeholder="es. Tivuplay.apk">
-<label>Link Download</label>
-<input type="text" id="m_link" placeholder="https://ufile.io/...">
-<label>Scadenza Upload</label>
-<input type="date" id="m_scadenza">
-
-<div class="section-title">🔐 Credenziali Servizio</div>
-<label>Nominativo (Servizio)</label>
-<input type="text" id="m_nominativo" placeholder="es. Ufile.io">
-<label>Percorso (URL API Delete)</label>
-<input type="text" id="m_percorso" placeholder="https://api...">
-<div class="row">
-<div><label>User-ID / API Key</label><input type="text" id="m_user_id"></div>
-<div><label>Password / API Secret</label><input type="text" id="m_password"></div>
-</div>
-<label>File Token (per cancellazione remota)</label>
-<input type="text" id="m_file_token" placeholder="Token univoco del file">
-
-<div class="section-title">📝 Note</div>
-<label>Informazioni</label>
-<textarea id="m_informazioni" placeholder="Note aggiuntive..."></textarea>
-
-<div class="modal-actions">
-<button class="btn-cancel" onclick="chiudiModal()">Annulla</button>
-<button class="btn-save" onclick="salva()">Salva</button>
-</div>
-</div>
-</div>
-
-<div class="toast" id="toast"></div>
 
 <script>
-const tg = window.Telegram.WebApp; tg.expand();
+const tg = window.Telegram.WebApp;
+tg.expand();
 
-function getHeaders(contentType) {
-    const headers = {};
-    if (contentType) headers['Content-Type'] = contentType;
-    const initData = tg.initData;
-    if (initData) headers['X-Telegram-Init-Data'] = initData;
-    return headers;
-}
+document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#ffffff');
+document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#000000');
+document.documentElement.style.setProperty('--tg-theme-hint-color', tg.themeParams.hint_color || '#999999');
+document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color || '#f4f4f5');
 
-let items = []; let idModifica = null;
+let records = [];
+let editingId = null;
 
-async function carica() {
+async function caricaDati() {
     try {
-        const res = await fetch('/api/credenziali', { headers: getHeaders() });
-        if (!res.ok) {
-            if (res.status === 403) {
-                document.getElementById('lista').innerHTML = '<div class="error">⛔ Permesso negato.</div>';
-            } else {
-                document.getElementById('lista').innerHTML = '<div class="error">Errore: HTTP ' + res.status + '</div>';
-            }
-            return;
-        }
-        items = await res.json();
-        render();
+        const res = await fetch('/api/credenziali?nocache=' + Date.now());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        records = await res.json();
+        renderLista();
+        document.getElementById('loading').style.display = 'none';
     } catch (e) {
-        document.getElementById('lista').innerHTML = '<div class="error">Errore: ' + e.message + '</div>';
+        document.getElementById('list-container').innerHTML = 
+            `<div class="empty-state">❌ Errore: ${e.message}</div>`;
+        document.getElementById('loading').style.display = 'none';
     }
 }
 
-function render() {
-    aggiornaContatore(items.length);
-    if (items.length === 0) {
-        document.getElementById('lista').innerHTML = '<div class="empty">Nessun record salvato.</div>';
+function renderLista() {
+    const container = document.getElementById('list-container');
+    document.getElementById('total-badge').textContent = 'Totale: ' + records.length;
+    
+    if (records.length === 0) {
+        container.innerHTML = '<div class="empty-state">Nessun record. Clicca "Aggiungi Record" per iniziare.</div>';
         return;
     }
-    const oggi = new Date().toISOString().split('T')[0];
-    document.getElementById('lista').innerHTML = items.map(i => {
-        const data = i.creato_il ? new Date(i.creato_il).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
-        let scadenzaHtml = '';
-        if (i.scadenza) {
-            const classe = i.scadenza < oggi ? 'scaduta' : 'valida';
-            const icona = i.scadenza < oggi ? '⚠️' : '✅';
-            scadenzaHtml = '<small class="' + classe + '">' + icona + ' Scadenza Upload: ' + i.scadenza + '</small>';
-        }
-        return '<div class="item">' +
-            '<strong>' + (i.nome_file || i.nominativo || 'Senza nome') + (i.nominativo ? ' (' + i.nominativo + ')' : '') + '</strong>' +
-            (i.link ? '<small>Link: <a href="' + i.link + '" target="_blank" style="color:#0088cc;">' + i.link + '</a></small>' : '') +
-            scadenzaHtml +
-            '<small>Creato: ' + data + '</small>' +
-            (i.informazioni ? '<small>Note: ' + i.informazioni + '</small>' : '') +
-            '<div class="item-actions">' +
-            (i.link ? '<a href="' + i.link + '" target="_blank" class="btn btn-link">📥 Apri/Scarica</a>' : '') +
-            '<button class="btn btn-edit" onclick="apriModifica(' + i.id + ')">✏️ Modifica</button>' +
-            '<button class="btn btn-del" onclick="cancella(' + i.id + ')">🗑️ Cancella</button>' +
-            '</div></div>';
+    
+    container.innerHTML = records.map(r => {
+        const scaduta = r.scadenza && new Date(r.scadenza) < new Date();
+        const scadClass = scaduta ? 'expired' : 'valid';
+        const scadText = scaduta ? '⚠️ Scaduta' : '✅ Valida';
+        
+        return `
+        <div class="record-card">
+            <div class="record-title">${r.nome_file || 'Senza nome'}</div>
+            ${r.link ? `<div class="record-subtitle">Link: <a href="${r.link}" target="_blank">${r.link}</a></div>` : ''}
+            <div class="record-meta">
+                ${r.scadenza ? `<span class="${scadClass}">📅 Scadenza Upload: ${r.scadenza}</span> · ` : ''}
+                Creato: ${formatDate(r.creato_il)}
+                ${r.nominativo ? `<br>🔐 Servizio: <b>${r.nominativo}</b>` : ''}
+            </div>
+            <div class="record-actions">
+                ${r.link ? `<button class="btn-action btn-open" onclick="window.open('${r.link}','_blank')">📥 Apri/Scarica</button>` : ''}
+                <button class="btn-action btn-edit" onclick="modificaRecord(${r.id})">✏️ Modifica</button>
+                <button class="btn-action btn-delete" onclick="cancellaRecord(${r.id})">🗑️ Cancella</button>
+            </div>
+        </div>
+        `;
     }).join('');
 }
 
-function aggiornaContatore(totale) { document.getElementById('counter').textContent = 'Totale: ' + totale; }
-
-function apriModal() {
-    idModifica = null;
-    document.getElementById('modal_titolo').textContent = '➕ Nuovo Record';
-    document.getElementById('m_nome_file').value = '';
-    document.getElementById('m_link').value = '';
-    document.getElementById('m_scadenza').value = '';
-    document.getElementById('m_nominativo').value = '';
-    document.getElementById('m_percorso').value = '';
-    document.getElementById('m_user_id').value = '';
-    document.getElementById('m_password').value = '';
-    document.getElementById('m_file_token').value = '';
-    document.getElementById('m_informazioni').value = '';
-    document.getElementById('modal').classList.add('active');
+function formatDate(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    return d.toLocaleDateString('it-IT') + ', ' + d.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
 }
 
-function apriModifica(id) {
-    const i = items.find(x => x.id === id); if (!i) return;
-    idModifica = id;
-    document.getElementById('modal_titolo').textContent = '✏️ Modifica Record';
-    document.getElementById('m_nome_file').value = i.nome_file || '';
-    document.getElementById('m_link').value = i.link || '';
-    document.getElementById('m_scadenza').value = i.scadenza || '';
-    document.getElementById('m_nominativo').value = i.nominativo || '';
-    document.getElementById('m_percorso').value = i.percorso || '';
-    document.getElementById('m_user_id').value = i.user_id || '';
-    document.getElementById('m_password').value = i.password || '';
-    document.getElementById('m_file_token').value = i.file_token || '';
-    document.getElementById('m_informazioni').value = i.informazioni || '';
-    document.getElementById('modal').classList.add('active');
+function apriModal(id = null) {
+    editingId = id;
+    document.getElementById('modal-title').textContent = id ? '✏️ Modifica Record' : '➕ Nuovo Record';
+    
+    if (id) {
+        const r = records.find(x => x.id === id);
+        if (r) {
+            document.getElementById('f-nome_file').value = r.nome_file || '';
+            document.getElementById('f-link').value = r.link || '';
+            document.getElementById('f-scadenza').value = r.scadenza || '';
+            document.getElementById('f-percorso').value = r.percorso || '';
+            document.getElementById('f-nominativo').value = r.nominativo || '';
+            document.getElementById('f-user_id').value = r.user_id || '';
+            document.getElementById('f-password').value = r.password || '';
+            document.getElementById('f-file_token').value = r.file_token || '';
+            document.getElementById('f-informazioni').value = r.informazioni || '';
+        }
+    } else {
+        ['f-nome_file','f-link','f-scadenza','f-percorso','f-nominativo','f-user_id','f-password','f-file_token','f-informazioni']
+            .forEach(id => document.getElementById(id).value = '');
+    }
+    
+    document.getElementById('modal-overlay').classList.add('active');
 }
 
-function chiudiModal() { document.getElementById('modal').classList.remove('active'); idModifica = null; }
+function chiudiModal() {
+    document.getElementById('modal-overlay').classList.remove('active');
+    editingId = null;
+}
 
-async function salva() {
+async function salvaRecord() {
     const dati = {
-        nome_file: document.getElementById('m_nome_file').value.trim(),
-        link: document.getElementById('m_link').value.trim(),
-        scadenza: document.getElementById('m_scadenza').value,
-        nominativo: document.getElementById('m_nominativo').value.trim(),
-        percorso: document.getElementById('m_percorso').value.trim(),
-        user_id: document.getElementById('m_user_id').value.trim(),
-        password: document.getElementById('m_password').value.trim(),
-        file_token: document.getElementById('m_file_token').value.trim(),
-        informazioni: document.getElementById('m_informazioni').value.trim()
+        nome_file: document.getElementById('f-nome_file').value,
+        link: document.getElementById('f-link').value,
+        scadenza: document.getElementById('f-scadenza').value,
+        percorso: document.getElementById('f-percorso').value,
+        nominativo: document.getElementById('f-nominativo').value,
+        user_id: document.getElementById('f-user_id').value,
+        password: document.getElementById('f-password').value,
+        file_token: document.getElementById('f-file_token').value,
+        informazioni: document.getElementById('f-informazioni').value
     };
-    if (!dati.nominativo && !dati.nome_file) { mostraToast('⚠️ Inserisci almeno Nominativo o Nome File'); return; }
     
     try {
-        const url = idModifica ? '/api/credenziali/' + idModifica : '/api/credenziali';
-        const method = idModifica ? 'PUT' : 'POST';
-        const res = await fetch(url, { method: method, headers: getHeaders('application/json'), body: JSON.stringify({ dati: dati }) });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        chiudiModal(); mostraToast('✅ Salvato'); await carica();
-    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
+        let res;
+        if (editingId) {
+            res = await fetch(`/api/credenziali/${editingId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dati })
+            });
+        } else {
+            res = await fetch('/api/credenziali', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dati })
+            });
+        }
+        
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'HTTP ' + res.status);
+        }
+        
+        chiudiModal();
+        await caricaDati();
+        tg.showPopup({ title: '✅ Salvato', message: 'Record salvato con successo.' });
+    } catch (e) {
+        tg.showPopup({ title: '❌ Errore', message: e.message });
+    }
 }
 
-async function cancella(id) {
-    const i = items.find(x => x.id === id); if (!i) return;
-    if (!confirm('Cancellare "' + (i.nome_file || i.nominativo) + '"?\n\nQuesto tenterà di eliminarlo anche dal servizio remoto (se configurato).')) return;
-    try {
-        const res = await fetch('/api/credenziali/' + id, { method: 'DELETE', headers: getHeaders() });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        mostraToast('🗑️ Cancellato'); await carica();
-    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
+function modificaRecord(id) {
+    apriModal(id);
 }
 
-function mostraToast(msg) {
-    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2000);
+async function cancellaRecord(id) {
+    const r = records.find(x => x.id === id);
+    tg.showConfirm(`Eliminare il record "${r?.nome_file || id}"?`, async (ok) => {
+        if (!ok) return;
+        try {
+            const res = await fetch(`/api/credenziali/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || 'HTTP ' + res.status);
+            }
+            await caricaDati();
+            tg.showPopup({ title: '✅ Eliminato', message: 'Record rimosso.' });
+        } catch (e) {
+            tg.showPopup({ title: '❌ Errore', message: e.message });
+        }
+    });
 }
-carica();
+
+// Chiudi modal cliccando fuori
+document.getElementById('modal-overlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) chiudiModal();
+});
+
+caricaDati();
 </script>
 </body>
 </html>
