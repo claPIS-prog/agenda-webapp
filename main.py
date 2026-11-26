@@ -416,7 +416,7 @@ def api_elenco_rinnovi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT r.id, r.nominativo_id, r.tipo, r.data_operazione, r.mesi, r.scadenza, r.orario_scadenza, r.importo_acconto, r.importo_saldo, r.data_acconto, r.data_saldo, r.note, r.creato_il, r.num_credito_rich, r.num_credito_dato, r.num_credito_dare, r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato, r.val_singolo_nc_rich, r.val_nc_rich, n.nominativo FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id ORDER BY r.creato_il DESC")
+            cur.execute("SELECT r.id, r.nominativo_id, r.tipo, r.data_operazione, r.mesi, r.scadenza, r.orario_scadenza, r.importo_acconto, r.importo_saldo, r.data_acconto, r.data_saldo, r.note, r.creato_il, r.num_credito_rich, r.num_credito_dato, r.num_credito_dare, r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato, r.val_singolo_nc_rich, r.val_nc_rich, n.nominativo FROM rinnovi r JOIN nominativi n ON n.id = r.nominativo_id ORDER BY COALESCE(r.creato_il, '') DESC, r.id DESC")
             return cur.fetchall()
     finally:
         conn.close()
@@ -460,7 +460,7 @@ def api_saldo_rinnovi(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT s.id, s.rinnovo_id, s.num_credito_saldo, s.data_credito_rinnovo_saldo, s.val_nc_dato, s.val_nc_saldo, s.informazioni_note, s.creato_il, r.num_credito_rich, r.num_credito_dato, r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato, r.val_nc_rich, r.val_singolo_nc_rich, n.nominativo FROM saldo_rinnovi s JOIN rinnovi r ON r.id = s.rinnovo_id JOIN nominativi n ON n.id = r.nominativo_id ORDER BY s.creato_il DESC")
+            cur.execute("SELECT s.id, s.rinnovo_id, s.num_credito_saldo, s.data_credito_rinnovo_saldo, s.val_nc_dato, s.val_nc_saldo, s.informazioni_note, s.creato_il, r.num_credito_rich, r.num_credito_dato, r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato, r.val_nc_rich, r.val_singolo_nc_rich, n.nominativo FROM saldo_rinnovi s JOIN rinnovi r ON r.id = s.rinnovo_id JOIN nominativi n ON n.id = r.nominativo_id ORDER BY COALESCE(s.creato_il, '') DESC, s.id DESC")
             return cur.fetchall()
     finally:
         conn.close()
@@ -661,7 +661,7 @@ def api_note(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT n.id, n.nominativo_id, n.messaggio, n.creato_il, nom.nominativo FROM note n JOIN nominativi nom ON nom.id = n.nominativo_id ORDER BY n.creato_il DESC")
+            cur.execute("SELECT n.id, n.nominativo_id, n.messaggio, n.creato_il, nom.nominativo FROM note n JOIN nominativi nom ON nom.id = n.nominativo_id ORDER BY COALESCE(n.creato_il, '') DESC, n.id DESC")
             return cur.fetchall()
     finally: conn.close()
 
@@ -698,7 +698,7 @@ def api_credenziali(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nominativo, nome_file, link, percorso, user_id, password, file_token, scadenza, informazioni, creato_il FROM credenziali ORDER BY creato_il DESC")
+            cur.execute("SELECT id, nominativo, nome_file, link, percorso, user_id, password, file_token, scadenza, informazioni, creato_il FROM credenziali ORDER BY COALESCE(creato_il, '') DESC, id DESC")
             return cur.fetchall()
     finally: conn.close()
 
@@ -882,7 +882,7 @@ def api_calcoli(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM calcoli ORDER BY creato_il DESC")
+            cur.execute("SELECT * FROM calcoli ORDER BY COALESCE(creato_il, '') DESC, id DESC")
             return cur.fetchall()
     finally:
         conn.close()
@@ -998,7 +998,7 @@ def api_crediti(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM crediti ORDER BY data_acquisto DESC")
+            cur.execute("SELECT * FROM crediti ORDER BY COALESCE(data_acquisto, '') DESC, id DESC")
             return cur.fetchall()
     finally:
         conn.close()
