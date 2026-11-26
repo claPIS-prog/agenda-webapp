@@ -83,9 +83,9 @@ input:checked + .slider:before { transform: translateX(24px); }
                 <span class="btn-icon">📋</span>
                 <span class="btn-label">Lista Permessi</span>
             </button>
-            <button class="grid-btn" onclick="apriFiles()">
-                <span class="btn-icon">📁</span>
-                <span class="btn-label">Files</span>
+            <button class="grid-btn" onclick="apriAmici()">
+                <span class="btn-icon">👥</span>
+                <span class="btn-label">Amici</span>
             </button>
         </div>
         <button class="btn-close" onclick="chiudi()">🚪 Chiudi</button>
@@ -166,8 +166,8 @@ function apriSezione(tab) {
     }
 }
 
-function apriFiles() {
-    window.location.href = 'credenziali.html?t=' + Date.now();
+function apriAmici() {
+    window.location.href = 'amici.html?t=' + Date.now();
 }
 
 function tornaMenu() {
