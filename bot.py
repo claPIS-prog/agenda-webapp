@@ -40,7 +40,7 @@ def get_main_keyboard():
          KeyboardButton("📋 Lista Rinnovi", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/lista_rinnovi.html?t={ts}"))],
          
         [KeyboardButton("💬 Nota", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/note.html?t={ts}")),
-         KeyboardButton("🔑 Credenziali", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/credenziali.html?t={ts}")),
+         KeyboardButton("📁 Files", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/credenziali.html?t={ts}")),
          KeyboardButton("🗂️ Tabelle", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/tabelle.html?t={ts}"))],
          
        [KeyboardButton("🔐 Sicurezza", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/sicurezza.html?t={ts}")),
