@@ -7,86 +7,44 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #f4f4f5;
-    color: #333;
-    padding: 20px 15px;
-}
-.container { max-width: 500px; margin: 0 auto; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; padding: 15px; }
 
-/* HEADER */
-.header { text-align: center; margin-bottom: 20px; }
-.header .icon { font-size: 36px; margin-bottom: 8px; }
-.header h2 { font-size: 22px; font-weight: 700; color: #2c3e50; margin-bottom: 4px; }
-.header .subtitle { font-size: 14px; color: #888; }
-
-/* GRIGLIA BOTTONI */
-.grid {
+.menu-buttons {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 }
-.grid-btn {
-    background: white;
-    border: 1px solid #e0e0e0;
+.menu-btn {
+    padding: 16px 10px;
+    border: none;
     border-radius: 12px;
-    padding: 20px 10px;
+    background: #e0e0e0;
+    color: #555;
+    font-size: 14px;
+    font-weight: 700;
     cursor: pointer;
+    transition: all 0.2s;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    transition: all 0.2s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    gap: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
-.grid-btn:active {
-    transform: scale(0.97);
-    background: #f0f0f0;
+.menu-btn .icon { font-size: 24px; }
+.menu-btn.active {
+    background: #3498db;
+    color: white;
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
 }
-.grid-btn .btn-icon { font-size: 32px; }
-.grid-btn .btn-label { font-size: 14px; font-weight: 600; color: #333; text-align: center; }
 
-/* PULSANTE CHIUDI */
-.btn-close {
-    width: 100%;
-    padding: 14px;
-    background: #e0e0e0;
-    color: #555;
-    border: none;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    margin-top: 10px;
-}
-.btn-close:active { background: #d0d0d0; }
-
-/* SEZIONI INTERNE (nascoste di default) */
-.section { display: none; padding: 15px 0; }
+.section { display: none; }
 .section.active { display: block; }
 
-/* BACK BUTTON */
-.btn-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    margin-bottom: 15px;
-}
-.btn-back:active { background: #f0f0f0; }
-
-/* FORM GESTIONE */
+.container { max-width: 600px; margin: 0 auto; }
 .form-group { margin-bottom: 15px; }
 label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #555; }
-select, input[type="date"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white; }
+select, input[type="date"], input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white; }
 .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .module-list { margin-top: 20px; }
 .module-item {
@@ -116,7 +74,6 @@ input:checked + .slider:before { transform: translateX(24px); }
 .error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; }
 .success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; }
 
-/* LISTA PERMESSI */
 .list-header {
     display: flex;
     justify-content: space-between;
@@ -221,32 +178,18 @@ input:checked + .slider:before { transform: translateX(24px); }
 <div id="loading">⏳ Caricamento...</div>
 
 <div class="container">
-
-    <!-- MENU PRINCIPALE (layout Contabilità) -->
-    <div id="menu-principale">
-        <div class="header">
-            <div class="icon">🔐</div>
-            <h2>Sicurezza</h2>
-            <div class="subtitle">Gestione permessi e accessi</div>
-        </div>
-
-        <div class="grid">
-            <button class="grid-btn" onclick="apriSezione('gestione')">
-                <span class="btn-icon">⚙️</span>
-                <span class="btn-label">Gestione Permessi</span>
-            </button>
-            <button class="grid-btn" onclick="apriSezione('lista')">
-                <span class="btn-icon">📋</span>
-                <span class="btn-label">Lista Permessi</span>
-            </button>
-        </div>
-
-        <button class="btn-close" onclick="chiudi()">🚪 Chiudi</button>
+    <div class="menu-buttons">
+        <button class="menu-btn active" id="btn-gestione" onclick="switchTab('gestione')">
+            <span class="icon">⚙️</span>
+            <span>Gestione</span>
+        </button>
+        <button class="menu-btn" id="btn-lista" onclick="switchTab('lista')">
+            <span class="icon">📋</span>
+            <span>Lista Permessi</span>
+        </button>
     </div>
 
-    <!-- SEZIONE GESTIONE -->
-    <div id="section-gestione" class="section">
-        <button class="btn-back" onclick="tornaMenu()">← Indietro</button>
+    <div id="section-gestione" class="section active">
         <div class="form-group">
             <label for="utente-select">Seleziona Nominativo:</label>
             <select id="utente-select" onchange="caricaPermessi()">
@@ -273,9 +216,7 @@ input:checked + .slider:before { transform: translateX(24px); }
         <div class="success-msg" id="success-msg"></div>
     </div>
 
-    <!-- SEZIONE LISTA -->
     <div id="section-lista" class="section">
-        <button class="btn-back" onclick="tornaMenu()">← Indietro</button>
         <div class="list-header">
             <div class="list-title">📋 Lista Permessi</div>
             <div class="total-badge" id="total-badge">Totale: 0</div>
@@ -286,7 +227,6 @@ input:checked + .slider:before { transform: translateX(24px); }
         </div>
         <div id="listContainer"></div>
     </div>
-
 </div>
 
 <script>
@@ -316,32 +256,20 @@ const MODULE_LABELS = {
 let permessiCorrenti = {};
 let listaPermessi = [];
 
-// NAVIGAZIONE
-function apriSezione(tab) {
-    document.getElementById('menu-principale').style.display = 'none';
+function switchTab(tab) {
+    document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     
     if (tab === 'gestione') {
+        document.getElementById('btn-gestione').classList.add('active');
         document.getElementById('section-gestione').classList.add('active');
-        if (document.getElementById('utente-select').options.length <= 1) {
-            caricaUtenti();
-        }
     } else {
+        document.getElementById('btn-lista').classList.add('active');
         document.getElementById('section-lista').classList.add('active');
         if (listaPermessi.length === 0) caricaLista();
     }
 }
 
-function tornaMenu() {
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    document.getElementById('menu-principale').style.display = 'block';
-}
-
-function chiudi() {
-    tg.close();
-}
-
-// ==================== GESTIONE PERMESSI ====================
 async function caricaUtenti() {
     try {
         const res = await fetch('/api/amici?nocache=' + Date.now());
@@ -463,7 +391,6 @@ async function salvaPermessi() {
     }
 }
 
-// ==================== LISTA PERMESSI ====================
 async function caricaLista() {
     try {
         const res = await fetch('/api/lista_permessi?nocache=' + Date.now());
@@ -525,8 +452,7 @@ function renderLista(items) {
 }
 
 async function modificaPermessi(userId, nome) {
-    tornaMenu();
-    apriSezione('gestione');
+    switchTab('gestione');
     
     const select = document.getElementById('utente-select');
     select.value = userId;
@@ -598,7 +524,7 @@ function hideMessages() {
     document.getElementById('success-msg').style.display = 'none';
 }
 
-document.getElementById('loading').style.display = 'none';
+caricaUtenti();
 </script>
 </body>
 </html>
