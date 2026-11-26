@@ -5,16 +5,40 @@ from models import AzionePayload
 
 router = APIRouter()
 
+
+def _row_to_dict(cur, row):
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row
+    cols = [desc[0] for desc in cur.description]
+    return dict(zip(cols, row))
+
+
+def _rows_to_dicts(cur, rows):
+    if not rows:
+        return []
+    if isinstance(rows[0], dict):
+        return rows
+    cols = [desc[0] for desc in cur.description]
+    return [dict(zip(cols, r)) for r in rows]
+
+
 @router.get("/api/nominativi")
 def api_nominativi(request: Request):
     get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, nominativo, tipo FROM nominativi ORDER BY nominativo")
-            return cur.fetchall()
+            cur.execute("""
+                SELECT id, nominativo, nominativo AS nome, tipo, user_id, password
+                FROM nominativi
+                ORDER BY nominativo
+            """)
+            return _rows_to_dicts(cur, cur.fetchall())
     finally:
         conn.close()
+
 
 @router.get("/api/contatti")
 def api_contatti(request: Request):
@@ -31,9 +55,82 @@ def api_contatti(request: Request):
                 FROM nominativi 
                 ORDER BY nominativo
             """)
-            return cur.fetchall()
+            return _rows_to_dicts(cur, cur.fetchall())
     finally:
         conn.close()
+
+
+# -------------------------------------------------
+# ENDPOINT GESTIONE AMICI (TABELLA autorizzati)
+# -------------------------------------------------
+@router.get("/api/amici")
+def api_amici(request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, telegram_id, password, nome FROM autorizzati ORDER BY id DESC")
+            return _rows_to_dicts(cur, cur.fetchall())
+    finally:
+        conn.close()
+
+
+@router.get("/api/amici/{amico_id}")
+def api_amico_dettaglio(amico_id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, telegram_id, password, nome FROM autorizzati WHERE id = %s", (amico_id,))
+            row = _row_to_dict(cur, cur.fetchone())
+            if not row:
+                return {"id": None, "telegram_id": None, "password": "", "nome": ""}
+            return row
+    finally:
+        conn.close()
+
+
+@router.post("/api/salva_amico")
+async def api_salva_amico(request: Request):
+    get_current_user(request)
+    payload = await request.json()
+    amico_id = payload.get("id")
+    telegram_id = payload.get("telegram_id")
+    password = payload.get("password", "")
+    nome = payload.get("nome", "")
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            if amico_id:
+                cur.execute("""
+                    UPDATE autorizzati
+                    SET telegram_id = %s, password = %s, nome = %s
+                    WHERE id = %s
+                """, (telegram_id, password, nome, amico_id))
+            else:
+                cur.execute("""
+                    INSERT INTO autorizzati (telegram_id, password, nome)
+                    VALUES (%s, %s, %s)
+                """, (telegram_id, password, nome))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+
+@router.delete("/api/amici/{amico_id}")
+def api_elimina_amico(amico_id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM autorizzati WHERE id = %s", (amico_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
 
 @router.post("/api/azione")
 def api_azione(payload: AzionePayload, request: Request):
@@ -134,15 +231,3 @@ def api_azione(payload: AzionePayload, request: Request):
                     cur.execute("""
                         INSERT INTO saldo_rinnovi (rinnovo_id, data_credito_rinnovo_saldo)
                         VALUES (%s, %s)
-                        ON CONFLICT (rinnovo_id) DO UPDATE 
-                        SET data_credito_rinnovo_saldo = EXCLUDED.data_credito_rinnovo_saldo
-                    """, (rinnovo_id, data_saldo))
-                    cur.execute("UPDATE rinnovi SET num_credito_dare = 0 WHERE id = %s", (rinnovo_id,))
-
-            else:
-                print(f"[ATTENZIONE] Azione non gestita: {azione}")
-        
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
