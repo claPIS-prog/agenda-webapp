@@ -7,12 +7,8 @@ from datetime import datetime
 
 router = APIRouter()
 
-# -----------------------------------------------------------------------------
-# 1. DROPDOWN GESTIONE (tutti i nominativi)
-# -----------------------------------------------------------------------------
 @router.get("/api/amici")
 def api_amici(request: Request):
-    """Restituisce tutti i nominativi per la dropdown di gestione."""
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -21,12 +17,8 @@ def api_amici(request: Request):
     finally:
         conn.close()
 
-# -----------------------------------------------------------------------------
-# 2. LISTA PERMESSI (SOLO nominativi con permessi attivi)
-# -----------------------------------------------------------------------------
 @router.get("/api/lista_permessi")
 def api_lista_permessi(request: Request):
-    """Restituisce solo i nominativi che hanno almeno un permesso attivo."""
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -56,9 +48,6 @@ def api_lista_permessi(request: Request):
     finally:
         conn.close()
 
-# -----------------------------------------------------------------------------
-# 3. GET PERMESSI + DATE
-# -----------------------------------------------------------------------------
 @router.get("/api/permessi/{user_id}")
 def api_get_permessi(user_id: int, request: Request):
     conn = db_conn()
@@ -93,9 +82,6 @@ def api_get_permessi(user_id: int, request: Request):
     finally:
         conn.close()
 
-# -----------------------------------------------------------------------------
-# 4. SALVA PERMESSI + DATE
-# -----------------------------------------------------------------------------
 @router.post("/api/salva_permessi")
 def api_salva_permessi(payload: PermessiPayload, request: Request):
     get_current_user(request)
@@ -141,9 +127,6 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
         conn.close()
     return {"ok": True}
 
-# -----------------------------------------------------------------------------
-# 5. ELIMINA PERMESSI
-# -----------------------------------------------------------------------------
 @router.delete("/api/permessi/{user_id}")
 def api_elimina_permessi(user_id: int, request: Request):
     get_current_user(request)
@@ -155,4 +138,66 @@ def api_elimina_permessi(user_id: int, request: Request):
             return {"ok": True}
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@router.post("/api/aggiungi_amico")
+def api_aggiungi_amico(payload: AmicoPayload, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO autorizzati (telegram_id, password, nome)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (telegram_id) DO UPDATE SET
+                    password = excluded.password,
+                    nome = excluded.nome
+                RETURNING id
+            """, (payload.telegram_id, payload.password, payload.nome))
+            new_id = cur.fetchone()["id"]
+            for mod in ALL_MODULES:
+                cur.execute("""
+                    INSERT INTO permessi (user_id, modulo, attivo)
+                    VALUES (%s, %s, FALSE)
+                    ON CONFLICT (user_id, modulo) DO NOTHING
+                """, (new_id, mod))
+            conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+@router.put("/api/amici/{amico_id}")
+def api_modifica_amico(amico_id: int, payload: AmicoPayload, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE autorizzati SET 
+                    telegram_id = %s, 
+                    password = %s, 
+                    nome = %s 
+                WHERE id = %s
+            """, (payload.telegram_id, payload.password, payload.nome, amico_id))
+            conn.commit()
+            return {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@router.delete("/api/rimuovi_amico/{amico_id}")
+def api_rimuovi_amico(amico_id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM permessi WHERE user_id = %s", (amico_id,))
+            cur.execute("DELETE FROM autorizzati WHERE id = %s", (amico_id,))
+            conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
