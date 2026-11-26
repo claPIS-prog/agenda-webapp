@@ -28,7 +28,7 @@ ALL_MODULES = [
     "nominativo", "lista", "scadenze", "rinnovi", "storico_rinnovi",
     "saldo_rinnovi", "reseller", "procuratori", "server", "nota",
     "credenziali", "permessi", "dispositivi", "sistemi_op", "buffett",
-    "pagamenti", "operatori_it", "tabelle", "crediti", "calcoli"
+    "pagamenti", "operatori_it", "tabelle", "crediti", "calcoli", "ingressi"
 ]
 
 def get_current_user(request: Request):
@@ -88,6 +88,17 @@ def init_db():
                 totale_generale REAL DEFAULT 0, note TEXT, creato_il TEXT
             )""")
             cur.execute("CREATE TABLE IF NOT EXISTS crediti (id SERIAL PRIMARY KEY, data_acquisto TEXT, fornitore TEXT, modalita_pagamento TEXT, quantita INTEGER DEFAULT 0, valore REAL DEFAULT 0, note TEXT, creato_il TEXT)")
+            cur.execute("""CREATE TABLE IF NOT EXISTS ingressi (
+                id SERIAL PRIMARY KEY,
+                nominativo TEXT NOT NULL,
+                data_ingresso TEXT NOT NULL,
+                data_uscita TEXT NOT NULL,
+                tempo INTEGER DEFAULT 0,
+                form_visualizzato TEXT DEFAULT '',
+                posizione TEXT DEFAULT '',
+                note TEXT DEFAULT '',
+                creato_il TEXT
+            )""")
             for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),("procuratore","TEXT"),("apk_utilizzata","TEXT"),("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),("data_fine","TEXT"),("informazioni","TEXT"),("tipo_linea","TEXT")]:
                 cur.execute(f"ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS {col} {typ}")
             cur.execute("ALTER TABLE autorizzati ADD COLUMN IF NOT EXISTS note TEXT")
@@ -115,6 +126,40 @@ def estrai_dati(body: Any) -> dict:
             return merged
         return body
     return {}
+
+def _parse_data_it(val: str) -> datetime | None:
+    if not val:
+        return None
+    s = str(val).strip()
+    for fmt in (
+        "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%Y %H:%M",
+        "%d/%m/%Y",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+    ):
+        try:
+            return datetime.strptime(s, fmt)
+        except Exception:
+            pass
+    return None
+
+def _format_data_it(dt: datetime | None, fallback: str = "") -> str:
+    if dt is not None:
+        return dt.strftime("%d/%m/%Y")
+    return str(fallback or "").strip()
+
+def _calcola_tempo_minuti(dt_in: datetime | None, dt_out: datetime | None, fornito: Any = None) -> int:
+    if dt_in is not None and dt_out is not None:
+        diff_min = int(round((dt_out - dt_in).total_seconds() / 60.0))
+        return max(0, diff_min)
+    if fornito not in (None, ""):
+        try:
+            return max(0, int(round(float(fornito))))
+        except Exception:
+            pass
+    return 0
 
 # === PERMESSI / AMICI ===
 @app.get("/api/amici")
@@ -504,7 +549,18 @@ def _elenco_saldo_rinnovi():
     finally:
         conn.close()
 
-def _salva_saldo_rinnovo(dati: dict):
+async def _salva_saldo_rinnovo_da_request(request: Request):
+    dati: dict = {}
+    if request.method in ("POST", "PUT", "PATCH"):
+        try:
+            body = await request.json()
+            dati = estrai_dati(body)
+        except Exception:
+            dati = {}
+    for k, v in request.query_params.items():
+        if k not in dati:
+            dati[k] = v
+
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -563,9 +619,10 @@ def api_saldo_rinnovi(request: Request):
     return _elenco_saldo_rinnovi()
 
 @app.post("/api/saldo_rinnovi")
+@app.put("/api/saldo_rinnovi")
 async def api_saldo_rinnovi_post(request: Request):
     get_current_user(request)
-    return _salva_saldo_rinnovo(estrai_dati(await request.json()))
+    return await _salva_saldo_rinnovo_da_request(request)
 
 @app.get("/api/rinnovi_per_saldo")
 def api_rinnovi_per_saldo(request: Request):
@@ -578,13 +635,25 @@ def api_rinnovi_per_saldo(request: Request):
     finally:
         conn.close()
 
-@app.post("/api/saldo_rinnovo")
-@app.put("/api/saldo_rinnovo")
-@app.post("/api/rinnovi/saldo")
-@app.post("/api/crediti_saldo")
+@app.api_route("/api/saldo_rinnovo", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/api/rinnovi/saldo", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/api/crediti_saldo", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def api_saldo_rinnovo_nuovo(request: Request):
     get_current_user(request)
-    return _salva_saldo_rinnovo(estrai_dati(await request.json()))
+    if request.method == "GET":
+        return _elenco_saldo_rinnovi()
+    if request.method == "DELETE":
+        id_raw = request.query_params.get("id")
+        if id_raw:
+            conn = db_conn()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM saldo_rinnovi WHERE id = %s", (int(id_raw),))
+                conn.commit()
+            finally:
+                conn.close()
+        return {"ok": True}
+    return await _salva_saldo_rinnovo_da_request(request)
 
 @app.delete("/api/saldo_rinnovo/{id}")
 def api_saldo_rinnovo_cancella(id: int, request: Request):
@@ -593,6 +662,88 @@ def api_saldo_rinnovo_cancella(id: int, request: Request):
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM saldo_rinnovi WHERE id = %s", (id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+# === INGRESSI ===
+def _leggi_ingressi(nominativo: str = ""):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            query = """
+                SELECT id, nominativo, data_ingresso, data_uscita, tempo,
+                       form_visualizzato, posizione, note, creato_il
+                FROM ingressi
+                WHERE 1=1
+            """
+            params = []
+            if nominativo and nominativo.strip():
+                query += " AND LOWER(TRIM(nominativo)) = LOWER(TRIM(%s))"
+                params.append(nominativo.strip())
+            query += " ORDER BY COALESCE(creato_il, '') DESC, id DESC"
+            cur.execute(query, params)
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/api/ingressi")
+def api_ingressi(nominativo: str = "", q: str = "", request: Request = None):
+    get_current_user(request)
+    filtro = nominativo.strip() if nominativo and nominativo.strip() else (q.strip() if q and q.strip() else "")
+    return _leggi_ingressi(filtro)
+
+@app.get("/api/ingressi/dettaglio")
+def api_ingressi_dettaglio(nominativo: str = "", request: Request = None):
+    get_current_user(request)
+    return _leggi_ingressi(nominativo)
+
+@app.post("/api/ingressi")
+async def api_ingressi_nuovo(request: Request):
+    get_current_user(request)
+    d = estrai_dati(await request.json())
+    nominativo = str(d.get("nominativo", "") or "").strip()
+    if not nominativo:
+        raise HTTPException(status_code=400, detail="Nominativo obbligatorio")
+
+    raw_in = d.get("data_ingresso", d.get("DataIngresso", ""))
+    raw_out = d.get("data_uscita", d.get("DataUscita", ""))
+    dt_in = _parse_data_it(raw_in)
+    dt_out = _parse_data_it(raw_out)
+
+    data_ingresso = _format_data_it(dt_in, raw_in)
+    data_uscita = _format_data_it(dt_out, raw_out)
+    tempo_minuti = _calcola_tempo_minuti(dt_in, dt_out, d.get("tempo", d.get("Tempo")))
+    form_vis = str(d.get("form_visualizzato", d.get("FormVisualizzato", "")) or "").strip()
+    posizione = str(d.get("posizione", d.get("Posizione", "")) or "").strip()
+    note_val = str(d.get("note", d.get("Note", "")) or "").strip()
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO ingressi
+                    (nominativo, data_ingresso, data_uscita, tempo, form_visualizzato, posizione, note, creato_il)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                RETURNING id
+            """, (nominativo, data_ingresso, data_uscita, tempo_minuti, form_vis, posizione, note_val, datetime.now().isoformat()))
+            new_id = cur.fetchone()["id"]
+        conn.commit()
+        return {"ok": True, "id": new_id, "tempo": tempo_minuti}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.delete("/api/ingressi/{id}")
+def api_ingressi_cancella(id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM ingressi WHERE id = %s", (id,))
         conn.commit()
     finally:
         conn.close()

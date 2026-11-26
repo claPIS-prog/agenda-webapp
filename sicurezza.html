@@ -8,12 +8,12 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; padding: 20px 15px; }
-.container { max-width: 500px; margin: 0 auto; }
+.container { max-width: 560px; margin: 0 auto; }
 .header { text-align: center; margin-bottom: 20px; }
 .header .icon { font-size: 36px; margin-bottom: 8px; }
 .header h2 { font-size: 22px; font-weight: 700; color: #2c3e50; margin-bottom: 4px; }
 .header .subtitle { font-size: 14px; color: #888; }
-.grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
 .grid-btn {
     background: white; border: 1px solid #e0e0e0; border-radius: 12px;
     padding: 18px 8px; cursor: pointer; display: flex; flex-direction: column;
@@ -28,9 +28,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .section.active { display: block; }
 .btn-back { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 15px; }
 .btn-back:active { background: #f0f0f0; }
-.form-group { margin-bottom: 15px; }
+.form-card { background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.form-card-title { font-size: 16px; font-weight: 700; color: #2c3e50; margin-bottom: 12px; }
+.form-group { margin-bottom: 12px; }
 label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #555; }
-select, input[type="date"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white; }
+select, input[type="date"], input[type="text"], input[type="number"], textarea {
+    width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white; color: #222;
+}
+textarea { min-height: 70px; resize: vertical; }
 .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .module-list { margin-top: 20px; }
 .module-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; background: white; }
@@ -41,21 +46,27 @@ select, input[type="date"] { width: 100%; padding: 10px; border: 1px solid #ddd;
 .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
 input:checked + .slider { background-color: #27ae60; }
 input:checked + .slider:before { transform: translateX(24px); }
-.btn-save { width: 100%; padding: 14px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 20px; }
+.btn-save { width: 100%; padding: 13px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
 .btn-save:disabled { background: #95a5a6; cursor: not-allowed; }
+.btn-filter { padding: 10px 14px; background: #0088cc; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn-reset { padding: 10px 12px; background: #e5e7eb; color: #333; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; }
 .success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; }
-.list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .list-title { font-size: 18px; font-weight: 700; color: #2c3e50; }
 .total-badge { background: #3498db; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; }
-.search-box { position: relative; margin-bottom: 15px; }
-.search-box input { width: 100%; padding: 10px 10px 10px 35px; border-radius: 10px; border: 1px solid #e0e0e0; background: white; font-size: 16px; outline: none; }
+.search-box { position: relative; margin-bottom: 12px; }
+.search-box input { width: 100%; padding: 10px 10px 10px 35px; border-radius: 10px; border: 1px solid #e0e0e0; background: white; font-size: 15px; outline: none; }
 .search-box .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #888; font-size: 14px; pointer-events: none; }
+.filter-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+.filter-row select { flex: 1; }
 .list-item { background: white; padding: 10px 12px; border-bottom: 1px solid #efeff4; display: flex; align-items: center; gap: 10px; }
+.list-item:first-child { border-top-left-radius: 10px; border-top-right-radius: 10px; }
+.list-item:last-child { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; border-bottom: none; }
 .list-item .number { font-weight: 700; font-size: 15px; color: #888; min-width: 22px; text-align: right; flex-shrink: 0; }
 .list-item .info { flex-grow: 1; overflow: hidden; }
 .list-item .name { font-weight: 600; font-size: 15px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.list-item .subtitle { font-size: 13px; color: #999; }
+.list-item .subtitle { font-size: 12px; color: #666; line-height: 1.35; }
 .list-item .modules { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
 .list-item .module-tag { font-size: 10px; padding: 2px 6px; border-radius: 8px; background: #e3f2fd; color: #1565c0; font-weight: 500; }
 .list-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
@@ -64,7 +75,7 @@ input:checked + .slider:before { transform: translateX(24px); }
 .btn-info { background: #0088cc; color: white; }
 .btn-edit { background: #f39c12; color: white; }
 .btn-delete { background: #e74c3c; color: white; }
-.empty-state { text-align: center; padding: 40px 20px; color: #999; }
+.empty-state { text-align: center; padding: 30px 20px; color: #999; background: white; border-radius: 12px; border: 1px solid #e0e0e0; }
 
 /* MODALE DETTAGLI */
 .modal-overlay {
@@ -77,7 +88,7 @@ input:checked + .slider:before { transform: translateX(24px); }
 .modal {
     background: #ffffff; color: #333333;
     border-radius: 12px; padding: 25px;
-    width: 100%; max-width: 450px; max-height: 85vh;
+    width: 100%; max-width: 480px; max-height: 85vh;
     overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
     position: relative;
 }
@@ -88,7 +99,7 @@ input:checked + .slider:before { transform: translateX(24px); }
 }
 .info-grid { display: grid; grid-template-columns: 1fr; gap: 8px; font-size: 14px; }
 .info-row { display: flex; border-bottom: 1px solid #f0f0f0; padding-bottom: 6px; }
-.info-label { font-weight: bold; color: #555555; width: 130px; flex-shrink: 0; }
+.info-label { font-weight: bold; color: #555555; width: 145px; flex-shrink: 0; }
 .info-value { color: #222222; word-break: break-word; flex-grow: 1; }
 .info-section-title {
     font-size: 12px; color: #0088cc; font-weight: bold;
@@ -101,6 +112,8 @@ input:checked + .slider:before { transform: translateX(24px); }
     background: none; border: none; font-size: 24px;
     color: #999999; cursor: pointer; line-height: 1;
 }
+.history-box { margin-top: 14px; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+.history-item { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -109,7 +122,7 @@ input:checked + .slider:before { transform: translateX(24px); }
         <div class="header">
             <div class="icon">🔐</div>
             <h2>Sicurezza</h2>
-            <div class="subtitle">Gestione permessi e accessi</div>
+            <div class="subtitle">Gestione permessi, accessi e ingressi</div>
         </div>
         <div class="grid">
             <button type="button" class="grid-btn" onclick="apriSezione('gestione')">
@@ -120,6 +133,10 @@ input:checked + .slider:before { transform: translateX(24px); }
                 <span class="btn-icon">📋</span>
                 <span class="btn-label">Lista Permessi</span>
             </button>
+            <button type="button" class="grid-btn" onclick="apriSezione('ingressi')">
+                <span class="btn-icon">🚪</span>
+                <span class="btn-label">Ingressi</span>
+            </button>
             <button type="button" class="grid-btn" onclick="apriAmici()">
                 <span class="btn-icon">👥</span>
                 <span class="btn-label">Amici</span>
@@ -127,6 +144,7 @@ input:checked + .slider:before { transform: translateX(24px); }
         </div>
         <button type="button" class="btn-close" onclick="chiudi()">🚪 Chiudi</button>
     </div>
+
     <div id="section-gestione" class="section">
         <button type="button" class="btn-back" onclick="tornaMenu()">← Indietro</button>
         <div class="form-group">
@@ -154,6 +172,7 @@ input:checked + .slider:before { transform: translateX(24px); }
         <div class="error-msg" id="error-msg"></div>
         <div class="success-msg" id="success-msg"></div>
     </div>
+
     <div id="section-lista" class="section">
         <button type="button" class="btn-back" onclick="tornaMenu()">← Indietro</button>
         <div class="list-header">
@@ -166,6 +185,62 @@ input:checked + .slider:before { transform: translateX(24px); }
         </div>
         <div id="listContainer"></div>
     </div>
+
+    <div id="section-ingressi" class="section">
+        <button type="button" class="btn-back" onclick="tornaMenu()">← Indietro</button>
+        <div class="form-card">
+            <div class="form-card-title">🚪 Nuovo Ingresso</div>
+            <div class="form-group">
+                <label for="ingresso-nominativo">Nominativo:</label>
+                <input type="text" id="ingresso-nominativo" list="listaNominativiDatalist" placeholder="Inserisci o seleziona nominativo...">
+                <datalist id="listaNominativiDatalist"></datalist>
+            </div>
+            <div class="date-row">
+                <div class="form-group">
+                    <label for="ingresso-data-in">DataIngresso (GG/MM/AAAA):</label>
+                    <input type="text" id="ingresso-data-in" placeholder="GG/MM/AAAA" maxlength="10" oninput="aggiornaTempoIngresso()">
+                </div>
+                <div class="form-group">
+                    <label for="ingresso-data-out">DataUscita (GG/MM/AAAA):</label>
+                    <input type="text" id="ingresso-data-out" placeholder="GG/MM/AAAA" maxlength="10" oninput="aggiornaTempoIngresso()">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="ingresso-tempo">Tempo (differenza in minuti tra DataIngresso e DataUscita):</label>
+                <input type="number" id="ingresso-tempo" min="0" value="0" readonly>
+            </div>
+            <div class="date-row">
+                <div class="form-group">
+                    <label for="ingresso-form-vis">FormVisualizzato:</label>
+                    <input type="text" id="ingresso-form-vis" placeholder="Es. Sicurezza / Lista Rinnovi">
+                </div>
+                <div class="form-group">
+                    <label for="ingresso-posizione">Posizione:</label>
+                    <input type="text" id="ingresso-posizione" placeholder="Es. Menu / Dettaglio">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="ingresso-note">Note / Dettaglio:</label>
+                <textarea id="ingresso-note" placeholder="Eventuali note sull'ingresso..."></textarea>
+            </div>
+            <button type="button" class="btn-save" id="btn-salva-ingresso" onclick="salvaIngresso()">💾 Salva Ingresso</button>
+            <div class="error-msg" id="ingressi-error-msg"></div>
+            <div class="success-msg" id="ingressi-success-msg"></div>
+        </div>
+
+        <div class="list-header">
+            <div class="list-title">📌 Registro Ingressi</div>
+            <div class="total-badge" id="ingressi-total-badge">Totale: 0</div>
+        </div>
+        <div class="filter-row">
+            <select id="filtro-nominativo-ingressi">
+                <option value="">Tutti i Nominativi</option>
+            </select>
+            <button type="button" class="btn-filter" onclick="applicaFiltroIngressi()">Filtra</button>
+            <button type="button" class="btn-reset" onclick="resetFiltroIngressi()">Reset</button>
+        </div>
+        <div id="ingressiListContainer"></div>
+    </div>
 </div>
 
 <!-- MODALE DETTAGLI PERMESSI -->
@@ -177,6 +252,15 @@ input:checked + .slider:before { transform: translateX(24px); }
     </div>
 </div>
 
+<!-- MODALE NOTE / DETTAGLIO INGRESSO (FILTRATO PER NOMINATIVO) -->
+<div class="modal-overlay" id="ingressoDettaglioModal" onclick="chiudiIngressoDettaglioOverlay(event)">
+    <div class="modal">
+        <button type="button" class="close-modal" onclick="chiudiIngressoDettaglio()">×</button>
+        <h3>📝 Note / Dettaglio Ingresso</h3>
+        <div id="ingressoDettaglioContent"></div>
+    </div>
+</div>
+
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
@@ -184,7 +268,7 @@ const ALL_MODULES = [
     "nominativo", "lista", "scadenze", "rinnovi", "storico_rinnovi",
     "saldo_rinnovi", "reseller", "procuratori", "server", "nota",
     "credenziali", "permessi", "dispositivi", "sistemi_op", "buffett",
-    "pagamenti", "operatori_it", "tabelle", "crediti", "calcoli"
+    "pagamenti", "operatori_it", "tabelle", "crediti", "calcoli", "ingressi"
 ];
 const MODULE_LABELS = {
     "nominativo": "📝 Nominativo", "lista": "📋 Lista",
@@ -196,10 +280,13 @@ const MODULE_LABELS = {
     "dispositivi": "📱 Dispositivi", "sistemi_op": "⚙️ Sistemi",
     "buffett": "🍽️ Buffett", "pagamenti": "💳 Pagamenti",
     "operatori_it": "📡 Operatori", "tabelle": "🗂️ Tabelle",
-    "crediti": "💎 Crediti", "calcoli": "📊 Calcoli"
+    "crediti": "💎 Crediti", "calcoli": "📊 Calcoli",
+    "ingressi": "🚪 Ingressi"
 };
 let permessiCorrenti = {};
 let listaPermessi = [];
+let listaIngressi = [];
+let elencoNominativi = [];
 
 function apriSezione(tab) {
     document.getElementById('menu-principale').style.display = 'none';
@@ -207,6 +294,11 @@ function apriSezione(tab) {
     if (tab === 'gestione') {
         document.getElementById('section-gestione').classList.add('active');
         if (document.getElementById('utente-select').options.length <= 1) caricaUtenti();
+    } else if (tab === 'ingressi') {
+        document.getElementById('section-ingressi').classList.add('active');
+        inizializzaDateIngressi();
+        caricaNominativiPerIngressi();
+        caricaIngressi();
     } else {
         document.getElementById('section-lista').classList.add('active');
         caricaLista();
@@ -223,6 +315,312 @@ function tornaMenu() {
 }
 
 function chiudi() { tg.close(); }
+
+function formattaDataItaliana(dateObj) {
+    const d = dateObj || new Date();
+    const gg = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const aaaa = d.getFullYear();
+    return `${gg}/${mm}/${aaaa}`;
+}
+
+function parseDataItaliana(strVal) {
+    if (!strVal) return null;
+    const pulita = String(strVal).trim();
+    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(pulita);
+    if (!match) return null;
+    const giorno = parseInt(match[1], 10);
+    const mese = parseInt(match[2], 10);
+    const anno = parseInt(match[3], 10);
+    if (mese < 1 || mese > 12 || giorno < 1 || giorno > 31) return null;
+    const dt = new Date(anno, mese - 1, giorno, 0, 0, 0, 0);
+    if (dt.getFullYear() !== anno || dt.getMonth() !== (mese - 1) || dt.getDate() !== giorno) {
+        return null;
+    }
+    return dt;
+}
+
+function calcolaDifferenzaMinuti(dataInStr, dataOutStr) {
+    const dtIn = parseDataItaliana(dataInStr);
+    const dtOut = parseDataItaliana(dataOutStr);
+    if (!dtIn || !dtOut) return 0;
+    const diffMs = dtOut.getTime() - dtIn.getTime();
+    if (diffMs <= 0) return 0;
+    return Math.round(diffMs / 60000);
+}
+
+function aggiornaTempoIngresso() {
+    const inVal = document.getElementById('ingresso-data-in').value;
+    const outVal = document.getElementById('ingresso-data-out').value;
+    document.getElementById('ingresso-tempo').value = calcolaDifferenzaMinuti(inVal, outVal);
+}
+
+function inizializzaDateIngressi() {
+    const inEl = document.getElementById('ingresso-data-in');
+    const outEl = document.getElementById('ingresso-data-out');
+    const oggiIt = formattaDataItaliana(new Date());
+    if (!inEl.value.trim()) inEl.value = oggiIt;
+    if (!outEl.value.trim()) outEl.value = oggiIt;
+    aggiornaTempoIngresso();
+}
+
+async function caricaNominativiPerIngressi() {
+    try {
+        const res = await fetch('/api/nominativi?nocache=' + Date.now());
+        if (!res.ok) return;
+        const rows = await res.json();
+        const nomiUnici = [...new Set(
+            (Array.isArray(rows) ? rows : [])
+                .map(r => (r.nominativo || r.nome || '').trim())
+                .filter(Boolean)
+        )];
+        elencoNominativi = nomiUnici;
+
+        const dl = document.getElementById('listaNominativiDatalist');
+        dl.innerHTML = '';
+        nomiUnici.forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = n;
+            dl.appendChild(opt);
+        });
+    } catch (e) {}
+}
+
+function aggiornaSelectFiltroNominativi(items) {
+    const sel = document.getElementById('filtro-nominativo-ingressi');
+    const valoreAttuale = sel.value;
+    const nomiDaIngressi = (Array.isArray(items) ? items : [])
+        .map(it => (it.nominativo || '').trim())
+        .filter(Boolean);
+    const tuttiNomi = [...new Set([...elencoNominativi, ...nomiDaIngressi])].sort((a, b) => a.localeCompare(b, 'it'));
+
+    sel.innerHTML = '<option value="">Tutti i Nominativi</option>';
+    tuttiNomi.forEach(nome => {
+        const opt = document.createElement('option');
+        opt.value = nome;
+        opt.textContent = nome;
+        sel.appendChild(opt);
+    });
+    if (valoreAttuale && tuttiNomi.includes(valoreAttuale)) {
+        sel.value = valoreAttuale;
+    }
+}
+
+async function caricaIngressi(nominativoFiltro = null) {
+    const sel = document.getElementById('filtro-nominativo-ingressi');
+    const filtro = nominativoFiltro !== null ? nominativoFiltro : (sel ? sel.value : '');
+    try {
+        const url = filtro
+            ? `/api/ingressi?nominativo=${encodeURIComponent(filtro)}&nocache=` + Date.now()
+            : '/api/ingressi?nocache=' + Date.now();
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const dati = await res.json();
+        listaIngressi = Array.isArray(dati) ? dati : [];
+        if (!filtro) {
+            aggiornaSelectFiltroNominativi(listaIngressi);
+        } else {
+            aggiornaSelectFiltroNominativi([...listaIngressi, ...(sel.value ? [{ nominativo: sel.value }] : [])]);
+            sel.value = filtro;
+        }
+        document.getElementById('ingressi-total-badge').textContent = 'Totale: ' + listaIngressi.length;
+        renderIngressi(listaIngressi);
+    } catch (e) {
+        document.getElementById('ingressiListContainer').innerHTML = `<div class="empty-state">Errore caricamento ingressi: ${e.message}</div>`;
+    }
+}
+
+function applicaFiltroIngressi() {
+    const nom = document.getElementById('filtro-nominativo-ingressi').value;
+    caricaIngressi(nom);
+}
+
+function resetFiltroIngressi() {
+    document.getElementById('filtro-nominativo-ingressi').value = '';
+    caricaIngressi('');
+}
+
+async function salvaIngresso() {
+    const nominativo = document.getElementById('ingresso-nominativo').value.trim();
+    const dataIngresso = document.getElementById('ingresso-data-in').value.trim();
+    const dataUscita = document.getElementById('ingresso-data-out').value.trim();
+    const formVisualizzato = document.getElementById('ingresso-form-vis').value.trim();
+    const posizione = document.getElementById('ingresso-posizione').value.trim();
+    const note = document.getElementById('ingresso-note').value.trim();
+
+    if (!nominativo) {
+        mostraErroreIngressi('Inserisci il Nominativo.');
+        return;
+    }
+    if (!parseDataItaliana(dataIngresso)) {
+        mostraErroreIngressi('DataIngresso non valida: usa il formato GG/MM/AAAA.');
+        return;
+    }
+    if (!parseDataItaliana(dataUscita)) {
+        mostraErroreIngressi('DataUscita non valida: usa il formato GG/MM/AAAA.');
+        return;
+    }
+
+    const tempoMinuti = calcolaDifferenzaMinuti(dataIngresso, dataUscita);
+    document.getElementById('ingresso-tempo').value = tempoMinuti;
+
+    const btn = document.getElementById('btn-salva-ingresso');
+    btn.disabled = true;
+    btn.textContent = '⏳ Salvataggio...';
+    try {
+        const res = await fetch('/api/ingressi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                dati: {
+                    nominativo,
+                    data_ingresso: dataIngresso,
+                    data_uscita: dataUscita,
+                    tempo: tempoMinuti,
+                    form_visualizzato: formVisualizzato,
+                    posizione,
+                    note
+                }
+            })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'HTTP ' + res.status);
+        }
+        mostraSuccessoIngressi('✅ Ingresso salvato!');
+        document.getElementById('ingresso-note').value = '';
+        await caricaIngressi(document.getElementById('filtro-nominativo-ingressi').value);
+        setTimeout(() => nascondiMessaggiIngressi(), 3000);
+    } catch (e) {
+        mostraErroreIngressi('❌ ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Salva Ingresso';
+    }
+}
+
+function renderIngressi(items) {
+    const container = document.getElementById('ingressiListContainer');
+    container.innerHTML = '';
+    if (!items || items.length === 0) {
+        container.innerHTML = '<div class="empty-state">Nessun ingresso registrato.</div>';
+        return;
+    }
+    items.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        const nom = item.nominativo || 'Sconosciuto';
+        const dIn = item.data_ingresso || '-';
+        const dOut = item.data_uscita || '-';
+        const tempo = Number(item.tempo || 0);
+        const formVis = item.form_visualizzato || '-';
+        const pos = item.posizione || '-';
+        const nomSicuro = nom.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+        div.innerHTML = `
+            <div class="number">${index + 1}</div>
+            <div class="info">
+                <div class="name">${nom}</div>
+                <div class="subtitle">
+                    Ingresso: <strong>${dIn}</strong> — Uscita: <strong>${dOut}</strong> — Tempo: <strong>${tempo} min</strong><br>
+                    FormVisualizzato: ${formVis} | Posizione: ${pos}
+                </div>
+            </div>
+            <div class="actions">
+                <button type="button" class="btn-action btn-info" onclick="event.stopPropagation(); apriNoteDettaglioIngresso('${nomSicuro}', ${item.id})" title="Note / Dettaglio per Nominativo">📝</button>
+                <button type="button" class="btn-action btn-delete" onclick="event.stopPropagation(); eliminaIngresso(${item.id}, '${nomSicuro}')" title="Cancella">🗑️</button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+async function apriNoteDettaglioIngresso(nominativo, ingressoId) {
+    let filtratiPerNominativo = listaIngressi.filter(
+        it => (it.nominativo || '').trim().toLowerCase() === String(nominativo || '').trim().toLowerCase()
+    );
+    try {
+        const res = await fetch(`/api/ingressi/dettaglio?nominativo=${encodeURIComponent(nominativo)}&nocache=` + Date.now());
+        if (res.ok) {
+            const rows = await res.json();
+            if (Array.isArray(rows)) filtratiPerNominativo = rows;
+        }
+    } catch (e) {}
+
+    const target = filtratiPerNominativo.find(it => Number(it.id) === Number(ingressoId)) || filtratiPerNominativo[0] || {};
+    const v = (val) => (val !== undefined && val !== null && String(val).trim() !== '') ? val : '-';
+
+    let html = '<div class="info-grid">';
+    html += '<div class="info-section-title">Dettaglio Ingresso Selezionato</div>';
+    html += `<div class="info-row"><div class="info-label">Nominativo:</div><div class="info-value">${v(nominativo)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">DataIngresso:</div><div class="info-value">${v(target.data_ingresso)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">DataUscita:</div><div class="info-value">${v(target.data_uscita)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Tempo:</div><div class="info-value">${Number(target.tempo || 0)} min</div></div>`;
+    html += `<div class="info-row"><div class="info-label">FormVisualizzato:</div><div class="info-value">${v(target.form_visualizzato)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Posizione:</div><div class="info-value">${v(target.posizione)}</div></div>`;
+    html += '<div class="info-section-title">Note / Dettaglio</div>';
+    html += `<div class="info-row" style="flex-direction:column;"><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;">${v(target.note)}</div></div>`;
+    html += '</div>';
+
+    html += `<div class="history-box"><div class="info-section-title">Storico filtrato per Nominativo (${filtratiPerNominativo.length})</div>`;
+    filtratiPerNominativo.forEach(r => {
+        html += `<div class="history-item">
+            <div><strong>${v(r.data_ingresso)} → ${v(r.data_uscita)}</strong> (${Number(r.tempo || 0)} min)</div>
+            <div>Form: ${v(r.form_visualizzato)} | Posizione: ${v(r.posizione)}</div>
+            <div>Note: ${v(r.note)}</div>
+        </div>`;
+    });
+    html += '</div>';
+
+    document.getElementById('ingressoDettaglioContent').innerHTML = html;
+    document.getElementById('ingressoDettaglioModal').classList.add('active');
+}
+
+function chiudiIngressoDettaglio() {
+    document.getElementById('ingressoDettaglioModal').classList.remove('active');
+}
+
+function chiudiIngressoDettaglioOverlay(event) {
+    if (event.target && event.target.id === 'ingressoDettaglioModal') {
+        chiudiIngressoDettaglio();
+    }
+}
+
+function eliminaIngresso(id, nominativo) {
+    tg.showConfirm(`Cancellare l'ingresso di:\n${nominativo}?`, async (ok) => {
+        if (!ok) return;
+        try {
+            const res = await fetch(`/api/ingressi/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || 'HTTP ' + res.status);
+            }
+            await caricaIngressi(document.getElementById('filtro-nominativo-ingressi').value);
+            tg.showPopup({ title: '✅ Cancellato', message: `Ingresso di ${nominativo} eliminato.` });
+        } catch (e) {
+            tg.showPopup({ title: '❌ Errore', message: e.message });
+        }
+    });
+}
+
+function mostraErroreIngressi(msg) {
+    const el = document.getElementById('ingressi-error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+    document.getElementById('ingressi-success-msg').style.display = 'none';
+}
+
+function mostraSuccessoIngressi(msg) {
+    const el = document.getElementById('ingressi-success-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+    document.getElementById('ingressi-error-msg').style.display = 'none';
+}
+
+function nascondiMessaggiIngressi() {
+    document.getElementById('ingressi-error-msg').style.display = 'none';
+    document.getElementById('ingressi-success-msg').style.display = 'none';
+}
 
 async function caricaUtenti() {
     try {
