@@ -59,7 +59,7 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS servers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS resellers (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS procuratori (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL)")
-            cur.execute("CREATE TABLE IF NOT EXISTS autorizzati (id SERIAL PRIMARY KEY, telegram_id BIGINT UNIQUE NOT NULL, password TEXT NOT NULL, nome TEXT)")
+            cur.execute("CREATE TABLE IF NOT EXISTS autorizzati (id SERIAL PRIMARY KEY, telegram_id BIGINT UNIQUE NOT NULL, password TEXT NOT NULL, nome TEXT, note TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS dispositivi (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS sistemi_operativi (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS buffett (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
@@ -89,6 +89,7 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS crediti (id SERIAL PRIMARY KEY, data_acquisto TEXT, fornitore TEXT, modalita_pagamento TEXT, quantita INTEGER DEFAULT 0, valore REAL DEFAULT 0, note TEXT, creato_il TEXT)")
             for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),("procuratore","TEXT"),("apk_utilizzata","TEXT"),("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),("data_fine","TEXT"),("informazioni","TEXT"),("tipo_linea","TEXT")]:
                 cur.execute(f"ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS {col} {typ}")
+            cur.execute("ALTER TABLE autorizzati ADD COLUMN IF NOT EXISTS note TEXT")
             cur.execute("SELECT id FROM autorizzati")
             for u in cur.fetchall():
                 for mod in ALL_MODULES:
@@ -110,9 +111,10 @@ def api_amici(request: Request):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT a.id, a.telegram_id,
+                SELECT a.id, a.telegram_id, a.password,
                        COALESCE(a.nome, n.nominativo) AS nome,
-                       COALESCE(a.nome, n.nominativo) AS nominativo
+                       COALESCE(a.nome, n.nominativo) AS nominativo,
+                       COALESCE(a.note, '') AS note
                 FROM autorizzati a
                 LEFT JOIN nominativi n ON n.id = a.id
                 ORDER BY nome, a.id
@@ -130,7 +132,8 @@ def api_lista_permessi(q: str = "", request: Request = None):
             query = """
                 SELECT a.id, a.telegram_id,
                        COALESCE(a.nome, n.nominativo, 'Utente #' || a.id::text) AS nome,
-                       COALESCE(a.nome, n.nominativo, 'Utente #' || a.id::text) AS nominativo
+                       COALESCE(a.nome, n.nominativo, 'Utente #' || a.id::text) AS nominativo,
+                       COALESCE(a.note, '') AS note
                 FROM autorizzati a
                 LEFT JOIN nominativi n ON n.id = a.id
                 WHERE 1=1
@@ -164,6 +167,7 @@ def api_lista_permessi(q: str = "", request: Request = None):
                     "telegram_id": u["telegram_id"],
                     "nome": u["nome"],
                     "nominativo": u["nominativo"],
+                    "note": u.get("note", ""),
                     "permessi": mappa,
                     "moduli_attivi": attivi,
                     "totale_moduli_attivi": len(attivi)
@@ -173,9 +177,61 @@ def api_lista_permessi(q: str = "", request: Request = None):
         conn.close()
 
 class AmicoPayload(BaseModel):
-    telegram_id: int
-    password: str
-    nome: str
+    id: int | None = None
+    telegram_id: int | None = None
+    password: str = ""
+    nome: str = ""
+    note: str = ""
+
+@app.post("/api/salva_amico")
+def api_salva_amico(payload: AmicoPayload, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            target_id = payload.id if payload.id is not None else payload.telegram_id
+            if target_id is None:
+                raise HTTPException(status_code=400, detail="ID utente mancante")
+
+            tg_id = payload.telegram_id if payload.telegram_id is not None else target_id
+            cur.execute("SELECT id, note FROM autorizzati WHERE id = %s OR telegram_id = %s", (target_id, tg_id))
+            exists = cur.fetchone()
+
+            if exists:
+                record_id = exists["id"]
+                cur.execute("""
+                    UPDATE autorizzati SET
+                        telegram_id = %s,
+                        password = %s,
+                        nome = COALESCE(NULLIF(%s, ''), nome),
+                        note = %s
+                    WHERE id = %s
+                """, (tg_id, payload.password, payload.nome, payload.note, record_id))
+            else:
+                cur.execute("""
+                    INSERT INTO autorizzati (id, telegram_id, password, nome, note)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (target_id, tg_id, payload.password, payload.nome, payload.note))
+                record_id = cur.fetchone()["id"]
+
+                for mod in ALL_MODULES:
+                    cur.execute("""
+                        INSERT INTO permessi (user_id, modulo, attivo)
+                        VALUES (%s, %s, FALSE)
+                        ON CONFLICT (user_id, modulo) DO NOTHING
+                    """, (record_id, mod))
+
+            conn.commit()
+            return {"ok": True, "id": record_id}
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
 
 @app.post("/api/aggiungi_amico")
 def api_aggiungi_amico(payload: AmicoPayload, request: Request):
@@ -183,7 +239,7 @@ def api_aggiungi_amico(payload: AmicoPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO autorizzati (telegram_id, password, nome) VALUES (%s, %s, %s) ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome RETURNING id", (payload.telegram_id, payload.password, payload.nome))
+            cur.execute("INSERT INTO autorizzati (telegram_id, password, nome, note) VALUES (%s, %s, %s, %s) ON CONFLICT (telegram_id) DO UPDATE SET password = excluded.password, nome = excluded.nome, note = excluded.note RETURNING id", (payload.telegram_id, payload.password, payload.nome, payload.note))
             new_id = cur.fetchone()["id"]
             for mod in ALL_MODULES:
                 cur.execute("INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, TRUE) ON CONFLICT (user_id, modulo) DO NOTHING", (new_id, mod))

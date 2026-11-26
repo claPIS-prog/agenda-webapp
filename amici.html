@@ -45,11 +45,12 @@ body {
 }
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--tg-theme-hint-color); margin-bottom: 4px; text-transform: uppercase; }
-select, input {
+select, input, textarea {
     width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0;
     background: var(--tg-theme-secondary-bg-color); color: var(--tg-theme-text-color);
-    font-size: 15px; outline: none;
+    font-size: 15px; outline: none; font-family: inherit;
 }
+textarea { resize: vertical; min-height: 64px; }
 .btn-save {
     width: 100%; padding: 12px; background: #27ae60; color: white;
     border: none; border-radius: 8px; font-size: 16px; font-weight: 600;
@@ -82,14 +83,51 @@ select, input {
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .subtitle { font-size: 13px; color: var(--tg-theme-hint-color); }
-.actions { display: flex; gap: 8px; margin-left: 10px; }
+.actions { display: flex; gap: 6px; margin-left: 10px; flex-shrink: 0; }
 .btn-icon {
     width: 32px; height: 32px; border-radius: 8px; border: none;
     display: flex; align-items: center; justify-content: center;
-    font-size: 16px; cursor: pointer;
+    font-size: 15px; cursor: pointer;
 }
+.btn-info { background: #0088cc; color: white; }
 .btn-edit { background: #f39c12; color: white; }
 .btn-delete { background: #e74c3c; color: white; }
+
+/* MODALE DETTAGLI (Stile Lista Contatti) */
+.modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 200;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(2px); padding: 15px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+    background: #ffffff; color: #333333;
+    border-radius: 12px; padding: 25px;
+    width: 100%; max-width: 450px; max-height: 85vh;
+    overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    position: relative;
+}
+.modal h3 {
+    margin-top: 0; text-align: center; color: #333333;
+    border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 15px;
+    font-size: 18px;
+}
+.info-grid { display: grid; grid-template-columns: 1fr; gap: 8px; font-size: 14px; }
+.info-row { display: flex; border-bottom: 1px solid #f0f0f0; padding-bottom: 6px; }
+.info-label { font-weight: bold; color: #555555; width: 130px; flex-shrink: 0; }
+.info-value { color: #222222; word-break: break-word; flex-grow: 1; }
+.info-section-title {
+    font-size: 12px; color: #0088cc; font-weight: bold;
+    text-transform: uppercase; margin-top: 12px; margin-bottom: 6px;
+    border-bottom: 1px solid #e0e0e0; padding-bottom: 2px;
+}
+.info-section-title:first-child { margin-top: 0; }
+.close-modal {
+    position: absolute; top: 15px; right: 15px;
+    background: none; border: none; font-size: 24px;
+    color: #999999; cursor: pointer; line-height: 1;
+}
 
 .empty-state { text-align: center; padding: 40px; color: var(--tg-theme-hint-color); }
 #loading {
@@ -116,7 +154,7 @@ select, input {
             <option value="">-- Cerca e seleziona --</option>
         </select>
     </div>
-    
+
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div class="form-group">
             <label>ID Telegram / Utente</label>
@@ -128,6 +166,11 @@ select, input {
         </div>
     </div>
 
+    <div class="form-group">
+        <label>Note Amico</label>
+        <textarea id="inp-note" placeholder="Note o dettagli sull'amico..." oninput="aggiornaStatoBottone()"></textarea>
+    </div>
+
     <button type="button" class="btn-save" id="btn-save" onclick="salvaAmico()" disabled>💾 Salva Amico</button>
     <button type="button" class="btn-cancel" id="btn-cancel" onclick="annullaModifica()">✖ Annulla Modifica</button>
 </div>
@@ -135,11 +178,19 @@ select, input {
 <!-- LISTA AMICI (GRIGLIA) -->
 <div id="listContainer" class="list-container"></div>
 
+<!-- MODALE DETTAGLI AMICO -->
+<div class="modal-overlay" id="infoModal" onclick="chiudiInfoOverlay(event)">
+    <div class="modal">
+        <button type="button" class="close-modal" onclick="chiudiInfoAmico()">×</button>
+        <h3>ℹ️ Dettagli Amico</h3>
+        <div id="infoContent"></div>
+    </div>
+</div>
+
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-// Adatta colori tema
 document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#ffffff');
 document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#000000');
 document.documentElement.style.setProperty('--tg-theme-hint-color', tg.themeParams.hint_color || '#999999');
@@ -153,9 +204,10 @@ function aggiornaStatoBottone() {
     const selVal = document.getElementById('sel-nominativo').value;
     const tgId = document.getElementById('inp-id').value.trim();
     const pass = document.getElementById('inp-pass').value.trim();
+    const note = document.getElementById('inp-note').value.trim();
     const btn = document.getElementById('btn-save');
 
-    btn.disabled = !(editingFriendId || selVal || tgId || pass);
+    btn.disabled = !(editingFriendId || selVal || tgId || pass || note);
 }
 
 // 1. CARICA DROPDOWN NOMINATIVI
@@ -164,7 +216,7 @@ async function init() {
         const resNom = await fetch('/api/nominativi?nocache=' + Date.now());
         if (!resNom.ok) throw new Error('Errore caricamento nominativi');
         allNominativi = await resNom.json();
-        
+
         const select = document.getElementById('sel-nominativo');
         select.innerHTML = '<option value="">-- Cerca e seleziona --</option>';
         allNominativi.forEach(n => {
@@ -186,6 +238,7 @@ async function caricaDatiAmico() {
     const id = document.getElementById('sel-nominativo').value;
     const inpId = document.getElementById('inp-id');
     const inpPass = document.getElementById('inp-pass');
+    const inpNote = document.getElementById('inp-note');
 
     aggiornaStatoBottone();
 
@@ -193,6 +246,7 @@ async function caricaDatiAmico() {
         if (!editingFriendId) {
             inpId.value = '';
             inpPass.value = '';
+            inpNote.value = '';
         }
         return;
     }
@@ -200,19 +254,19 @@ async function caricaDatiAmico() {
     const select = document.getElementById('sel-nominativo');
     const nomeSelezionato = select.options[select.selectedIndex].text;
 
-    // Controlla se esiste già nella lista amici con lo stesso nome
     const esistente = allFriends.find(f => (f.nome || '').trim().toLowerCase() === nomeSelezionato.trim().toLowerCase());
     if (esistente) {
         editingFriendId = esistente.id;
         inpId.value = esistente.telegram_id || '';
         inpPass.value = esistente.password || '';
+        inpNote.value = esistente.note || '';
         document.getElementById('btn-save').textContent = '✏️ Aggiorna Amico';
         document.getElementById('btn-cancel').style.display = 'block';
     } else if (!editingFriendId) {
-        // Precompila eventuali credenziali presenti in nominativi se disponibili
         const nomObj = allNominativi.find(n => String(n.id) === String(id));
         inpId.value = (nomObj && nomObj.user_id) ? nomObj.user_id : '';
         inpPass.value = (nomObj && nomObj.password) ? nomObj.password : '';
+        inpNote.value = (nomObj && nomObj.informazioni) ? nomObj.informazioni : '';
     }
     aggiornaStatoBottone();
 }
@@ -222,6 +276,7 @@ function annullaModifica() {
     document.getElementById('sel-nominativo').value = '';
     document.getElementById('inp-id').value = '';
     document.getElementById('inp-pass').value = '';
+    document.getElementById('inp-note').value = '';
     const btn = document.getElementById('btn-save');
     btn.textContent = '💾 Salva Amico';
     btn.disabled = true;
@@ -238,6 +293,7 @@ async function salvaAmico() {
     const nomeSelezionato = select.value ? select.options[select.selectedIndex].text : '';
     const telegram_id = document.getElementById('inp-id').value.trim();
     const password = document.getElementById('inp-pass').value.trim();
+    const note = document.getElementById('inp-note').value.trim();
 
     const vecchioNome = editingFriendId
         ? (allFriends.find(f => Number(f.id) === Number(editingFriendId))?.nome || '')
@@ -248,7 +304,8 @@ async function salvaAmico() {
             id: editingFriendId,
             telegram_id: telegram_id ? parseInt(telegram_id, 10) : null,
             password: password,
-            nome: nomeSelezionato || vecchioNome
+            nome: nomeSelezionato || vecchioNome,
+            note: note
         };
 
         const res = await fetch('/api/salva_amico', {
@@ -275,7 +332,7 @@ async function caricaListaAmici() {
         const res = await fetch('/api/amici?nocache=' + Date.now());
         if (!res.ok) throw new Error('Errore lista');
         allFriends = await res.json();
-        
+
         document.getElementById('total-badge').textContent = 'Totale: ' + allFriends.length;
         renderList(allFriends);
     } catch (e) {
@@ -297,7 +354,7 @@ function renderList(items) {
         div.className = 'item';
         const nomeVisibile = item.nome || item.nominativo || 'Sconosciuto';
         const nomeSicuro = nomeVisibile.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        
+
         div.innerHTML = `
             <div class="number">${index + 1}</div>
             <div class="content">
@@ -305,12 +362,70 @@ function renderList(items) {
                 <div class="subtitle">ID: ${item.telegram_id || '-'}</div>
             </div>
             <div class="actions">
-                <button type="button" class="btn-icon btn-edit" onclick="event.stopPropagation(); editFriend(${item.id})">✏️</button>
-                <button type="button" class="btn-icon btn-delete" onclick="event.stopPropagation(); deleteFriend(${item.id}, '${nomeSicuro}')">🗑️</button>
+                <button type="button" class="btn-icon btn-info" onclick="event.stopPropagation(); apriInfoAmico(${item.id})" title="Dettagli">ℹ️</button>
+                <button type="button" class="btn-icon btn-edit" onclick="event.stopPropagation(); editFriend(${item.id})" title="Modifica">✏️</button>
+                <button type="button" class="btn-icon btn-delete" onclick="event.stopPropagation(); deleteFriend(${item.id}, '${nomeSicuro}')" title="Elimina">🗑️</button>
             </div>
         `;
         container.appendChild(div);
     });
+}
+
+// DETTAGLIO / NOTE AMICO (Stile Lista Contatti)
+async function apriInfoAmico(id) {
+    const amico = allFriends.find(f => Number(f.id) === Number(id));
+    if (!amico) return;
+
+    const nomeVisibile = amico.nome || amico.nominativo || '-';
+    const nomCollegato = allNominativi.find(
+        n => Number(n.id) === Number(amico.id) ||
+        ((n.nominativo || n.nome || '').trim().toLowerCase() === nomeVisibile.trim().toLowerCase())
+    );
+
+    let moduliAttiviTesto = '-';
+    try {
+        const resPerm = await fetch(`/api/permessi/${amico.id}?nocache=` + Date.now());
+        if (resPerm.ok) {
+            const payloadPerm = await resPerm.json();
+            const mappa = (payloadPerm && typeof payloadPerm.permessi === 'object' && payloadPerm.permessi !== null)
+                ? payloadPerm.permessi
+                : (payloadPerm || {});
+            const attivi = Object.entries(mappa).filter(([, attivo]) => Boolean(attivo)).map(([mod]) => mod);
+            moduliAttiviTesto = attivi.length > 0 ? `${attivi.length} (${attivi.join(', ')})` : 'Nessun modulo attivo';
+        }
+    } catch (e) {
+        moduliAttiviTesto = '-';
+    }
+
+    const v = (val) => (val !== undefined && val !== null && String(val).trim() !== '') ? val : '-';
+    const noteVal = (amico.note && String(amico.note).trim() !== '')
+        ? amico.note
+        : ((nomCollegato && nomCollegato.informazioni) ? nomCollegato.informazioni : '-');
+
+    let html = '<div class="info-grid">';
+    html += '<div class="info-section-title">Generale</div>';
+    html += `<div class="info-row"><div class="info-label">Nominativo:</div><div class="info-value">${v(nomeVisibile)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">ID Record:</div><div class="info-value">${v(amico.id)}</div></div>`;
+    html += '<div class="info-section-title">Accesso & Permessi</div>';
+    html += `<div class="info-row"><div class="info-label">ID Telegram:</div><div class="info-value">${v(amico.telegram_id)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Password:</div><div class="info-value">${v(amico.password)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Moduli Attivi:</div><div class="info-value">${v(moduliAttiviTesto)}</div></div>`;
+    html += '<div class="info-section-title">Note / Informazioni</div>';
+    html += `<div class="info-row" style="flex-direction:column;"><div class="info-label" style="width:100%;margin-bottom:4px;">Note:</div><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;">${v(noteVal)}</div></div>`;
+    html += '</div>';
+
+    document.getElementById('infoContent').innerHTML = html;
+    document.getElementById('infoModal').classList.add('active');
+}
+
+function chiudiInfoAmico() {
+    document.getElementById('infoModal').classList.remove('active');
+}
+
+function chiudiInfoOverlay(event) {
+    if (event.target && event.target.id === 'infoModal') {
+        chiudiInfoAmico();
+    }
 }
 
 // Azioni Lista
@@ -321,6 +436,7 @@ function editFriend(id) {
     editingFriendId = amico.id;
     document.getElementById('inp-id').value = amico.telegram_id || '';
     document.getElementById('inp-pass').value = amico.password || '';
+    document.getElementById('inp-note').value = amico.note || '';
 
     const select = document.getElementById('sel-nominativo');
     const matchOpt = Array.from(select.options).find(
