@@ -2,6 +2,7 @@ import os
 import json
 import urllib.request
 from datetime import datetime, timedelta
+from typing import Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, HTTPException, Request
@@ -65,7 +66,7 @@ def init_db():
             cur.execute("CREATE TABLE IF NOT EXISTS buffett (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS metodi_pagamento (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
             cur.execute("CREATE TABLE IF NOT EXISTS operatori_it (id SERIAL PRIMARY KEY, nome TEXT NOT NULL)")
-            cur.execute("CREATE TABLE IF NOT EXISTS saldo_rinnovi (id SERIAL PRIMARY KEY, rinnovo_id INTEGER NOT NULL REFERENCES rinnovi(id), num_credito_saldo INTEGER DEFAULT 0, data_credito_rinnovo_saldo TEXT, val_nc_dato REAL DEFAULT 0, val_nc_saldo REAL DEFAULT 0, informazioni_note TEXT, creato_il TEXT)")
+            cur.execute("CREATE TABLE IF NOT EXISTS saldo_rinnovi (id SERIAL PRIMARY KEY, rinnovo_id INTEGER REFERENCES rinnovi(id), num_credito_saldo INTEGER DEFAULT 0, data_credito_rinnovo_saldo TEXT, val_nc_dato REAL DEFAULT 0, val_nc_saldo REAL DEFAULT 0, informazioni_note TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS note (id SERIAL PRIMARY KEY, nominativo_id INTEGER NOT NULL REFERENCES nominativi(id), messaggio TEXT NOT NULL, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS credenziali (id SERIAL PRIMARY KEY, nominativo TEXT NOT NULL, nome_file TEXT, link TEXT, percorso TEXT, user_id TEXT, password TEXT, file_token TEXT, scadenza TEXT, informazioni TEXT, creato_il TEXT)")
             cur.execute("CREATE TABLE IF NOT EXISTS permessi (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES autorizzati(id), modulo TEXT NOT NULL, attivo BOOLEAN DEFAULT FALSE, UNIQUE(user_id, modulo))")
@@ -90,6 +91,7 @@ def init_db():
             for col, typ in [("operatore_it","TEXT"),("server","TEXT"),("reseller","TEXT"),("user_id","TEXT"),("password","TEXT"),("cellulare","TEXT"),("procuratore","TEXT"),("apk_utilizzata","TEXT"),("quale_vpn","TEXT"),("citta","TEXT"),("data_iscrizione","TEXT"),("data_fine","TEXT"),("informazioni","TEXT"),("tipo_linea","TEXT")]:
                 cur.execute(f"ALTER TABLE nominativi ADD COLUMN IF NOT EXISTS {col} {typ}")
             cur.execute("ALTER TABLE autorizzati ADD COLUMN IF NOT EXISTS note TEXT")
+            cur.execute("ALTER TABLE saldo_rinnovi ALTER COLUMN rinnovo_id DROP NOT NULL")
             cur.execute("SELECT id FROM autorizzati")
             for u in cur.fetchall():
                 for mod in ALL_MODULES:
@@ -102,6 +104,17 @@ init_db()
 
 def db_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+
+def estrai_dati(body: Any) -> dict:
+    if isinstance(body, dict):
+        if isinstance(body.get("dati"), dict):
+            merged = dict(body["dati"])
+            for k, v in body.items():
+                if k != "dati" and k not in merged:
+                    merged[k] = v
+            return merged
+        return body
+    return {}
 
 # === PERMESSI / AMICI ===
 @app.get("/api/amici")
@@ -331,13 +344,11 @@ def api_contatti(request: Request):
     finally:
         conn.close()
 
-class AzionePayload(BaseModel):
-    dati: dict
-
 @app.post("/api/azione")
-def api_azione(payload: AzionePayload, request: Request):
+async def api_azione(request: Request):
     get_current_user(request)
-    dati = payload.dati
+    raw_body = await request.json()
+    dati = estrai_dati(raw_body)
     azione = dati.get("azione", "")
     conn = db_conn()
     try:
@@ -352,12 +363,12 @@ def api_azione(payload: AzionePayload, request: Request):
                      data_iscrizione, data_fine, informazioni) 
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""", 
                     (dati.get("nominativo",""), dati.get("tipo",""), dati.get("user_id",""), dati.get("password",""), 
-                     float(dati.get("prezzo",0)), dati.get("cadenza",""), dati.get("tipo_linea",""), 
+                     float(dati.get("prezzo",0) or 0), dati.get("cadenza",""), dati.get("tipo_linea",""), 
                      dati.get("server",""), dati.get("reseller",""),
                      dati.get("dispositivo",""), dati.get("sistema_operativo",""),
                      dati.get("buffett",""), dati.get("metodo_pagamento",""), dati.get("operatore_it",""),
                      dati.get("cellulare",""), dati.get("procuratore",""),
-                     dati.get("apk_utilizzata",""), int(dati.get("uso_vpn",0)),
+                     dati.get("apk_utilizzata",""), int(dati.get("uso_vpn",0) or 0),
                      dati.get("quale_vpn",""), dati.get("citta",""),
                      dati.get("data_iscrizione",""), dati.get("data_fine",""),
                      dati.get("informazioni","")))
@@ -369,12 +380,12 @@ def api_azione(payload: AzionePayload, request: Request):
                     apk_utilizzata=%s, uso_vpn=%s, quale_vpn=%s, citta=%s, 
                     data_iscrizione=%s, data_fine=%s, informazioni=%s WHERE id=%s""", 
                     (dati.get("nominativo"), dati.get("tipo"), dati.get("user_id"), dati.get("password"), 
-                     float(dati.get("prezzo",0)), dati.get("cadenza"), dati.get("tipo_linea"), 
+                     float(dati.get("prezzo",0) or 0), dati.get("cadenza"), dati.get("tipo_linea"), 
                      dati.get("server"), dati.get("reseller"),
                      dati.get("dispositivo"), dati.get("sistema_operativo"),
                      dati.get("buffett"), dati.get("metodo_pagamento"), dati.get("operatore_it"),
                      dati.get("cellulare"), dati.get("procuratore"),
-                     dati.get("apk_utilizzata"), int(dati.get("uso_vpn",0)),
+                     dati.get("apk_utilizzata"), int(dati.get("uso_vpn",0) or 0),
                      dati.get("quale_vpn"), dati.get("citta"),
                      dati.get("data_iscrizione"), dati.get("data_fine"),
                      dati.get("informazioni"), dati.get("id")))
@@ -444,20 +455,17 @@ def api_lista_rinnovi(q: str = "", request: Request = None):
     get_current_user(request)
     return _leggi_elenco_rinnovi(q)
 
-class RinnovoPayload(BaseModel):
-    dati: dict
-
 @app.post("/api/rinnovo")
-def api_rinnovo(payload: RinnovoPayload, request: Request):
+async def api_rinnovo(request: Request):
     get_current_user(request)
-    dati = payload.dati
+    dati = estrai_dati(await request.json())
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            num_rich = int(dati.get("num_credito_rich", 0))
-            num_dato = int(dati.get("num_credito_dato", 0))
-            val_singolo = float(dati.get("val_singolo_nc_rich", 0))
-            cur.execute("INSERT INTO rinnovi (nominativo_id, tipo, data_operazione, mesi, scadenza, orario_scadenza, importo_acconto, importo_saldo, data_acconto, data_saldo, note, creato_il, num_credito_rich, num_credito_dato, num_credito_dare, data_credito_rinnovo_rich, data_credito_rinnovo_dato, val_singolo_nc_rich, val_nc_rich) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (int(dati.get("nominativo_id")), dati.get("tipo","rinnovo"), dati.get("data_operazione"), num_rich, dati.get("scadenza"), dati.get("orario_scadenza",""), float(dati.get("importo_acconto",0)), float(dati.get("importo_saldo",0)), datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_acconto",0))>0 else "", datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_saldo",0))>0 else "", dati.get("note",""), datetime.now().isoformat(), num_rich, num_dato, num_rich - num_dato, dati.get("data_credito_rinnovo_rich",""), dati.get("data_credito_rinnovo_dato",""), val_singolo, num_rich * val_singolo))
+            num_rich = int(dati.get("num_credito_rich", 0) or 0)
+            num_dato = int(dati.get("num_credito_dato", 0) or 0)
+            val_singolo = float(dati.get("val_singolo_nc_rich", 0) or 0)
+            cur.execute("INSERT INTO rinnovi (nominativo_id, tipo, data_operazione, mesi, scadenza, orario_scadenza, importo_acconto, importo_saldo, data_acconto, data_saldo, note, creato_il, num_credito_rich, num_credito_dato, num_credito_dare, data_credito_rinnovo_rich, data_credito_rinnovo_dato, val_singolo_nc_rich, val_nc_rich) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", (int(dati.get("nominativo_id")), dati.get("tipo","rinnovo"), dati.get("data_operazione"), num_rich, dati.get("scadenza"), dati.get("orario_scadenza",""), float(dati.get("importo_acconto",0) or 0), float(dati.get("importo_saldo",0) or 0), datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_acconto",0) or 0)>0 else "", datetime.now().strftime("%d/%m/%Y") if float(dati.get("importo_saldo",0) or 0)>0 else "", dati.get("note",""), datetime.now().isoformat(), num_rich, num_dato, num_rich - num_dato, dati.get("data_credito_rinnovo_rich",""), dati.get("data_credito_rinnovo_dato",""), val_singolo, num_rich * val_singolo))
         conn.commit()
     finally:
         conn.close()
@@ -477,16 +485,87 @@ def api_rinnovo_cancella(id: int, request: Request):
     return {"ok": True}
 
 # === SALDO RINNOVI ===
-@app.get("/api/saldo_rinnovi")
-def api_saldo_rinnovi(request: Request):
-    get_current_user(request)
+def _elenco_saldo_rinnovi():
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT s.id, s.rinnovo_id, s.num_credito_saldo, s.data_credito_rinnovo_saldo, s.val_nc_dato, s.val_nc_saldo, s.informazioni_note, s.creato_il, r.num_credito_rich, r.num_credito_dato, r.data_credito_rinnovo_rich, r.data_credito_rinnovo_dato, r.val_nc_rich, r.val_singolo_nc_rich, n.nominativo FROM saldo_rinnovi s JOIN rinnovi r ON r.id = s.rinnovo_id JOIN nominativi n ON n.id = r.nominativo_id ORDER BY COALESCE(s.creato_il, '') DESC, s.id DESC")
+            cur.execute("""
+                SELECT s.id, s.rinnovo_id, s.num_credito_saldo, s.data_credito_rinnovo_saldo,
+                       s.val_nc_dato, s.val_nc_saldo, s.informazioni_note, s.creato_il,
+                       r.num_credito_rich, r.num_credito_dato, r.data_credito_rinnovo_rich,
+                       r.data_credito_rinnovo_dato, r.val_nc_rich, r.val_singolo_nc_rich,
+                       COALESCE(n.nominativo, 'Stock / Crediti') AS nominativo
+                FROM saldo_rinnovi s
+                LEFT JOIN rinnovi r ON r.id = s.rinnovo_id
+                LEFT JOIN nominativi n ON n.id = r.nominativo_id
+                ORDER BY COALESCE(s.creato_il, '') DESC, s.id DESC
+            """)
             return cur.fetchall()
     finally:
         conn.close()
+
+def _salva_saldo_rinnovo(dati: dict):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            rinnovo_raw = dati.get("rinnovo_id")
+            rinnovo_id = int(rinnovo_raw) if rinnovo_raw not in (None, "", "null") else None
+
+            num_dato = 0.0
+            val_singolo = float(dati.get("prezzo_unitario", dati.get("val_singolo_nc_rich", dati.get("prezzo", 0))) or 0)
+            if rinnovo_id is not None:
+                cur.execute("SELECT num_credito_dato, val_singolo_nc_rich FROM rinnovi WHERE id = %s", (rinnovo_id,))
+                row = cur.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Rinnovo non trovato")
+                num_dato = float(row["num_credito_dato"] or 0)
+                if not val_singolo:
+                    val_singolo = float(row["val_singolo_nc_rich"] or 0)
+
+            num_saldo = int(dati.get("num_credito_saldo", dati.get("quantita_stock", dati.get("quantita", 0))) or 0)
+            data_rif = (
+                dati.get("data_credito_rinnovo_saldo")
+                or dati.get("data_riferimento")
+                or dati.get("data_operazione")
+                or datetime.now().strftime("%d/%m/%Y")
+            )
+            note_val = (
+                dati.get("informazioni_note")
+                or dati.get("info_note")
+                or dati.get("note")
+                or ""
+            )
+            val_tot_raw = dati.get("valore_totale", dati.get("val_nc_saldo"))
+            val_saldo = float(val_tot_raw) if val_tot_raw not in (None, "") else (num_saldo * val_singolo)
+            val_dato = float(dati.get("val_nc_dato") or (num_dato * val_singolo))
+
+            cur.execute("""
+                INSERT INTO saldo_rinnovi
+                    (rinnovo_id, num_credito_saldo, data_credito_rinnovo_saldo, val_nc_dato, val_nc_saldo, informazioni_note, creato_il)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)
+                RETURNING id
+            """, (rinnovo_id, num_saldo, data_rif, val_dato, val_saldo, note_val, datetime.now().isoformat()))
+            new_id = cur.fetchone()["id"]
+        conn.commit()
+        return {"ok": True, "id": new_id}
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/api/saldo_rinnovi")
+def api_saldo_rinnovi(request: Request):
+    get_current_user(request)
+    return _elenco_saldo_rinnovi()
+
+@app.post("/api/saldo_rinnovi")
+async def api_saldo_rinnovi_post(request: Request):
+    get_current_user(request)
+    return _salva_saldo_rinnovo(estrai_dati(await request.json()))
 
 @app.get("/api/rinnovi_per_saldo")
 def api_rinnovi_per_saldo(request: Request):
@@ -500,23 +579,12 @@ def api_rinnovi_per_saldo(request: Request):
         conn.close()
 
 @app.post("/api/saldo_rinnovo")
-def api_saldo_rinnovo_nuovo(payload: RinnovoPayload, request: Request):
+@app.put("/api/saldo_rinnovo")
+@app.post("/api/rinnovi/saldo")
+@app.post("/api/crediti_saldo")
+async def api_saldo_rinnovo_nuovo(request: Request):
     get_current_user(request)
-    dati = payload.dati
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            rinnovo_id = int(dati.get("rinnovo_id"))
-            cur.execute("SELECT num_credito_dato, val_singolo_nc_rich FROM rinnovi WHERE id = %s", (rinnovo_id,))
-            row = cur.fetchone()
-            if not row: raise HTTPException(status_code=404, detail="Rinnovo non trovato")
-            num_dato = row["num_credito_dato"]; val_singolo = row["val_singolo_nc_rich"] or 0
-            num_saldo = int(dati.get("num_credito_saldo", 0))
-            cur.execute("INSERT INTO saldo_rinnovi (rinnovo_id, num_credito_saldo, data_credito_rinnovo_saldo, val_nc_dato, val_nc_saldo, informazioni_note, creato_il) VALUES (%s,%s,%s,%s,%s,%s,%s)", (rinnovo_id, num_saldo, dati.get("data_credito_rinnovo_saldo",""), num_dato*val_singolo, num_saldo*val_singolo, dati.get("informazioni_note",""), datetime.now().isoformat()))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
+    return _salva_saldo_rinnovo(estrai_dati(await request.json()))
 
 @app.delete("/api/saldo_rinnovo/{id}")
 def api_saldo_rinnovo_cancella(id: int, request: Request):
@@ -641,27 +709,26 @@ def api_operatori_it(request: Request):
             cur.execute("SELECT id, nome FROM operatori_it ORDER BY nome"); return cur.fetchall()
     finally: conn.close()
 
-class OperatorePayload(BaseModel):
-    dati: dict
-
 @app.post("/api/operatori_it")
-def api_operatori_it_nuovo(payload: OperatorePayload, request: Request):
+async def api_operatori_it_nuovo(request: Request):
     get_current_user(request)
+    dati = estrai_dati(await request.json())
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO operatori_it (nome) VALUES (%s)", (payload.dati.get("nome",""),))
+            cur.execute("INSERT INTO operatori_it (nome) VALUES (%s)", (dati.get("nome",""),))
         conn.commit()
     finally: conn.close()
     return {"ok": True}
 
 @app.put("/api/operatori_it/{id}")
-def api_operatori_it_modifica(id: int, payload: OperatorePayload, request: Request):
+async def api_operatori_it_modifica(id: int, request: Request):
     get_current_user(request)
+    dati = estrai_dati(await request.json())
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("UPDATE operatori_it SET nome = %s WHERE id = %s", (payload.dati.get("nome",""), id))
+            cur.execute("UPDATE operatori_it SET nome = %s WHERE id = %s", (dati.get("nome",""), id))
         conn.commit()
     finally: conn.close()
     return {"ok": True}
@@ -688,13 +755,10 @@ def api_note(request: Request):
             return cur.fetchall()
     finally: conn.close()
 
-class NotaPayload(BaseModel):
-    dati: dict
-
 @app.post("/api/note")
-def api_note_nuovo(payload: NotaPayload, request: Request):
+async def api_note_nuovo(request: Request):
     get_current_user(request)
-    dati = payload.dati
+    dati = estrai_dati(await request.json())
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -725,13 +789,10 @@ def api_credenziali(request: Request):
             return cur.fetchall()
     finally: conn.close()
 
-class CredenzialiPayload(BaseModel):
-    dati: dict
-
 @app.post("/api/credenziali")
-def api_credenziali_nuovo(payload: CredenzialiPayload, request: Request):
+async def api_credenziali_nuovo(request: Request):
     get_current_user(request)
-    d = payload.dati
+    d = estrai_dati(await request.json())
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -741,9 +802,9 @@ def api_credenziali_nuovo(payload: CredenzialiPayload, request: Request):
     return {"ok": True}
 
 @app.put("/api/credenziali/{id}")
-def api_credenziali_modifica(id: int, payload: CredenzialiPayload, request: Request):
+async def api_credenziali_modifica(id: int, request: Request):
     get_current_user(request)
-    d = payload.dati
+    d = estrai_dati(await request.json())
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -910,13 +971,10 @@ def api_calcoli(request: Request):
     finally:
         conn.close()
 
-class CalcoloPayload(BaseModel):
-    dati: dict
-
 @app.post("/api/calcoli")
-def api_calcoli_salva(payload: CalcoloPayload, request: Request):
+async def api_calcoli_salva(request: Request):
     get_current_user(request)
-    d = payload.dati
+    d = estrai_dati(await request.json())
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -931,15 +989,15 @@ def api_calcoli_salva(payload: CalcoloPayload, request: Request):
             ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (d.get("nominativo_da",""), d.get("nominativo_a",""), d.get("reseller_da",""), d.get("reseller_a",""),
                  d.get("procuratore_da",""), d.get("procuratore_a",""), d.get("periodo_da",""), d.get("periodo_a",""),
-                 float(d.get("importo_nuovo",0)), float(d.get("acconto_nuovo",0)), float(d.get("acconto_saldo_nuovo",0)),
-                 float(d.get("totale_acconti_nuovi",0)), d.get("info_saldo_nuovo",""), d.get("info_saldo_rinnovo_nuovo",""),
-                 float(d.get("importo_rinnovo",0)), float(d.get("acconto_rinnovo",0)), float(d.get("acconto_saldo_rinnovo",0)),
-                 float(d.get("totale_acconti_rinnovo",0)), d.get("info_saldo_rinnovo",""),
-                 float(d.get("importo_omaggio",0)), float(d.get("acconto_omaggio",0)), float(d.get("acconto_saldo_omaggio",0)),
-                 float(d.get("totale_acconti_omaggio",0)),
-                 int(d.get("crediti_rich",0)), int(d.get("crediti_dati",0)), int(d.get("crediti_dare",0)), float(d.get("totale_nc",0)),
-                 int(d.get("crediti_rich_omaggio",0)), int(d.get("crediti_dati_omaggio",0)), int(d.get("crediti_dare_omaggio",0)), float(d.get("totale_nc_omaggio",0)),
-                 float(d.get("totale_generale",0)), d.get("note",""), datetime.now().isoformat()))
+                 float(d.get("importo_nuovo",0) or 0), float(d.get("acconto_nuovo",0) or 0), float(d.get("acconto_saldo_nuovo",0) or 0),
+                 float(d.get("totale_acconti_nuovi",0) or 0), d.get("info_saldo_nuovo",""), d.get("info_saldo_rinnovo_nuovo",""),
+                 float(d.get("importo_rinnovo",0) or 0), float(d.get("acconto_rinnovo",0) or 0), float(d.get("acconto_saldo_rinnovo",0) or 0),
+                 float(d.get("totale_acconti_rinnovo",0) or 0), d.get("info_saldo_rinnovo",""),
+                 float(d.get("importo_omaggio",0) or 0), float(d.get("acconto_omaggio",0) or 0), float(d.get("acconto_saldo_omaggio",0) or 0),
+                 float(d.get("totale_acconti_omaggio",0) or 0),
+                 int(d.get("crediti_rich",0) or 0), int(d.get("crediti_dati",0) or 0), int(d.get("crediti_dare",0) or 0), float(d.get("totale_nc",0) or 0),
+                 int(d.get("crediti_rich_omaggio",0) or 0), int(d.get("crediti_dati_omaggio",0) or 0), int(d.get("crediti_dare_omaggio",0) or 0), float(d.get("totale_nc_omaggio",0) or 0),
+                 float(d.get("totale_generale",0) or 0), d.get("note",""), datetime.now().isoformat()))
         conn.commit()
     finally:
         conn.close()
@@ -1041,35 +1099,32 @@ def api_crediti(request: Request):
     finally:
         conn.close()
 
-class CreditoPayload(BaseModel):
-    dati: dict
-
 @app.post("/api/crediti")
-def api_crediti_salva(payload: CreditoPayload, request: Request):
+async def api_crediti_salva(request: Request):
     get_current_user(request)
-    d = payload.dati
+    d = estrai_dati(await request.json())
     conn = db_conn()
     try:
         with conn.cursor() as cur:
             cur.execute("""INSERT INTO crediti (data_acquisto, fornitore, modalita_pagamento, quantita, valore, note, creato_il) 
                 VALUES (%s,%s,%s,%s,%s,%s,%s)""",
                 (d.get("data_acquisto",""), d.get("fornitore",""), d.get("modalita_pagamento",""),
-                 int(d.get("quantita",0)), float(d.get("valore",0)), d.get("note",""), datetime.now().isoformat()))
+                 int(d.get("quantita",0) or 0), float(d.get("valore",0) or 0), d.get("note",""), datetime.now().isoformat()))
         conn.commit()
     finally:
         conn.close()
     return {"ok": True}
 
 @app.put("/api/crediti/{id}")
-def api_crediti_modifica(id: int, payload: CreditoPayload, request: Request):
+async def api_crediti_modifica(id: int, request: Request):
     get_current_user(request)
-    d = payload.dati
+    d = estrai_dati(await request.json())
     conn = db_conn()
     try:
         with conn.cursor() as cur:
             cur.execute("""UPDATE crediti SET data_acquisto=%s, fornitore=%s, modalita_pagamento=%s, quantita=%s, valore=%s, note=%s WHERE id=%s""",
                 (d.get("data_acquisto",""), d.get("fornitore",""), d.get("modalita_pagamento",""),
-                 int(d.get("quantita",0)), float(d.get("valore",0)), d.get("note",""), id))
+                 int(d.get("quantita",0) or 0), float(d.get("valore",0) or 0), d.get("note",""), id))
         conn.commit()
     finally: conn.close()
     return {"ok": True}
