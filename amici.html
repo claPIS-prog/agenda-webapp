@@ -1,120 +1,276 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestisci Amici</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    body { font-family: system-ui, sans-serif; padding: 16px; background: var(--tg-theme-bg-color, #fff); color: var(--tg-theme-text-color, #000); }
-    .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 12px; background: var(--tg-theme-secondary-bg-color, #f9f9f9); }
-    .name { font-weight: bold; font-size: 1.1em; margin-bottom: 4px; }
-    .info { color: #666; font-size: 0.9em; margin-bottom: 8px; }
-    .empty { text-align: center; color: #999; margin-top: 40px; }
-    .actions { display: flex; gap: 8px; }
-    .btn-del { padding: 8px; background: #d32f2f; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-    .input-group { margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
-    .input-group input { padding: 10px; border-radius: 6px; border: 1px solid #ccc; }
-    .btn-add { padding: 12px; background: #2e7d32; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gestione Amici</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; padding: 15px; }
+.container { max-width: 600px; margin: 0 auto; }
+
+.list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.list-title { font-size: 18px; font-weight: 700; color: #2c3e50; }
+.total-badge { background: #3498db; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+
+.btn-add {
+    width: 100%; padding: 14px; background: #27ae60; color: white;
+    border: none; border-radius: 10px; font-size: 16px; font-weight: 600;
+    cursor: pointer; margin-bottom: 15px; display: flex; align-items: center;
+    justify-content: center; gap: 8px;
+}
+.btn-add:active { background: #219a52; }
+
+.search-box { position: relative; margin-bottom: 15px; }
+.search-box input { width: 100%; padding: 10px 10px 10px 35px; border-radius: 10px; border: 1px solid #e0e0e0; background: white; font-size: 16px; outline: none; }
+.search-box .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #888; font-size: 14px; pointer-events: none; }
+
+.list-item {
+    background: white; padding: 10px 12px; border-bottom: 1px solid #efeff4;
+    display: flex; align-items: center; gap: 10px;
+}
+.list-item .number { font-weight: 700; font-size: 15px; color: #888; min-width: 22px; text-align: right; flex-shrink: 0; }
+.list-item .info { flex-grow: 1; overflow: hidden; }
+.list-item .name { font-weight: 600; font-size: 15px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-item .subtitle { font-size: 13px; color: #999; }
+.list-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
+.btn-action {
+    width: 32px; height: 32px; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+}
+.btn-action:active { transform: scale(0.92); }
+.btn-edit { background: #f39c12; color: white; }
+.btn-delete { background: #e74c3c; color: white; }
+.empty-state { text-align: center; padding: 40px 20px; color: #999; }
+
+/* MODAL */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); z-index: 200;
+    display: none; align-items: flex-end; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+    background: white; width: 100%; max-width: 600px;
+    border-radius: 16px 16px 0 0; padding: 20px;
+    animation: slideUp 0.3s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal h3 { font-size: 18px; margin-bottom: 15px; color: #2c3e50; }
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-size: 12px; font-weight: 600; color: #888; margin-bottom: 4px; text-transform: uppercase; }
+.form-group input { width: 100%; padding: 10px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; outline: none; }
+.form-group input:focus { border-color: #3498db; }
+.modal-actions { display: flex; gap: 10px; margin-top: 15px; }
+.modal-actions button { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.btn-cancel { background: #e0e0e0; color: #555; }
+.btn-save { background: #27ae60; color: white; }
+#loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; z-index: 300; font-weight: bold; color: #3498db; }
+</style>
 </head>
 <body>
-  <h1>👥 Gestisci Amici</h1>
-  
-  <div class="input-group">
-    <input type="number" id="tg_id" placeholder="ID Telegram dell'amico (es. 123456789)">
-    <input type="text" id="nome" placeholder="Nome (es. Mario Rossi)">
-    <input type="text" id="password" placeholder="Password per l'amico">
-    <button class="btn-add" onclick="aggiungi()">Aggiungi Amico</button>
-  </div>
 
-  <h2>Amici Autorizzati</h2>
-  <div id="lista"></div>
+<div id="loading">⏳ Caricamento...</div>
 
-  <script>
-    const tg = window.Telegram?.WebApp;
-    if (tg) { tg.ready(); tg.expand(); }
-    const API_BASE = ""; 
-    const listaDiv = document.getElementById("lista");
+<div class="container">
+    <div class="list-header">
+        <div class="list-title">👥 Gestione Amici</div>
+        <div class="total-badge" id="total-badge">Totale: 0</div>
+    </div>
 
-    // Funzione per inviare i dati con l'autenticazione di Telegram
-    async function apiFetch(url, options = {}) {
-      const headers = {
-        ...options.headers,
-        "X-Telegram-Init-Data": tg?.initData || ""
-      };
-      return fetch(`${API_BASE}${url}`, { ...options, headers });
+    <button class="btn-add" onclick="apriModal()">➕ Aggiungi Amico</button>
+
+    <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Cerca amico...">
+    </div>
+
+    <div id="listContainer"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+        <h3 id="modal-title">➕ Nuovo Amico</h3>
+        <div class="form-group">
+            <label>Nome</label>
+            <input type="text" id="f-nome" placeholder="Nome completo">
+        </div>
+        <div class="form-group">
+            <label>Amico-ID (Telegram ID)</label>
+            <input type="number" id="f-telegram_id" placeholder="ID Telegram">
+        </div>
+        <div class="form-group">
+            <label>Amico-Password</label>
+            <input type="text" id="f-password" placeholder="Password di accesso">
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="chiudiModal()">Annulla</button>
+            <button class="btn-save" onclick="salvaAmico()">💾 Salva</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+
+let amici = [];
+let editingId = null;
+
+async function caricaAmici() {
+    try {
+        const res = await fetch('/api/amici?nocache=' + Date.now());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        amici = await res.json();
+        renderLista();
+        document.getElementById('loading').style.display = 'none';
+    } catch (e) {
+        document.getElementById('listContainer').innerHTML = `<div class="empty-state">❌ Errore: ${e.message}</div>`;
+        document.getElementById('loading').style.display = 'none';
     }
+}
 
-    async function carica() {
-      try {
-        listaDiv.innerHTML = "<div class='empty'>Caricamento...</div>";
-        const r = await apiFetch('/api/amici');
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const lista = await r.json();
-        render(lista);
-      } catch (e) {
-        listaDiv.innerHTML = `<div class='empty'>Errore: ${e.message}</div>`;
-      }
-    }
-
-    function render(lista) {
-      listaDiv.innerHTML = "";
-      if (lista.length === 0) {
-        listaDiv.innerHTML = "<div class='empty'>Nessun amico aggiunto.</div>";
+function renderLista() {
+    const container = document.getElementById('listContainer');
+    document.getElementById('total-badge').textContent = 'Totale: ' + amici.length;
+    
+    if (amici.length === 0) {
+        container.innerHTML = '<div class="empty-state">Nessun amico. Clicca "Aggiungi Amico" per iniziare.</div>';
         return;
-      }
-      lista.forEach(amico => {
-        const div = document.createElement("div");
-        div.className = "card";
-        div.innerHTML = `
-          <div class="name">${amico.nome}</div>
-          <div class="info">ID: ${amico.telegram_id}</div>
-          <div class="actions">
-            <button class="btn-del" onclick="rimuovi(${amico.id}, '${amico.nome}')">🗑️ Rimuovi</button>
-          </div>
-        `;
-        listaDiv.appendChild(div);
-      });
     }
+    
+    container.innerHTML = amici.map((a, index) => `
+        <div class="list-item">
+            <div class="number">${index + 1}</div>
+            <div class="info">
+                <div class="name">${a.nome || 'Sconosciuto'}</div>
+                <div class="subtitle">ID: ${a.telegram_id || '-'}</div>
+            </div>
+            <div class="actions">
+                <button class="btn-action btn-edit" onclick="modificaAmico(${a.id})" title="Modifica">✏️</button>
+                <button class="btn-action btn-delete" onclick="eliminaAmico(${a.id}, '${(a.nome || '').replace(/'/g, "\\'")}')" title="Elimina">🗑️</button>
+            </div>
+        </div>
+    `).join('');
+}
 
-    async function aggiungi() {
-      const tg_id = document.getElementById("tg_id").value;
-      const nome = document.getElementById("nome").value.trim();
-      const password = document.getElementById("password").value.trim();
+function apriModal(id = null) {
+    editingId = id;
+    document.getElementById('modal-title').textContent = id ? '✏️ Modifica Amico' : '➕ Nuovo Amico';
+    
+    if (id) {
+        const a = amici.find(x => x.id === id);
+        if (a) {
+            document.getElementById('f-nome').value = a.nome || '';
+            document.getElementById('f-telegram_id').value = a.telegram_id || '';
+            document.getElementById('f-password').value = a.password || '';
+        }
+    } else {
+        document.getElementById('f-nome').value = '';
+        document.getElementById('f-telegram_id').value = '';
+        document.getElementById('f-password').value = '';
+    }
+    
+    document.getElementById('modal-overlay').classList.add('active');
+}
 
-      if (!tg_id || !nome || !password) return alert("Compila tutti i campi!");
+function chiudiModal() {
+    document.getElementById('modal-overlay').classList.remove('active');
+    editingId = null;
+}
 
-      try {
-        const r = await apiFetch('/api/aggiungi_amico', {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ telegram_id: parseInt(tg_id), nome: nome, password: password })
-        });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+async function salvaAmico() {
+    const nome = document.getElementById('f-nome').value.trim();
+    const telegram_id = parseInt(document.getElementById('f-telegram_id').value);
+    const password = document.getElementById('f-password').value.trim();
+    
+    if (!nome || !telegram_id || !password) {
+        tg.showPopup({ title: '⚠️ Attenzione', message: 'Compila tutti i campi.' });
+        return;
+    }
+    
+    try {
+        let res;
+        if (editingId) {
+            res = await fetch(`/api/amici/${editingId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ telegram_id, password, nome })
+            });
+        } else {
+            res = await fetch('/api/aggiungi_amico', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ telegram_id, password, nome })
+            });
+        }
         
-        document.getElementById("tg_id").value = "";
-        document.getElementById("nome").value = "";
-        document.getElementById("password").value = "";
-        carica();
-        alert("✅ Amico aggiunto!");
-      } catch (e) {
-        alert("Errore: " + e.message);
-      }
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'HTTP ' + res.status);
+        }
+        
+        chiudiModal();
+        await caricaAmici();
+        tg.showPopup({ title: '✅ Salvato', message: 'Amico salvato con successo.' });
+    } catch (e) {
+        tg.showPopup({ title: '❌ Errore', message: e.message });
     }
+}
 
-    async function rimuovi(id, nome) {
-      if (!confirm(`Sei sicuro di voler rimuovere ${nome}?`)) return;
-      try {
-        const r = await apiFetch(`/api/rimuovi_amico/${id}`, { method: "DELETE" });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        carica();
-      } catch (e) {
-        alert("Errore: " + e.message);
-      }
+function modificaAmico(id) {
+    apriModal(id);
+}
+
+function eliminaAmico(id, nome) {
+    tg.showConfirm(`Eliminare l'amico:\n${nome}?`, async (ok) => {
+        if (!ok) return;
+        try {
+            const res = await fetch(`/api/rimuovi_amico/${id}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || 'HTTP ' + res.status);
+            }
+            await caricaAmici();
+            tg.showPopup({ title: '✅ Eliminato', message: `Amico ${nome} rimosso.` });
+        } catch (e) {
+            tg.showPopup({ title: '❌ Errore', message: e.message });
+        }
+    });
+}
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+    const term = e.target.value.toLowerCase();
+    const filtered = amici.filter(a => (a.nome && a.nome.toLowerCase().includes(term)));
+    const container = document.getElementById('listContainer');
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state">Nessun risultato.</div>';
+        return;
     }
+    
+    container.innerHTML = filtered.map((a, index) => `
+        <div class="list-item">
+            <div class="number">${index + 1}</div>
+            <div class="info">
+                <div class="name">${a.nome || 'Sconosciuto'}</div>
+                <div class="subtitle">ID: ${a.telegram_id || '-'}</div>
+            </div>
+            <div class="actions">
+                <button class="btn-action btn-edit" onclick="modificaAmico(${a.id})" title="Modifica">✏️</button>
+                <button class="btn-action btn-delete" onclick="eliminaAmico(${a.id}, '${(a.nome || '').replace(/'/g, "\\'")}')" title="Elimina">🗑️</button>
+            </div>
+        </div>
+    `).join('');
+});
 
-    carica();
-  </script>
+document.getElementById('modal-overlay').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) chiudiModal();
+});
+
+caricaAmici();
+</script>
 </body>
 </html>
