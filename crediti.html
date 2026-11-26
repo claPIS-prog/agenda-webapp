@@ -2,199 +2,416 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>Saldo Rinnovi</title>
-<script src="[https://telegram.org/js/telegram-web-app.js](https://telegram.org/js/telegram-web-app.js)"></script>
-<script src="/auth.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Crediti</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 500px; margin: 0 auto; }
-h2 { text-align: center; color: #333; margin-top:0; }
-h3 { text-align: center; font-size: 16px; color: #444; margin: 20px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-label { display: block; font-weight: bold; margin: 10px 0 4px; font-size: 13px; }
-input, textarea, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-.row { display: flex; gap: 8px; } .row > div { flex: 1; }
-.btn-save { width: 100%; background: #4caf50; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; margin-top: 20px; cursor: pointer; }
-.btn-saldo { background: #0088cc !important; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px; border-radius: 6px; opacity: 0; transition: 0.3s; z-index:9999;}
-.toast.show { opacity: 1; }
-.alert-warning { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; font-size: 12px; margin-bottom: 15px; text-align: center; border: 1px solid #ffeeba; }
-.readonly-field { background-color: #f0f0f0; color: #666; cursor: not-allowed; }
-hr { border: 0; border-top: 1px solid #eee; margin: 25px 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; padding: 20px 15px; }
+.container { max-width: 600px; margin: 0 auto; }
+.header { text-align: center; margin-bottom: 18px; }
+.header .icon { font-size: 34px; margin-bottom: 6px; }
+.header h2 { font-size: 21px; font-weight: 700; color: #2c3e50; }
+.header .subtitle { font-size: 13px; color: #777; margin-top: 2px; }
+.btn-back { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 14px; }
+.btn-back:active { background: #f0f0f0; }
+.card { background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.card-title { font-size: 16px; font-weight: 700; color: #2c3e50; margin-bottom: 12px; border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; }
+.form-group { margin-bottom: 12px; }
+label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #555; }
+select, input[type="text"], input[type="number"], input[type="date"], textarea {
+    width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;
+    font-size: 14px; background: white; color: #222;
+}
+input[readonly] { background: #f3f4f6; color: #444; }
+textarea { min-height: 68px; resize: vertical; }
+.row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btn-primary { width: 100%; padding: 12px; background: #0088cc; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+.btn-save { width: 100%; padding: 13px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px; }
+.btn-save:disabled { background: #95a5a6; cursor: not-allowed; }
+.btn-secondary { padding: 9px 12px; background: #e5e7eb; color: #333; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; font-size: 13px; }
+.success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; font-size: 13px; }
+.list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.list-title { font-size: 17px; font-weight: 700; color: #2c3e50; }
+.total-badge { background: #3498db; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+.list-item { background: white; padding: 11px 13px; border: 1px solid #e6e6e6; border-radius: 10px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+.list-item .num { font-weight: 700; color: #888; min-width: 24px; text-align: right; }
+.list-item .info { flex: 1; overflow: hidden; }
+.list-item .title { font-weight: 700; font-size: 14px; color: #222; }
+.list-item .meta { font-size: 12px; color: #666; margin-top: 2px; line-height: 1.4; }
+.list-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
+.btn-icon { width: 32px; height: 32px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; color: white; display: flex; align-items: center; justify-content: center; }
+.btn-del { background: #e74c3c; }
+.empty-state { text-align: center; padding: 24px; color: #888; background: white; border-radius: 10px; border: 1px solid #e0e0e0; }
+.modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 200;
+    align-items: center; justify-content: center; padding: 15px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+    background: white; border-radius: 12px; padding: 20px;
+    width: 100%; max-width: 460px; max-height: 85vh; overflow-y: auto; position: relative;
+}
+.close-modal { position: absolute; top: 12px; right: 14px; background: none; border: none; font-size: 22px; color: #777; cursor: pointer; }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>📊 Saldo Rinnovi</h2>
+    <button type="button" class="btn-back" onclick="tornaMenu()">← Indietro</button>
 
-<div id="saldo-section">
-    <div class="alert-warning">⚠️ IMPOSTA SALDO INIZIALE (Stock di partenza)</div>
-    
-    <label>Data Riferimento:</label>
-    <input type="date" id="s_data">
-    
-    <div class="row">
-        <div><label>Quantità Stock:</label><input type="number" id="s_qta" value="0" oninput="calcUnit('s')"></div>
-        <div><label>Valore Totale (€):</label><input type="number" step="0.01" id="s_tot" value="0" oninput="calcUnit('s')"></div>
+    <div class="header">
+        <div class="icon">💎</div>
+        <h2>Crediti</h2>
+        <div class="subtitle">Saldo iniziale e nuovi acquisti credito</div>
     </div>
-    <div class="row">
-        <div><label>Prezzo Unitario (€):</label><input type="number" step="0.01" id="s_unit" readonly class="readonly-field"></div>
+
+    <!-- Saldo Iniziale -->
+    <div class="card">
+        <div class="card-title">Saldo Iniziale</div>
+        <div class="form-group">
+            <label for="saldo-iniziale-qta">Quantità Crediti Iniziali:</label>
+            <input type="number" id="saldo-iniziale-qta" min="0" step="1" value="0">
+        </div>
+        <div class="form-group">
+            <label for="saldo-iniziale-data">Data Saldo Iniziale:</label>
+            <input type="date" id="saldo-iniziale-data">
+        </div>
+        <div class="form-group">
+            <label for="saldo-iniziale-info">Info / Note:</label>
+            <textarea id="saldo-iniziale-info" placeholder="Es: Saldo iniziale magazzino"></textarea>
+        </div>
+        <button type="button" class="btn-primary" id="btn-salva-saldo-iniziale" onclick="salvaSaldoIniziale()">💾 Salva Saldo Iniziale</button>
     </div>
-    <label>Info / Note:</label>
-    <textarea id="s_note" rows="2" placeholder="Es: Stock iniziale magazzino"></textarea>
-    
-    <button class="btn-save btn-saldo" onclick="salvaSaldo()">💾 Salva Saldo Iniziale</button>
+
+    <!-- Nuovo Acquisto Credito -->
+    <div class="card">
+        <div class="card-title">Nuovo Acquisto Credito</div>
+        <div class="form-group">
+            <label for="acquisto-numeratore">Numeratore Transazione:</label>
+            <input type="text" id="acquisto-numeratore" value="(generato al salvataggio)" readonly>
+        </div>
+        <div class="form-group">
+            <label for="acquisto-fornitore">Fornitore:</label>
+            <select id="acquisto-fornitore">
+                <option value="">-- Seleziona Fornitore --</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="acquisto-modalita">Modalità di Pagamento:</label>
+            <select id="acquisto-modalita">
+                <option value="">-- Seleziona Modalità di Pagamento --</option>
+            </select>
+        </div>
+        <div class="row-2">
+            <div class="form-group">
+                <label for="acquisto-data">Data Acquisto:</label>
+                <input type="date" id="acquisto-data">
+            </div>
+            <div class="form-group">
+                <label for="acquisto-qta">Quantità Crediti:</label>
+                <input type="number" id="acquisto-qta" min="1" step="1" value="1" oninput="aggiornaValoreTotaleAcquisto()">
+            </div>
+        </div>
+        <div class="row-2">
+            <div class="form-group">
+                <label for="acquisto-prezzo-unit">Prezzo Unitario (€):</label>
+                <input type="number" id="acquisto-prezzo-unit" min="0" step="0.01" value="0.00" oninput="aggiornaValoreTotaleAcquisto()">
+            </div>
+            <div class="form-group">
+                <label for="acquisto-valore-tot">Valore Totale (€):</label>
+                <input type="number" id="acquisto-valore-tot" min="0" step="0.01" value="0.00" readonly>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="acquisto-note">Note:</label>
+            <textarea id="acquisto-note" placeholder="Eventuali note sull'acquisto..."></textarea>
+        </div>
+        <button type="button" class="btn-save" id="btn-salva-acquisto" onclick="salvaNuovoAcquisto()">💾 Salva Nuovo Acquisto</button>
+        <div class="error-msg" id="error-msg"></div>
+        <div class="success-msg" id="success-msg"></div>
+    </div>
+
+    <!-- Elenco Acquisti / Movimenti -->
+    <div class="list-header">
+        <div class="list-title">📋 Movimenti Crediti</div>
+        <div class="total-badge" id="total-badge">Totale: 0</div>
+    </div>
+    <div id="listaCreditiContainer"></div>
 </div>
-
-<hr>
-
-<div id="acquisto-section">
-    <h3>Nuovo Acquisto Credito</h3>
-    
-    <label>Numeratore Transazione:</label>
-    <input type="text" id="c_numeratore" readonly class="readonly-field" value="(generato al salvataggio)">
-    
-    <label>Fornitore:</label>
-    <select id="c_forn">
-        <option value="">-- Seleziona --</option>
-        <option value="Pierino">Pierino</option>
-        <option value="Altro">Altro</option>
-    </select>
-    
-    <label>Modalità di Pagamento:</label>
-    <select id="c_pagamento">
-        <option value="">-- Caricamento... --</option>
-    </select>
-    
-    <div class="row">
-        <div><label>Data Acquisto:</label><input type="date" id="c_data"></div>
-        <div><label>Quantità:</label><input type="number" id="c_qta" value="1" min="1" oninput="calcUnit('c')"></div>
-    </div>
-    <div class="row">
-        <div><label>Valore Totale (€):</label><input type="number" step="0.01" id="c_tot" value="0" oninput="calcUnit('c')"></div>
-        <div><label>Prezzo Unitario (€):</label><input type="number" step="0.01" id="c_unit" readonly class="readonly-field"></div>
-    </div>
-    <label>Note:</label>
-    <textarea id="c_note" rows="2"></textarea>
-    
-    <button class="btn-save" onclick="salvaAcquisto()">💾 Salva Nuovo Acquisto</button>
-</div>
-</div>
-
-<div class="toast" id="toast"></div>
 
 <script>
-const tg = window.Telegram.WebApp; 
+const tg = window.Telegram.WebApp;
 tg.expand();
 
-function getHeaders(t) { 
-    const h = {}; 
-    if(t) h['Content-Type'] = t; 
-    if(tg.initData) h['X-Telegram-Init-Data'] = tg.initData; 
-    return h; 
+const MODALITA_PAGAMENTO_DEFAULT = [
+    "Contanti",
+    "Bonifico Bancario",
+    "Carta di Credito / Debito",
+    "PayPal",
+    "Ricarica / Postepay",
+    "Altro"
+];
+
+let movimentiCrediti = [];
+
+function tornaMenu() {
+    window.history.back();
 }
 
-document.getElementById('s_data').value = new Date().toISOString().split('T')[0];
-document.getElementById('c_data').value = new Date().toISOString().split('T')[0];
-
-async function caricaMetodiPagamento() {
-    try {
-        const res = await fetch('/api/metodi_pagamento', { headers: getHeaders() });
-        if (!res.ok) return;
-        const metodi = await res.json();
-        const sel = document.getElementById('c_pagamento');
-        sel.innerHTML = '<option value="">-- Seleziona --</option>';
-        (metodi || []).forEach(m => {
-            const nome = m.nome || m.nominativo || '';
-            if (nome) sel.innerHTML += `<option value="${nome}">${nome}</option>`;
-        });
-    } catch (e) {
-        console.error('Errore caricamento metodi pagamento:', e);
+function impostaDateDefault() {
+    const oggi = new Date().toISOString().split('T')[0];
+    if (!document.getElementById('saldo-iniziale-data').value) {
+        document.getElementById('saldo-iniziale-data').value = oggi;
+    }
+    if (!document.getElementById('acquisto-data').value) {
+        document.getElementById('acquisto-data').value = oggi;
     }
 }
-caricaMetodiPagamento();
 
-function calcUnit(prefix) {
-    const q = parseFloat(document.getElementById(prefix+'_qta').value) || 0;
-    const t = parseFloat(document.getElementById(prefix+'_tot').value) || 0;
-    document.getElementById(prefix+'_unit').value = q > 0 ? (t/q).toFixed(2) : "0.00";
+function aggiornaValoreTotaleAcquisto() {
+    const qta = parseFloat(document.getElementById('acquisto-qta').value) || 0;
+    const unit = parseFloat(document.getElementById('acquisto-prezzo-unit').value) || 0;
+    const tot = qta * unit;
+    document.getElementById('acquisto-valore-tot').value = tot.toFixed(2);
 }
-calcUnit('s');
-calcUnit('c');
 
-async function salvaSaldo() {
-    const d = {
-        fornitore: 'Saldo Iniziale',
-        tipo: 'Saldo Iniziale',
-        data_acquisto: document.getElementById('s_data').value,
-        quantita: parseInt(document.getElementById('s_qta').value) || 0,
-        valore_totale: parseFloat(document.getElementById('s_tot').value) || 0,
-        valore_singolo: parseFloat(document.getElementById('s_unit').value) || 0,
-        note: document.getElementById('s_note').value
-    };
-    
+async function caricaFornitori() {
+    const sel = document.getElementById('acquisto-fornitore');
     try {
-        const r = await fetch('/api/saldo_iniziale', { 
-            method:'POST', 
-            headers:getHeaders('application/json'), 
-            body:JSON.stringify({dati:d}) 
-        });
-        
-        if(!r.ok) {
-            const errText = await r.text();
-            throw new Error(errText || 'Errore server');
+        const res = await fetch('/api/resellers?nocache=' + Date.now());
+        if (res.ok) {
+            const rows = await res.json();
+            const nomi = [...new Set(
+                (Array.isArray(rows) ? rows : [])
+                    .map(r => (r.nominativo || r.nome || '').trim())
+                    .filter(Boolean)
+            )];
+            sel.innerHTML = '<option value="">-- Seleziona Fornitore --</option>';
+            nomi.forEach(nome => {
+                const opt = document.createElement('option');
+                opt.value = nome;
+                opt.textContent = nome;
+                sel.appendChild(opt);
+            });
         }
-        
-        showToast("✅ Saldo Iniziale impostato!");
-    } catch(e) { 
-        alert("❌ Errore: " + e.message); 
+    } catch (e) {}
+}
+
+async function caricaModalitaPagamento() {
+    const sel = document.getElementById('acquisto-modalita');
+    let opzioni = [];
+    try {
+        const res = await fetch('/api/metodi_pagamento?nocache=' + Date.now());
+        if (res.ok) {
+            const rows = await res.json();
+            opzioni = [...new Set(
+                (Array.isArray(rows) ? rows : [])
+                    .map(r => (r.nome || r.modalita_pagamento || r.nominativo || '').trim())
+                    .filter(Boolean)
+            )];
+        }
+    } catch (e) {}
+
+    if (opzioni.length === 0) {
+        opzioni = [...MODALITA_PAGAMENTO_DEFAULT];
+    }
+
+    const valoreAttuale = sel.value;
+    sel.innerHTML = '<option value="">-- Seleziona Modalità di Pagamento --</option>';
+    opzioni.forEach(nome => {
+        const opt = document.createElement('option');
+        opt.value = nome;
+        opt.textContent = nome;
+        sel.appendChild(opt);
+    });
+
+    if (valoreAttuale && opzioni.includes(valoreAttuale)) {
+        sel.value = valoreAttuale;
+    } else if (opzioni.length > 0) {
+        sel.value = opzioni[0];
     }
 }
 
-async function salvaAcquisto() {
-    if(!document.getElementById('c_forn').value.trim()) {
-        alert("⚠️ Seleziona il fornitore");
+async function salvaSaldoIniziale() {
+    const qta = parseInt(document.getElementById('saldo-iniziale-qta').value, 10) || 0;
+    const dataSaldo = document.getElementById('saldo-iniziale-data').value || new Date().toISOString().split('T')[0];
+    const info = document.getElementById('saldo-iniziale-info').value.trim();
+
+    const btn = document.getElementById('btn-salva-saldo-iniziale');
+    btn.disabled = true;
+    try {
+        const res = await fetch('/api/saldo_iniziale', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                dati: {
+                    quantita: qta,
+                    data_acquisto: dataSaldo,
+                    fornitore: 'Saldo Iniziale',
+                    modalita_pagamento: '-',
+                    valore: 0,
+                    note: info || 'Saldo iniziale'
+                }
+            })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'HTTP ' + res.status);
+        }
+        mostraSuccesso('✅ Saldo iniziale salvato!');
+        document.getElementById('saldo-iniziale-info').value = '';
+        await caricaMovimentiCrediti();
+        setTimeout(nascondiMessaggi, 3000);
+    } catch (e) {
+        mostraErrore('❌ ' + e.message);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function salvaNuovoAcquisto() {
+    const fornitore = document.getElementById('acquisto-fornitore').value.trim();
+    const modalitaPagamento = document.getElementById('acquisto-modalita').value.trim();
+    const dataAcquisto = document.getElementById('acquisto-data').value || new Date().toISOString().split('T')[0];
+    const quantita = parseInt(document.getElementById('acquisto-qta').value, 10) || 0;
+    const prezzoUnitario = parseFloat(document.getElementById('acquisto-prezzo-unit').value) || 0;
+    const valoreTotale = parseFloat((quantita * prezzoUnitario).toFixed(2));
+    const note = document.getElementById('acquisto-note').value.trim();
+
+    if (!modalitaPagamento) {
+        mostraErrore('Seleziona una modalità di pagamento.');
         return;
     }
-    
-    const d = {
-        fornitore: document.getElementById('c_forn').value.trim(),
-        tipo: 'Acquisto Credito',
-        modalita_pagamento: document.getElementById('c_pagamento').value,
-        data_acquisto: document.getElementById('c_data').value,
-        quantita: parseInt(document.getElementById('c_qta').value) || 1,
-        valore_totale: parseFloat(document.getElementById('c_tot').value) || 0,
-        valore_singolo: parseFloat(document.getElementById('c_unit').value) || 0,
-        note: document.getElementById('c_note').value
-    };
-    
+    if (quantita <= 0) {
+        mostraErrore('Inserisci una quantità crediti valida.');
+        return;
+    }
+
+    const btn = document.getElementById('btn-salva-acquisto');
+    btn.disabled = true;
+    btn.textContent = '⏳ Salvataggio...';
+
     try {
-        const r = await fetch('/api/credito', { 
-            method:'POST', 
-            headers:getHeaders('application/json'), 
-            body:JSON.stringify({dati:d}) 
+        const res = await fetch('/api/crediti', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                dati: {
+                    fornitore,
+                    modalita_pagamento: modalitaPagamento,
+                    data_acquisto: dataAcquisto,
+                    quantita,
+                    prezzo_unitario: prezzoUnitario,
+                    valore: valoreTotale,
+                    note
+                }
+            })
         });
-        if(!r.ok) {
-            const errText = await r.text();
-            throw new Error(errText || ('Errore server: ' + r.status));
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'HTTP ' + res.status);
         }
-        
-        const res = await r.json();
-        document.getElementById('c_numeratore').value = 'Acquisto #' + res.id;
-        showToast(`✅ Acquisto #${res.id} salvato!`);
-        setTimeout(() => tg.close(), 1800);
-    } catch(e) { 
-        alert("❌ Errore: " + e.message); 
+        mostraSuccesso('✅ Nuovo acquisto credito salvato!');
+        document.getElementById('acquisto-note').value = '';
+        await caricaMovimentiCrediti();
+        setTimeout(nascondiMessaggi, 3000);
+    } catch (e) {
+        mostraErrore('❌ ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Salva Nuovo Acquisto';
     }
 }
 
-function showToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
+async function caricaMovimentiCrediti() {
+    try {
+        const res = await fetch('/api/crediti?nocache=' + Date.now());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const rows = await res.json();
+        movimentiCrediti = Array.isArray(rows) ? rows : [];
+        document.getElementById('total-badge').textContent = 'Totale: ' + movimentiCrediti.length;
+        renderMovimentiCrediti(movimentiCrediti);
+    } catch (e) {
+        document.getElementById('listaCreditiContainer').innerHTML = `<div class="empty-state">Errore caricamento: ${e.message}</div>`;
+    }
 }
+
+function renderMovimentiCrediti(items) {
+    const container = document.getElementById('listaCreditiContainer');
+    container.innerHTML = '';
+    if (!items || items.length === 0) {
+        container.innerHTML = '<div class="empty-state">Nessun movimento crediti registrato.</div>';
+        return;
+    }
+    items.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        const fornitore = item.fornitore || '-';
+        const modPag = item.modalita_pagamento || '-';
+        const dataAcq = item.data_acquisto || '-';
+        const qta = Number(item.quantita || 0);
+        const val = Number(item.valore || 0).toFixed(2);
+        const note = item.note ? ` | Note: ${item.note}` : '';
+
+        div.innerHTML = `
+            <div class="num">${idx + 1}</div>
+            <div class="info">
+                <div class="title">${fornitore} — ${qta} crediti (€ ${val})</div>
+                <div class="meta">
+                    Data: <strong>${dataAcq}</strong> | Pagamento: <strong>${modPag}</strong>${note}
+                </div>
+            </div>
+            <div class="actions">
+                <button type="button" class="btn-icon btn-del" onclick="eliminaMovimento(${item.id})" title="Elimina">🗑️</button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function eliminaMovimento(id) {
+    tg.showConfirm('Eliminare questo movimento crediti?', async (ok) => {
+        if (!ok) return;
+        try {
+            const res = await fetch(`/api/crediti/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            await caricaMovimentiCrediti();
+        } catch (e) {
+            mostraErrore('❌ ' + e.message);
+        }
+    });
+}
+
+function mostraErrore(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+    document.getElementById('success-msg').style.display = 'none';
+}
+
+function mostraSuccesso(msg) {
+    const el = document.getElementById('success-msg');
+    el.textContent = msg;
+    el.style.display = 'block';
+    document.getElementById('error-msg').style.display = 'none';
+}
+
+function nascondiMessaggi() {
+    document.getElementById('error-msg').style.display = 'none';
+    document.getElementById('success-msg').style.display = 'none';
+}
+
+(async function initCrediti() {
+    impostaDateDefault();
+    aggiornaValoreTotaleAcquisto();
+    await Promise.all([
+        caricaFornitori(),
+        caricaModalitaPagamento(),
+        caricaMovimentiCrediti()
+    ]);
+})();
 </script>
 </body>
 </html>
