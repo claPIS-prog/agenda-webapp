@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Sicurezza</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="[https://telegram.org/js/telegram-web-app.js](https://telegram.org/js/telegram-web-app.js)"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; padding: 20px 15px; }
@@ -32,7 +32,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .form-card-title { font-size: 16px; font-weight: 700; color: #2c3e50; margin-bottom: 12px; }
 .form-group { margin-bottom: 12px; }
 label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #555; }
-select, input[type="date"], input[type="text"], input[type="number"], textarea {
+select, input[type="date"], input[type="time"], input[type="text"], input[type="number"], textarea {
     width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white; color: #222;
 }
 input[readonly], textarea[readonly] {
@@ -84,7 +84,6 @@ input:checked + .slider:before { transform: translateX(24px); }
 .btn-delete { background: #e74c3c; color: white; }
 .empty-state { text-align: center; padding: 30px 20px; color: #999; background: white; border-radius: 12px; border: 1px solid #e0e0e0; }
 
-/* MODALE DETTAGLI */
 .modal-overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.6); z-index: 200;
@@ -210,15 +209,25 @@ input:checked + .slider:before { transform: translateX(24px); }
             <div class="date-row">
                 <div class="form-group">
                     <label for="ingresso-data-in">DataIngresso (GG/MM/AAAA):</label>
-                    <input type="text" id="ingresso-data-in" readonly>
+                    <input type="text" id="ingresso-data-in" placeholder="GG/MM/AAAA" oninput="aggiornaTempoIngresso()">
                 </div>
                 <div class="form-group">
+                    <label for="ingresso-ora-in">OraEntrata (HH:MM):</label>
+                    <input type="time" id="ingresso-ora-in" oninput="aggiornaTempoIngresso()">
+                </div>
+            </div>
+            <div class="date-row">
+                <div class="form-group">
                     <label for="ingresso-data-out">DataUscita (GG/MM/AAAA):</label>
-                    <input type="text" id="ingresso-data-out" readonly>
+                    <input type="text" id="ingresso-data-out" placeholder="GG/MM/AAAA" oninput="aggiornaTempoIngresso()">
+                </div>
+                <div class="form-group">
+                    <label for="ingresso-ora-out">OraUscita (HH:MM):</label>
+                    <input type="time" id="ingresso-ora-out" oninput="aggiornaTempoIngresso()">
                 </div>
             </div>
             <div class="form-group">
-                <label for="ingresso-tempo">Tempo (differenza in minuti tra DataIngresso e DataUscita):</label>
+                <label for="ingresso-tempo">Tempo (differenza in minuti tra Ingresso e Uscita):</label>
                 <input type="number" id="ingresso-tempo" min="0" value="0" readonly>
             </div>
             <div class="date-row">
@@ -259,7 +268,6 @@ input:checked + .slider:before { transform: translateX(24px); }
     </div>
 </div>
 
-<!-- MODALE DETTAGLI PERMESSI -->
 <div class="modal-overlay" id="infoModal" onclick="chiudiInfoOverlay(event)">
     <div class="modal">
         <button type="button" class="close-modal" onclick="chiudiInfoPermesso()">×</button>
@@ -268,7 +276,6 @@ input:checked + .slider:before { transform: translateX(24px); }
     </div>
 </div>
 
-<!-- MODALE NOTE / DETTAGLIO INGRESSO (FILTRATO PER NOMINATIVO) -->
 <div class="modal-overlay" id="ingressoDettaglioModal" onclick="chiudiIngressoDettaglioOverlay(event)">
     <div class="modal">
         <button type="button" class="close-modal" onclick="chiudiIngressoDettaglio()">×</button>
@@ -344,29 +351,53 @@ function formattaDataItaliana(dateObj) {
     return `${gg}/${mm}/${aaaa}`;
 }
 
-function parseDataItaliana(strVal) {
-    if (!strVal) return null;
-    const pulita = String(strVal).trim();
+function formattaOraItaliana(dateObj) {
+    const d = dateObj || new Date();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${min}`;
+}
+
+function parseDataOraItaliana(strData, strOra) {
+    if (!strData) return null;
+    const pulita = String(strData).trim();
     const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(pulita);
     if (!match) return null;
     const giorno = parseInt(match[1], 10);
     const mese = parseInt(match[2], 10);
     const anno = parseInt(match[3], 10);
     if (mese < 1 || mese > 12 || giorno < 1 || giorno > 31) return null;
-    const dt = new Date(anno, mese - 1, giorno, 0, 0, 0, 0);
+
+    let ore = 0;
+    let minuti = 0;
+    if (strOra && /^\d{1,2}:\d{2}/.test(String(strOra).trim())) {
+        const partiOra = String(strOra).trim().split(':');
+        ore = parseInt(partiOra[0], 10) || 0;
+        minuti = parseInt(partiOra[1], 10) || 0;
+    }
+
+    const dt = new Date(anno, mese - 1, giorno, ore, minuti, 0, 0);
     if (dt.getFullYear() !== anno || dt.getMonth() !== (mese - 1) || dt.getDate() !== giorno) {
         return null;
     }
     return dt;
 }
 
-function calcolaDifferenzaMinuti(dataInStr, dataOutStr) {
-    const dtIn = parseDataItaliana(dataInStr);
-    const dtOut = parseDataItaliana(dataOutStr);
+function calcolaDifferenzaMinuti(dataInStr, oraInStr, dataOutStr, oraOutStr) {
+    const dtIn = parseDataOraItaliana(dataInStr, oraInStr);
+    const dtOut = parseDataOraItaliana(dataOutStr, oraOutStr);
     if (!dtIn || !dtOut) return 0;
     const diffMs = dtOut.getTime() - dtIn.getTime();
     if (diffMs <= 0) return 0;
     return Math.round(diffMs / 60000);
+}
+
+function aggiornaTempoIngresso() {
+    const dIn = document.getElementById('ingresso-data-in').value.trim();
+    const oIn = document.getElementById('ingresso-ora-in').value.trim();
+    const dOut = document.getElementById('ingresso-data-out').value.trim();
+    const oOut = document.getElementById('ingresso-ora-out').value.trim();
+    document.getElementById('ingresso-tempo').value = calcolaDifferenzaMinuti(dIn, oIn, dOut, oOut);
 }
 
 function rilevaNominativoSessione() {
@@ -379,20 +410,26 @@ function rilevaNominativoSessione() {
 }
 
 function inizializzaCampiOutputIngressi(datiCustom = null) {
-    const oggiIt = formattaDataItaliana(new Date());
+    const adesso = new Date();
+    const oggiIt = formattaDataItaliana(adesso);
+    const oraIt = formattaOraItaliana(adesso);
     const nom = (datiCustom && datiCustom.nominativo) ? String(datiCustom.nominativo) : rilevaNominativoSessione();
     const dIn = (datiCustom && datiCustom.data_ingresso) ? String(datiCustom.data_ingresso) : oggiIt;
+    const oIn = (datiCustom && datiCustom.ora_entrata) ? String(datiCustom.ora_entrata) : oraIt;
     const dOut = (datiCustom && datiCustom.data_uscita) ? String(datiCustom.data_uscita) : oggiIt;
+    const oOut = (datiCustom && datiCustom.ora_uscita) ? String(datiCustom.ora_uscita) : oraIt;
     const formVis = (datiCustom && datiCustom.form_visualizzato) ? String(datiCustom.form_visualizzato) : 'Sicurezza / Ingressi';
     const pos = (datiCustom && datiCustom.posizione) ? String(datiCustom.posizione) : 'Form Ingressi';
     const noteSalvate = (datiCustom && datiCustom.note) ? String(datiCustom.note) : '';
     const tempoCalcolato = (datiCustom && typeof datiCustom.tempo === 'number')
         ? datiCustom.tempo
-        : calcolaDifferenzaMinuti(dIn, dOut);
+        : calcolaDifferenzaMinuti(dIn, oIn, dOut, oOut);
 
     document.getElementById('ingresso-nominativo').value = nom;
     document.getElementById('ingresso-data-in').value = dIn;
+    document.getElementById('ingresso-ora-in').value = oIn;
     document.getElementById('ingresso-data-out').value = dOut;
+    document.getElementById('ingresso-ora-out').value = oOut;
     document.getElementById('ingresso-tempo').value = tempoCalcolato;
     document.getElementById('ingresso-form-vis').value = formVis;
     document.getElementById('ingresso-posizione').value = pos;
@@ -453,19 +490,25 @@ async function caricaDatiIngressoNominativo(nominativo) {
         }
     } catch (e) {}
 
-    const oggiIt = formattaDataItaliana(new Date());
+    const adesso = new Date();
+    const oggiIt = formattaDataItaliana(adesso);
+    const oraIt = formattaOraItaliana(adesso);
     const dIn = (record && record.data_ingresso) ? record.data_ingresso : oggiIt;
+    const oIn = (record && record.ora_entrata) ? record.ora_entrata : oraIt;
     const dOut = (record && record.data_uscita) ? record.data_uscita : oggiIt;
+    const oOut = (record && record.ora_uscita) ? record.ora_uscita : oraIt;
     const tempoVal = (record && typeof record.tempo === 'number')
         ? record.tempo
-        : calcolaDifferenzaMinuti(dIn, dOut);
+        : calcolaDifferenzaMinuti(dIn, oIn, dOut, oOut);
     const formVis = (record && record.form_visualizzato) ? record.form_visualizzato : 'Sicurezza / Ingressi';
     const pos = (record && record.posizione) ? record.posizione : 'Form Ingressi';
     const noteSalvate = (record && record.note) ? record.note : '';
 
     document.getElementById('ingresso-nominativo').value = nomPulito;
     document.getElementById('ingresso-data-in').value = dIn;
+    document.getElementById('ingresso-ora-in').value = oIn;
     document.getElementById('ingresso-data-out').value = dOut;
+    document.getElementById('ingresso-ora-out').value = oOut;
     document.getElementById('ingresso-tempo').value = tempoVal;
     document.getElementById('ingresso-form-vis').value = formVis;
     document.getElementById('ingresso-posizione').value = pos;
@@ -533,7 +576,9 @@ function resetFiltroIngressi() {
 async function salvaIngresso() {
     const nominativo = document.getElementById('ingresso-nominativo').value.trim();
     const dataIngresso = document.getElementById('ingresso-data-in').value.trim();
+    const oraEntrata = document.getElementById('ingresso-ora-in').value.trim();
     const dataUscita = document.getElementById('ingresso-data-out').value.trim();
+    const oraUscita = document.getElementById('ingresso-ora-out').value.trim();
     const formVisualizzato = document.getElementById('ingresso-form-vis').value.trim();
     const posizione = document.getElementById('ingresso-posizione').value.trim();
     const note = document.getElementById('ingresso-note').value.trim();
@@ -543,7 +588,7 @@ async function salvaIngresso() {
         return;
     }
 
-    const tempoMinuti = calcolaDifferenzaMinuti(dataIngresso, dataUscita);
+    const tempoMinuti = calcolaDifferenzaMinuti(dataIngresso, oraEntrata, dataUscita, oraUscita);
     document.getElementById('ingresso-tempo').value = tempoMinuti;
 
     const btn = document.getElementById('btn-salva-ingresso');
@@ -557,7 +602,9 @@ async function salvaIngresso() {
                 dati: {
                     nominativo,
                     data_ingresso: dataIngresso,
+                    ora_entrata: oraEntrata,
                     data_uscita: dataUscita,
+                    ora_uscita: oraUscita,
                     tempo: tempoMinuti,
                     form_visualizzato: formVisualizzato,
                     posizione,
@@ -594,7 +641,9 @@ function renderIngressi(items) {
         div.className = 'list-item';
         const nom = item.nominativo || 'Sconosciuto';
         const dIn = item.data_ingresso || '-';
+        const oIn = item.ora_entrata || '';
         const dOut = item.data_uscita || '-';
+        const oOut = item.ora_uscita || '';
         const tempo = Number(item.tempo || 0);
         const formVis = item.form_visualizzato || '-';
         const pos = item.posizione || '-';
@@ -610,7 +659,7 @@ function renderIngressi(items) {
             <div class="info">
                 <div class="name">${nom}</div>
                 <div class="subtitle">
-                    Ingresso: <strong>${dIn}</strong> — Uscita: <strong>${dOut}</strong> — Tempo: <strong>${tempo} min</strong><br>
+                    Ingresso: <strong>${dIn} ${oIn}</strong> — Uscita: <strong>${dOut} ${oOut}</strong> — Tempo: <strong>${tempo} min</strong><br>
                     FormVisualizzato: ${formVis} | Posizione: ${pos}
                 </div>
             </div>
@@ -641,8 +690,8 @@ async function apriNoteDettaglioIngresso(nominativo, ingressoId) {
     let html = '<div class="info-grid">';
     html += '<div class="info-section-title">Dettaglio Ingresso (Output)</div>';
     html += `<div class="info-row"><div class="info-label">Nominativo:</div><div class="info-value">${v(nominativo)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">DataIngresso:</div><div class="info-value">${v(target.data_ingresso)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">DataUscita:</div><div class="info-value">${v(target.data_uscita)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">DataIngresso:</div><div class="info-value">${v(target.data_ingresso)} ${v(target.ora_entrata)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">DataUscita:</div><div class="info-value">${v(target.data_uscita)} ${v(target.ora_uscita)}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Tempo:</div><div class="info-value">${Number(target.tempo || 0)} min</div></div>`;
     html += `<div class="info-row"><div class="info-label">FormVisualizzato:</div><div class="info-value">${v(target.form_visualizzato)}</div></div>`;
     html += `<div class="info-row"><div class="info-label">Posizione:</div><div class="info-value">${v(target.posizione)}</div></div>`;
@@ -653,7 +702,7 @@ async function apriNoteDettaglioIngresso(nominativo, ingressoId) {
     html += `<div class="history-box"><div class="info-section-title">Storico filtrato per Nominativo (${filtratiPerNominativo.length})</div>`;
     filtratiPerNominativo.forEach(r => {
         html += `<div class="history-item">
-            <div><strong>${v(r.data_ingresso)} → ${v(r.data_uscita)}</strong> (${Number(r.tempo || 0)} min)</div>
+            <div><strong>${v(r.data_ingresso)} ${v(r.ora_entrata)} → ${v(r.data_uscita)} ${v(r.ora_uscita)}</strong> (${Number(r.tempo || 0)} min)</div>
             <div>Form: ${v(r.form_visualizzato)} | Posizione: ${v(r.posizione)}</div>
             <div style="white-space:pre-line;">Note: ${v(r.note)}</div>
         </div>`;
