@@ -61,9 +61,46 @@ input:checked + .slider:before { transform: translateX(24px); }
 .list-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
 .btn-action { width: 32px; height: 32px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
 .btn-action:active { transform: scale(0.92); }
+.btn-info { background: #0088cc; color: white; }
 .btn-edit { background: #f39c12; color: white; }
 .btn-delete { background: #e74c3c; color: white; }
 .empty-state { text-align: center; padding: 40px 20px; color: #999; }
+
+/* MODALE DETTAGLI */
+.modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 200;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(2px); padding: 15px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+    background: #ffffff; color: #333333;
+    border-radius: 12px; padding: 25px;
+    width: 100%; max-width: 450px; max-height: 85vh;
+    overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    position: relative;
+}
+.modal h3 {
+    margin-top: 0; text-align: center; color: #333333;
+    border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 15px;
+    font-size: 18px;
+}
+.info-grid { display: grid; grid-template-columns: 1fr; gap: 8px; font-size: 14px; }
+.info-row { display: flex; border-bottom: 1px solid #f0f0f0; padding-bottom: 6px; }
+.info-label { font-weight: bold; color: #555555; width: 130px; flex-shrink: 0; }
+.info-value { color: #222222; word-break: break-word; flex-grow: 1; }
+.info-section-title {
+    font-size: 12px; color: #0088cc; font-weight: bold;
+    text-transform: uppercase; margin-top: 12px; margin-bottom: 6px;
+    border-bottom: 1px solid #e0e0e0; padding-bottom: 2px;
+}
+.info-section-title:first-child { margin-top: 0; }
+.close-modal {
+    position: absolute; top: 15px; right: 15px;
+    background: none; border: none; font-size: 24px;
+    color: #999999; cursor: pointer; line-height: 1;
+}
 </style>
 </head>
 <body>
@@ -75,23 +112,23 @@ input:checked + .slider:before { transform: translateX(24px); }
             <div class="subtitle">Gestione permessi e accessi</div>
         </div>
         <div class="grid">
-            <button class="grid-btn" onclick="apriSezione('gestione')">
+            <button type="button" class="grid-btn" onclick="apriSezione('gestione')">
                 <span class="btn-icon">⚙️</span>
                 <span class="btn-label">Gestione</span>
             </button>
-            <button class="grid-btn" onclick="apriSezione('lista')">
+            <button type="button" class="grid-btn" onclick="apriSezione('lista')">
                 <span class="btn-icon">📋</span>
                 <span class="btn-label">Lista Permessi</span>
             </button>
-            <button class="grid-btn" onclick="apriAmici()">
+            <button type="button" class="grid-btn" onclick="apriAmici()">
                 <span class="btn-icon">👥</span>
                 <span class="btn-label">Amici</span>
             </button>
         </div>
-        <button class="btn-close" onclick="chiudi()">🚪 Chiudi</button>
+        <button type="button" class="btn-close" onclick="chiudi()">🚪 Chiudi</button>
     </div>
     <div id="section-gestione" class="section">
-        <button class="btn-back" onclick="tornaMenu()">← Indietro</button>
+        <button type="button" class="btn-back" onclick="tornaMenu()">← Indietro</button>
         <div class="form-group">
             <label for="utente-select">Seleziona Nominativo:</label>
             <select id="utente-select" onchange="caricaPermessi()">
@@ -113,12 +150,12 @@ input:checked + .slider:before { transform: translateX(24px); }
             <input type="date" id="data-fine">
         </div>
         <div class="module-list" id="module-list"></div>
-        <button class="btn-save" id="btn-save" onclick="salvaPermessi()" disabled>💾 Salva Permessi</button>
+        <button type="button" class="btn-save" id="btn-save" onclick="salvaPermessi()" disabled>💾 Salva Permessi</button>
         <div class="error-msg" id="error-msg"></div>
         <div class="success-msg" id="success-msg"></div>
     </div>
     <div id="section-lista" class="section">
-        <button class="btn-back" onclick="tornaMenu()">← Indietro</button>
+        <button type="button" class="btn-back" onclick="tornaMenu()">← Indietro</button>
         <div class="list-header">
             <div class="list-title">📋 Lista Permessi</div>
             <div class="total-badge" id="total-badge">Totale: 0</div>
@@ -130,6 +167,16 @@ input:checked + .slider:before { transform: translateX(24px); }
         <div id="listContainer"></div>
     </div>
 </div>
+
+<!-- MODALE DETTAGLI PERMESSI -->
+<div class="modal-overlay" id="infoModal" onclick="chiudiInfoOverlay(event)">
+    <div class="modal">
+        <button type="button" class="close-modal" onclick="chiudiInfoPermesso()">×</button>
+        <h3>ℹ️ Dettagli Permessi</h3>
+        <div id="infoContent"></div>
+    </div>
+</div>
+
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
@@ -204,8 +251,10 @@ async function caricaPermessi() {
         const res = await fetch(`/api/permessi/${userId}?nocache=` + Date.now());
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        permessiCorrenti = data.permessi || {};
-        if (data.date) {
+        permessiCorrenti = (data && typeof data.permessi === 'object' && data.permessi !== null)
+            ? data.permessi
+            : (data || {});
+        if (data && data.date) {
             document.getElementById('data-inizio').value = data.date.data_inizio_validita || '';
             document.getElementById('data-revoca').value = data.date.data_revoca || '';
             document.getElementById('data-fine').value = data.date.data_fine_validita || '';
@@ -229,7 +278,7 @@ function renderModuli() {
         toggle.className = 'toggle';
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.checked = permessiCorrenti[mod] || false;
+        checkbox.checked = Boolean(permessiCorrenti[mod]);
         checkbox.onchange = (e) => { permessiCorrenti[mod] = e.target.checked; };
         const slider = document.createElement('span');
         slider.className = 'slider';
@@ -285,6 +334,21 @@ async function caricaLista() {
     }
 }
 
+function getModuliAttiviLista(item) {
+    if (Array.isArray(item.moduli_lista)) return item.moduli_lista;
+    if (Array.isArray(item.moduli_attivi)) return item.moduli_attivi;
+    if (item.permessi && typeof item.permessi === 'object') {
+        return Object.entries(item.permessi).filter(([, attivo]) => Boolean(attivo)).map(([mod]) => mod);
+    }
+    return [];
+}
+
+function getConteggioModuliAttivi(item, moduliLista) {
+    if (typeof item.moduli_attivi === 'number') return item.moduli_attivi;
+    if (typeof item.totale_moduli_attivi === 'number') return item.totale_moduli_attivi;
+    return moduliLista.length;
+}
+
 function renderLista(items) {
     const container = document.getElementById('listContainer');
     container.innerHTML = '';
@@ -295,9 +359,11 @@ function renderLista(items) {
     items.forEach((item, index) => {
         const div = document.createElement('div');
         div.className = 'list-item';
-        const moduli = item.moduli_lista || [];
+        const moduli = getModuliAttiviLista(item);
         const moduliLabels = moduli.map(m => MODULE_LABELS[m] || m);
-        const subtitle = `${item.moduli_attivi} moduli attivi`;
+        const countAttivi = getConteggioModuliAttivi(item, moduli);
+        const subtitle = `${countAttivi} moduli attivi`;
+        const nomeSicuro = (item.nome || 'Sconosciuto').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         div.innerHTML = `
             <div class="number">${index + 1}</div>
             <div class="info">
@@ -311,12 +377,47 @@ function renderLista(items) {
                 ` : ''}
             </div>
             <div class="actions">
-                <button class="btn-action btn-edit" onclick="event.stopPropagation(); modificaPermessi(${item.id}, '${item.nome.replace(/'/g, "\\'")}')" title="Modifica">✏️</button>
-                <button class="btn-action btn-delete" onclick="event.stopPropagation(); eliminaPermessi(${item.id}, '${item.nome.replace(/'/g, "\\'")}')" title="Elimina">🗑️</button>
+                <button type="button" class="btn-action btn-info" onclick="event.stopPropagation(); apriInfoPermesso(${item.id})" title="Dettagli">ℹ️</button>
+                <button type="button" class="btn-action btn-edit" onclick="event.stopPropagation(); modificaPermessi(${item.id}, '${nomeSicuro}')" title="Modifica">✏️</button>
+                <button type="button" class="btn-action btn-delete" onclick="event.stopPropagation(); eliminaPermessi(${item.id}, '${nomeSicuro}')" title="Elimina">🗑️</button>
             </div>
         `;
         container.appendChild(div);
     });
+}
+
+function apriInfoPermesso(id) {
+    const item = listaPermessi.find(u => Number(u.id) === Number(id));
+    if (!item) return;
+
+    const moduli = getModuliAttiviLista(item);
+    const countAttivi = getConteggioModuliAttivi(item, moduli);
+    const moduliTesto = moduli.length > 0 ? moduli.map(m => MODULE_LABELS[m] || m).join(', ') : 'Nessun modulo attivo';
+    const v = (val) => (val !== undefined && val !== null && String(val).trim() !== '') ? val : '-';
+
+    let html = '<div class="info-grid">';
+    html += '<div class="info-section-title">Generale</div>';
+    html += `<div class="info-row"><div class="info-label">Nominativo:</div><div class="info-value">${v(item.nome)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">ID Telegram:</div><div class="info-value">${v(item.telegram_id)}</div></div>`;
+    html += '<div class="info-section-title">Permessi & Moduli</div>';
+    html += `<div class="info-row"><div class="info-label">Moduli Attivi:</div><div class="info-value">${countAttivi}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Elenco Moduli:</div><div class="info-value">${v(moduliTesto)}</div></div>`;
+    html += '<div class="info-section-title">Note / Informazioni</div>';
+    html += `<div class="info-row" style="flex-direction:column;"><div class="info-label" style="width:100%;margin-bottom:4px;">Note:</div><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;">${v(item.note)}</div></div>`;
+    html += '</div>';
+
+    document.getElementById('infoContent').innerHTML = html;
+    document.getElementById('infoModal').classList.add('active');
+}
+
+function chiudiInfoPermesso() {
+    document.getElementById('infoModal').classList.remove('active');
+}
+
+function chiudiInfoOverlay(event) {
+    if (event.target && event.target.id === 'infoModal') {
+        chiudiInfoPermesso();
+    }
 }
 
 async function modificaPermessi(userId, nome) {

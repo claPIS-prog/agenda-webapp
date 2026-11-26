@@ -27,7 +27,7 @@ ALL_MODULES = [
     "nominativo", "lista", "scadenze", "rinnovi", "storico_rinnovi",
     "saldo_rinnovi", "reseller", "procuratori", "server", "nota",
     "credenziali", "permessi", "dispositivi", "sistemi_op", "buffett",
-    "pagamenti", "operatori_it", "tabelle", "crediti"
+    "pagamenti", "operatori_it", "tabelle", "crediti", "calcoli"
 ]
 
 def get_current_user(request: Request):
@@ -169,7 +169,8 @@ def api_lista_permessi(q: str = "", request: Request = None):
                     "nominativo": u["nominativo"],
                     "note": u.get("note", ""),
                     "permessi": mappa,
-                    "moduli_attivi": attivi,
+                    "moduli_lista": attivi,
+                    "moduli_attivi": len(attivi),
                     "totale_moduli_attivi": len(attivi)
                 })
             return risultato
@@ -273,9 +274,21 @@ def api_get_permessi(user_id: int, request: Request):
             for mod in ALL_MODULES:
                 if mod not in perms:
                     perms[mod] = False
-            return perms
+            return {"permessi": perms}
     finally:
         conn.close()
+
+@app.delete("/api/permessi/{user_id}")
+def api_delete_permessi(user_id: int, request: Request):
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE permessi SET attivo = FALSE WHERE user_id = %s", (user_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
 
 class PermessiPayload(BaseModel):
     user_id: int
@@ -1020,8 +1033,7 @@ def api_crediti_modifica(id: int, payload: CreditoPayload, request: Request):
                 (d.get("data_acquisto",""), d.get("fornitore",""), d.get("modalita_pagamento",""),
                  int(d.get("quantita",0)), float(d.get("valore",0)), d.get("note",""), id))
         conn.commit()
-    finally:
-        conn.close()
+    finally: conn.close()
     return {"ok": True}
 
 @app.delete("/api/crediti/{id}")
@@ -1032,8 +1044,7 @@ def api_crediti_cancella(id: int, request: Request):
         with conn.cursor() as cur:
             cur.execute("DELETE FROM crediti WHERE id = %s", (id,))
         conn.commit()
-    finally:
-        conn.close()
+    finally: conn.close()
     return {"ok": True}
 
 app.mount("/", StaticFiles(directory=".", html=True), name="static")

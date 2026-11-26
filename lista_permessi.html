@@ -286,6 +286,14 @@
         throw lastError || new Error('Impossibile caricare utenti e permessi');
     }
 
+    function estraiMappaPermessi(payload) {
+        if (!payload || typeof payload !== 'object') return {};
+        if (payload.permessi && typeof payload.permessi === 'object') {
+            return payload.permessi;
+        }
+        return payload;
+    }
+
     async function fetchData() {
         try {
             const utenti = await fetchUtentiConFallback();
@@ -299,10 +307,7 @@
                     const permRes = await fetch(urlPerm);
                     if (permRes.ok) {
                         const permsPayload = await permRes.json();
-                        const mappaPermessi = (permsPayload && typeof permsPayload.permessi === 'object' && permsPayload.permessi !== null)
-                            ? permsPayload.permessi
-                            : (permsPayload || {});
-                        return { ...u, permessi: mappaPermessi };
+                        return { ...u, permessi: estraiMappaPermessi(permsPayload) };
                     }
                 } catch (e) {
                     console.error(`Errore caricamento permessi per ${u.nome}:`, e);
