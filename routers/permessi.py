@@ -102,7 +102,7 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Crea record placeholder in autorizzati se non esiste (per rispettare il FK)
+            # Crea record placeholder in autorizzati se non esiste (per il FK)
             cur.execute("SELECT id FROM autorizzati WHERE id = %s", (payload.user_id,))
             if not cur.fetchone():
                 cur.execute("SELECT nominativo FROM nominativi WHERE id = %s", (payload.user_id,))
@@ -143,7 +143,7 @@ def api_salva_permessi(payload: PermessiPayload, request: Request):
     return {"ok": True}
 
 # -----------------------------------------------------------------------------
-# 5. ELIMINA PERMESSI (NUOVO - per bottone cestino in Lista Permessi)
+# 5. ELIMINA PERMESSI (per bottone cestino in Lista Permessi)
 # -----------------------------------------------------------------------------
 @router.delete("/api/permessi/{user_id}")
 def api_elimina_permessi(user_id: int, request: Request):
@@ -162,7 +162,7 @@ def api_elimina_permessi(user_id: int, request: Request):
         conn.close()
 
 # -----------------------------------------------------------------------------
-# 6. AGGIUNGI AMICO (MODIFICATO: crea moduli con attivo=FALSE di default)
+# 6. AGGIUNGI AMICO (moduli con attivo=FALSE di default)
 # -----------------------------------------------------------------------------
 @router.post("/api/aggiungi_amico")
 def api_aggiungi_amico(payload: AmicoPayload, request: Request):
