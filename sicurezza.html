@@ -9,27 +9,33 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; padding: 20px 15px; }
 .container { max-width: 500px; margin: 0 auto; }
+
 .header { text-align: center; margin-bottom: 20px; }
 .header .icon { font-size: 36px; margin-bottom: 8px; }
 .header h2 { font-size: 22px; font-weight: 700; color: #2c3e50; margin-bottom: 4px; }
 .header .subtitle { font-size: 14px; color: #888; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px; }
+
+/* GRIGLIA 3 COLONNE */
+.grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px; }
 .grid-btn {
     background: white; border: 1px solid #e0e0e0; border-radius: 12px;
-    padding: 20px 10px; cursor: pointer; display: flex; flex-direction: column;
-    align-items: center; gap: 8px; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    padding: 18px 8px; cursor: pointer; display: flex; flex-direction: column;
+    align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 .grid-btn:active { transform: scale(0.97); background: #f0f0f0; }
-.grid-btn .btn-icon { font-size: 32px; }
-.grid-btn .btn-label { font-size: 14px; font-weight: 600; color: #333; text-align: center; }
+.grid-btn .btn-icon { font-size: 28px; }
+.grid-btn .btn-label { font-size: 12px; font-weight: 600; color: #333; text-align: center; }
+
 .btn-close {
     width: 100%; padding: 14px; background: #e0e0e0; color: #555;
     border: none; border-radius: 12px; font-size: 15px; font-weight: 600;
     cursor: pointer; margin-top: 10px;
 }
 .btn-close:active { background: #d0d0d0; }
+
 .section { display: none; padding: 15px 0; }
 .section.active { display: block; }
+
 .btn-back {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 8px 14px; background: white; border: 1px solid #e0e0e0;
@@ -37,6 +43,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     cursor: pointer; margin-bottom: 15px;
 }
 .btn-back:active { background: #f0f0f0; }
+
 .form-group { margin-bottom: 15px; }
 label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #555; }
 select, input[type="date"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white; }
@@ -68,6 +75,7 @@ input:checked + .slider:before { transform: translateX(24px); }
 .btn-save:disabled { background: #95a5a6; cursor: not-allowed; }
 .error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; }
 .success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; }
+
 .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .list-title { font-size: 18px; font-weight: 700; color: #2c3e50; }
 .total-badge { background: #3498db; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; }
@@ -106,11 +114,15 @@ input:checked + .slider:before { transform: translateX(24px); }
         <div class="grid">
             <button class="grid-btn" onclick="apriSezione('gestione')">
                 <span class="btn-icon">⚙️</span>
-                <span class="btn-label">Gestione Permessi</span>
+                <span class="btn-label">Gestione</span>
             </button>
             <button class="grid-btn" onclick="apriSezione('lista')">
                 <span class="btn-icon">📋</span>
                 <span class="btn-label">Lista Permessi</span>
+            </button>
+            <button class="grid-btn" onclick="apriCredenziali()">
+                <span class="btn-icon">🔑</span>
+                <span class="btn-label">Credenziali</span>
             </button>
         </div>
         <button class="btn-close" onclick="chiudi()">🚪 Chiudi</button>
@@ -178,6 +190,7 @@ const MODULE_LABELS = {
 };
 let permessiCorrenti = {};
 let listaPermessi = [];
+
 function apriSezione(tab) {
     document.getElementById('menu-principale').style.display = 'none';
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -189,11 +202,18 @@ function apriSezione(tab) {
         caricaLista();
     }
 }
+
+function apriCredenziali() {
+    window.location.href = 'credenziali.html?t=' + Date.now();
+}
+
 function tornaMenu() {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.getElementById('menu-principale').style.display = 'block';
 }
+
 function chiudi() { tg.close(); }
+
 async function caricaUtenti() {
     try {
         const res = await fetch('/api/amici?nocache=' + Date.now());
@@ -209,6 +229,7 @@ async function caricaUtenti() {
         });
     } catch (e) { showError('Errore: ' + e.message); }
 }
+
 async function caricaPermessi() {
     const userId = document.getElementById('utente-select').value;
     if (!userId) {
@@ -231,6 +252,7 @@ async function caricaPermessi() {
         hideMessages();
     } catch (e) { showError('Errore: ' + e.message); }
 }
+
 function renderModuli() {
     const container = document.getElementById('module-list');
     container.innerHTML = '';
@@ -255,6 +277,7 @@ function renderModuli() {
         container.appendChild(item);
     });
 }
+
 async function salvaPermessi() {
     const userId = document.getElementById('utente-select').value;
     if (!userId) { showError('Seleziona un nominativo'); return; }
@@ -286,6 +309,7 @@ async function salvaPermessi() {
         btn.textContent = '💾 Salva Permessi';
     }
 }
+
 async function caricaLista() {
     try {
         const res = await fetch('/api/lista_permessi?nocache=' + Date.now());
@@ -297,6 +321,7 @@ async function caricaLista() {
         document.getElementById('listContainer').innerHTML = `<div class="empty-state">Errore: ${e.message}</div>`;
     }
 }
+
 function renderLista(items) {
     const container = document.getElementById('listContainer');
     container.innerHTML = '';
@@ -330,6 +355,7 @@ function renderLista(items) {
         container.appendChild(div);
     });
 }
+
 async function modificaPermessi(userId, nome) {
     tornaMenu();
     apriSezione('gestione');
@@ -339,6 +365,7 @@ async function modificaPermessi(userId, nome) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     tg.showPopup({ title: '✏️ Modifica Permessi', message: `Stai modificando i permessi di:\n${nome}` });
 }
+
 function eliminaPermessi(userId, nome) {
     tg.showConfirm(`Eliminare tutti i permessi di:\n${nome}?`, async (ok) => {
         if (!ok) return;
@@ -355,23 +382,27 @@ function eliminaPermessi(userId, nome) {
         }
     });
 }
+
 document.getElementById('searchInput').addEventListener('input', (e) => {
     const term = e.target.value.toLowerCase();
     const filtered = listaPermessi.filter(item => (item.nome && item.nome.toLowerCase().includes(term)));
     renderLista(filtered);
 });
+
 function showError(msg) {
     const el = document.getElementById('error-msg');
     el.textContent = msg;
     el.style.display = 'block';
     document.getElementById('success-msg').style.display = 'none';
 }
+
 function showSuccess(msg) {
     const el = document.getElementById('success-msg');
     el.textContent = msg;
     el.style.display = 'block';
     document.getElementById('error-msg').style.display = 'none';
 }
+
 function hideMessages() {
     document.getElementById('error-msg').style.display = 'none';
     document.getElementById('success-msg').style.display = 'none';
