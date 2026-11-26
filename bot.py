@@ -15,7 +15,6 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 load_dotenv()
 
-# Configurazione Variabili d'Ambiente
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 AUTHORIZED_IDS = [int(x) for x in os.getenv("AUTHORIZED_IDS", "").split(",") if x]
 BOT_PASSWORD = os.getenv("BOT_PASSWORD", "")
@@ -27,15 +26,12 @@ if not BOT_TOKEN:
     raise SystemExit("BOT_TOKEN mancante")
 
 def get_main_keyboard():
-    # Timestamp dinamico per bypassare cache Telegram
     ts = int(time.time()) 
-    
     keyboard = [
         [KeyboardButton("📝 Nominativo", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/index.html?t={ts}")),
          KeyboardButton("📋 Lista", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/elencazione.html?t={ts}")),
          KeyboardButton("⏰ Scadenze", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/scadenze.html?t={ts}"))],
         
-        # FIX: Sostituito "Storico Rinnovi" con "Lista Rinnovi"
         [KeyboardButton("🔄 Rinnovi", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/rinnovi.html?t={ts}")),
          KeyboardButton("📋 Lista Rinnovi", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/lista_rinnovi.html?t={ts}"))],
          
@@ -43,13 +39,12 @@ def get_main_keyboard():
          KeyboardButton("📁 Files", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/credenziali.html?t={ts}")),
          KeyboardButton("🗂️ Tabelle", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/tabelle.html?t={ts}"))],
          
-       [KeyboardButton("🔐 Sicurezza", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/sicurezza.html?t={ts}")),
-        KeyboardButton("💰 Contabilità", web_app=WebAppInfo(url="https://agenda-webapp.onrender.com/contabilita.html"))]
+        [KeyboardButton("🔐 Sicurezza", web_app=WebAppInfo(url=f"https://agenda-webapp.onrender.com/sicurezza.html?t={ts}")),
+         KeyboardButton("💰 Contabilità", web_app=WebAppInfo(url="https://agenda-webapp.onrender.com/contabilita.html"))]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 user_state = {}
-
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
