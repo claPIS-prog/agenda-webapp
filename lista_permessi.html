@@ -25,20 +25,59 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        .top-bar {
+            background-color: var(--tg-theme-bg-color);
+            padding: 10px 15px 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #efefef;
+        }
+
+        .btn-back {
+            background: var(--tg-theme-secondary-bg-color);
+            color: var(--tg-theme-text-color);
+            border: 1px solid #dcdcdc;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
         .header {
             background-color: var(--tg-theme-bg-color);
-            padding: 10px 15px;
+            padding: 8px 15px 12px;
             position: sticky;
             top: 0;
             z-index: 100;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .title-row {
+            display: flex;
             align-items: center;
-            gap: 10px;
+            justify-content: space-between;
+        }
+
+        .title-row h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .total-badge {
+            background: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
         }
 
         .search-container {
-            flex-grow: 1;
             position: relative;
         }
 
@@ -164,10 +203,18 @@
 
     <div id="loading">⏳ Caricamento...</div>
 
+    <div class="top-bar">
+        <button type="button" class="btn-back" onclick="tornaIndietro()">← Indietro</button>
+    </div>
+
     <div class="header">
+        <div class="title-row">
+            <h2>📋 Lista Permessi</h2>
+            <span class="total-badge" id="totalBadge">Totale: 0</span>
+        </div>
         <div class="search-container">
             <span class="search-icon">🔍</span>
-            <input type="text" id="searchInput" class="search-input" placeholder="Cerca utente o nominativo...">
+            <input type="text" id="searchInput" class="search-input" placeholder="Cerca nominativo...">
         </div>
     </div>
 
@@ -207,17 +254,46 @@
         "calcoli": "📊 Calcoli"
     };
 
+    function tornaIndietro() {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = '/index.html';
+        }
+    }
+
+    async function fetchUtentiConFallback() {
+        const endpoints = ['/api/lista_permessi', '/api/amici'];
+        let lastError = null;
+
+        for (const ep of endpoints) {
+            const url = `${ep}?nocache=` + Date.now();
+            try {
+                const res = await fetch(url);
+                if (!res.ok) {
+                    lastError = new Error(`HTTP ${res.status} su ${url}`);
+                    continue;
+                }
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    return data;
+                }
+            } catch (err) {
+                lastError = err;
+            }
+        }
+
+        throw lastError || new Error('Impossibile caricare utenti e permessi');
+    }
+
     async function fetchData() {
         try {
-            const urlAmici = '/api/amici?nocache=' + Date.now();
-            const response = await fetch(urlAmici);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status} su ${urlAmici}`);
-            }
-
-            const utenti = await response.json();
+            const utenti = await fetchUtentiConFallback();
 
             const promises = utenti.map(async (u) => {
+                if (u && typeof u.permessi === 'object' && u.permessi !== null) {
+                    return { ...u, permessi: u.permessi };
+                }
                 try {
                     const urlPerm = `/api/permessi/${u.id}?nocache=` + Date.now();
                     const permRes = await fetch(urlPerm);
@@ -236,6 +312,7 @@
 
             allData = await Promise.all(promises);
 
+            document.getElementById('totalBadge').textContent = `Totale: ${allData.length}`;
             renderList(allData);
             document.getElementById('loading').style.display = 'none';
         } catch (error) {
@@ -254,6 +331,7 @@
     function renderList(items) {
         const container = document.getElementById('listContainer');
         container.innerHTML = '';
+        document.getElementById('totalBadge').textContent = `Totale: ${items.length}`;
 
         if (items.length === 0) {
             container.innerHTML = '<div class="empty-state">Nessun utente trovato.</div>';
