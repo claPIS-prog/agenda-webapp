@@ -1277,6 +1277,45 @@ def api_crediti_disponibili(data_da: str = "", data_a: str = "", fornitore_da: s
     get_current_user(request)
     return _calcola_riepilogo_crediti(data_da, data_a, fornitore_da, fornitore_a)
 
+async def _salva_acquisto_credito(d: dict, id_record: int | None = None):
+    qta = int(d.get("quantita", d.get("qta", 0)) or 0)
+    prezzo_unit = float(d.get("prezzo_unitario", d.get("prezzo", 0)) or 0)
+    valore_raw = d.get("valore", d.get("valore_totale", d.get("importo")))
+    if valore_raw not in (None, ""):
+        valore = float(valore_raw or 0)
+    else:
+        valore = qta * prezzo_unit
+
+    data_acq = d.get("data_acquisto") or d.get("data") or datetime.now().strftime("%d/%m/%Y")
+    fornitore = d.get("fornitore") or d.get("nominativo") or ""
+    mod_pag = d.get("modalita_pagamento") or d.get("metodo_pagamento") or ""
+    note = d.get("note") or d.get("informazioni") or ""
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            if id_record is not None:
+                cur.execute("""
+                    UPDATE crediti
+                    SET data_acquisto=%s, fornitore=%s, modalita_pagamento=%s, quantita=%s, valore=%s, note=%s
+                    WHERE id=%s
+                """, (data_acq, fornitore, mod_pag, qta, valore, note, id_record))
+                record_id = id_record
+            else:
+                cur.execute("""
+                    INSERT INTO crediti (data_acquisto, fornitore, modalita_pagamento, quantita, valore, note, creato_il)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING id
+                """, (data_acq, fornitore, mod_pag, qta, valore, note, datetime.now().isoformat()))
+                record_id = cur.fetchone()["id"]
+        conn.commit()
+        return {"ok": True, "id": record_id, "valore": valore}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 # === CREDITI ===
 @app.get("/api/crediti")
 def api_crediti(request: Request):
@@ -1290,36 +1329,21 @@ def api_crediti(request: Request):
         conn.close()
 
 @app.post("/api/crediti")
+@app.post("/api/credito")
 async def api_crediti_salva(request: Request):
     get_current_user(request)
     d = estrai_dati(await request.json())
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""INSERT INTO crediti (data_acquisto, fornitore, modalita_pagamento, quantita, valore, note, creato_il) 
-                VALUES (%s,%s,%s,%s,%s,%s,%s)""",
-                (d.get("data_acquisto",""), d.get("fornitore",""), d.get("modalita_pagamento",""),
-                 int(d.get("quantita",0) or 0), float(d.get("valore",0) or 0), d.get("note",""), datetime.now().isoformat()))
-        conn.commit()
-    finally:
-        conn.close()
-    return {"ok": True}
+    return await _salva_acquisto_credito(d)
 
 @app.put("/api/crediti/{id}")
+@app.put("/api/credito/{id}")
 async def api_crediti_modifica(id: int, request: Request):
     get_current_user(request)
     d = estrai_dati(await request.json())
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""UPDATE crediti SET data_acquisto=%s, fornitore=%s, modalita_pagamento=%s, quantita=%s, valore=%s, note=%s WHERE id=%s""",
-                (d.get("data_acquisto",""), d.get("fornitore",""), d.get("modalita_pagamento",""),
-                 int(d.get("quantita",0) or 0), float(d.get("valore",0) or 0), d.get("note",""), id))
-        conn.commit()
-    finally: conn.close()
-    return {"ok": True}
+    return await _salva_acquisto_credito(d, id_record=id)
 
 @app.delete("/api/crediti/{id}")
+@app.delete("/api/credito/{id}")
 def api_crediti_cancella(id: int, request: Request):
     get_current_user(request)
     conn = db_conn()
@@ -1327,13 +1351,41 @@ def api_crediti_cancella(id: int, request: Request):
         with conn.cursor() as cur:
             cur.execute("DELETE FROM crediti WHERE id = %s", (id,))
         conn.commit()
-    finally: conn.close()
+    finally:
+        conn.close()
     return {"ok": True}
 
 @app.api_route("/api/{percorso:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 async def api_fallback_saldo(percorso: str, request: Request):
     get_current_user(request)
     p = percorso.lower()
+    if "credit" in p:
+        if request.method == "GET":
+            conn = db_conn()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT * FROM crediti ORDER BY COALESCE(data_acquisto, '') DESC, id DESC")
+                    return cur.fetchall()
+            finally:
+                conn.close()
+        if request.method == "DELETE":
+            id_raw = request.query_params.get("id")
+            if id_raw:
+                conn = db_conn()
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("DELETE FROM crediti WHERE id = %s", (int(id_raw),))
+                    conn.commit()
+                finally:
+                    conn.close()
+            return {"ok": True}
+        dati = {}
+        try:
+            dati = estrai_dati(await request.json())
+        except Exception:
+            dati = {}
+        return await _salva_acquisto_credito(dati)
+
     if "saldo" in p or "rinnov" in p:
         if request.method == "GET":
             return _elenco_saldo_rinnovi()
