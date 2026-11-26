@@ -146,13 +146,17 @@
         #loading {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.9);
             display: flex;
+            flex-direction: column;
+            gap: 10px;
             align-items: center;
             justify-content: center;
             z-index: 1000;
             font-weight: bold;
             color: var(--tg-theme-link-color);
+            text-align: center;
+            padding: 20px;
         }
     </style>
 </head>
@@ -163,19 +167,16 @@
     <div class="header">
         <div class="search-container">
             <span class="search-icon">🔍</span>
-            <input type="text" id="searchInput" class="search-input" placeholder="Cerca utente...">
+            <input type="text" id="searchInput" class="search-input" placeholder="Cerca utente o nominativo...">
         </div>
     </div>
 
-    <div id="listContainer" class="list-container">
-        <!-- Items will be injected here -->
-    </div>
+    <div id="listContainer" class="list-container"></div>
 
 <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
-    
-    // Adatta i colori al tema Telegram
+
     document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#ffffff');
     document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#000000');
     document.documentElement.style.setProperty('--tg-theme-hint-color', tg.themeParams.hint_color || '#999999');
@@ -208,30 +209,35 @@
 
     async function fetchData() {
         try {
-            const response = await fetch('/api/amici?nocache=' + Date.now());
-            if (!response.ok) throw new Error('Network response was not ok');
-            
+            const urlAmici = '/api/amici?nocache=' + Date.now();
+            const response = await fetch(urlAmici);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} su ${urlAmici}`);
+            }
+
             const utenti = await response.json();
-            
-            // Per ogni utente, carica i permessi
+
             const promises = utenti.map(async (u) => {
                 try {
-                    const permRes = await fetch(`/api/permessi/${u.id}?nocache=` + Date.now());
+                    const urlPerm = `/api/permessi/${u.id}?nocache=` + Date.now();
+                    const permRes = await fetch(urlPerm);
                     if (permRes.ok) {
-                        const perms = await permRes.json();
-                        return { ...u, permessi: perms };
+                        const permsPayload = await permRes.json();
+                        const mappaPermessi = (permsPayload && typeof permsPayload.permessi === 'object' && permsPayload.permessi !== null)
+                            ? permsPayload.permessi
+                            : (permsPayload || {});
+                        return { ...u, permessi: mappaPermessi };
                     }
                 } catch (e) {
                     console.error(`Errore caricamento permessi per ${u.nome}:`, e);
                 }
                 return { ...u, permessi: {} };
             });
-            
+
             allData = await Promise.all(promises);
-            
+
             renderList(allData);
             document.getElementById('loading').style.display = 'none';
-            
         } catch (error) {
             console.error('Error:', error);
             document.getElementById('loading').innerHTML = `Errore: ${error.message}<br><button onclick="location.reload()">Riprova</button>`;
@@ -240,7 +246,7 @@
 
     function getInitials(name) {
         if (!name) return '?';
-        const parts = name.split(' ');
+        const parts = name.trim().split(/\s+/);
         if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
         return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     }
@@ -257,20 +263,21 @@
         items.forEach(item => {
             const div = document.createElement('div');
             div.className = 'item';
-            
-            // Ottieni moduli attivi
+
             const activeModules = Object.entries(item.permessi || {})
-                .filter(([mod, attivo]) => attivo)
+                .filter(([mod, attivo]) => Boolean(attivo))
                 .map(([mod]) => MODULE_LABELS[mod] || mod);
-            
-            const subtitle = activeModules.length > 0 
-                ? `${activeModules.length} moduli attivi` 
+
+            const subtitle = activeModules.length > 0
+                ? `${activeModules.length} moduli attivi`
                 : 'Nessun permesso';
 
+            const nomeVisualizzato = item.nome || item.nominativo || 'Sconosciuto';
+
             div.innerHTML = `
-                <div class="avatar">${getInitials(item.nome)}</div>
+                <div class="avatar">${getInitials(nomeVisualizzato)}</div>
                 <div class="content">
-                    <div class="name">${item.nome || 'Sconosciuto'}</div>
+                    <div class="name">${nomeVisualizzato}</div>
                     <div class="subtitle">${subtitle}</div>
                     ${activeModules.length > 0 ? `
                         <div class="modules">
@@ -280,12 +287,11 @@
                     ` : ''}
                 </div>
             `;
-            
-            // Azione al click
+
             div.onclick = () => {
-                tg.showPopup({ 
-                    title: item.nome, 
-                    message: `Moduli attivi: ${activeModules.length}\n\n${activeModules.join(', ')}` 
+                tg.showPopup({
+                    title: nomeVisualizzato,
+                    message: `Moduli attivi: ${activeModules.length}\n\n${activeModules.join(', ')}`
                 });
             };
 
@@ -293,16 +299,15 @@
         });
     }
 
-    // Search Filter
     document.getElementById('searchInput').addEventListener('input', (e) => {
-        const term = e.target.value.toLowerCase();
-        const filtered = allData.filter(item => 
-            (item.nome && item.nome.toLowerCase().includes(term))
-        );
+        const term = e.target.value.toLowerCase().trim();
+        const filtered = allData.filter(item => {
+            const nome = (item.nome || item.nominativo || '').toLowerCase();
+            return nome.includes(term);
+        });
         renderList(filtered);
     });
 
-    // Init
     fetchData();
 </script>
 </body>
