@@ -107,6 +107,15 @@ def init_db():
             for u in cur.fetchall():
                 for mod in ALL_MODULES:
                     cur.execute("INSERT INTO permessi (user_id, modulo, attivo) VALUES (%s, %s, TRUE) ON CONFLICT (user_id, modulo) DO NOTHING", (u["id"], mod))
+            for tbl in [
+                "nominativi", "rinnovi", "servers", "resellers", "procuratori",
+                "autorizzati", "dispositivi", "sistemi_operativi", "buffett",
+                "metodi_pagamento", "operatori_it", "saldo_rinnovi", "note",
+                "credenziali", "permessi", "calcoli", "crediti", "ingressi"
+            ]:
+                cur.execute(
+                    f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), COALESCE((SELECT MAX(id) FROM {tbl}), 1), true)"
+                )
             conn.commit()
     finally:
         conn.close()
