@@ -1291,6 +1291,27 @@ def api_crediti_cancella(id: int, request: Request):
     finally: conn.close()
     return {"ok": True}
 
+@app.api_route("/api/{percorso:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+async def api_fallback_saldo(percorso: str, request: Request):
+    get_current_user(request)
+    p = percorso.lower()
+    if "saldo" in p or "rinnov" in p:
+        if request.method == "GET":
+            return _elenco_saldo_rinnovi()
+        if request.method == "DELETE":
+            id_raw = request.query_params.get("id")
+            if id_raw:
+                conn = db_conn()
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("DELETE FROM saldo_rinnovi WHERE id = %s", (int(id_raw),))
+                    conn.commit()
+                finally:
+                    conn.close()
+            return {"ok": True}
+        return await _salva_saldo_rinnovo_da_request(request)
+    raise HTTPException(status_code=404, detail=f"Endpoint non trovato: /api/{percorso}")
+
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 if __name__ == "__main__":
