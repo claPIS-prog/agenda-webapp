@@ -958,9 +958,7 @@ def api_calcoli_cancella(id: int, request: Request):
     return {"ok": True}
 
 # === LISTA CREDITI ===
-@app.get("/api/lista_crediti")
-def api_lista_crediti(data_da: str = "", data_a: str = "", fornitore_da: str = "", fornitore_a: str = "", request: Request = None):
-    get_current_user(request)
+def _calcola_riepilogo_crediti(data_da: str = "", data_a: str = "", fornitore_da: str = "", fornitore_a: str = ""):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
@@ -978,12 +976,12 @@ def api_lista_crediti(data_da: str = "", data_a: str = "", fornitore_da: str = "
             if fornitore_a:
                 query_acq += " AND fornitore <= %s"
                 params_acq.append(fornitore_a)
-            
+
             cur.execute(query_acq, params_acq)
             acquisto = cur.fetchone()
             tot_acq_qta = int(acquisto['tot_qta'] or 0)
             tot_acq_val = float(acquisto['tot_val'] or 0)
-            
+
             query_vend = """SELECT SUM(r.num_credito_dato) as tot_qta_vend, 
                 SUM(r.num_credito_dato * r.val_singolo_nc_rich) as tot_val_vend
                 FROM rinnovi r WHERE r.num_credito_dato > 0"""
@@ -994,25 +992,42 @@ def api_lista_crediti(data_da: str = "", data_a: str = "", fornitore_da: str = "
             if data_a:
                 query_vend += " AND r.data_operazione <= %s"
                 params_vend.append(data_a)
-            
+
             cur.execute(query_vend, params_vend)
             vendita = cur.fetchone()
             tot_vend_qta = int(vendita['tot_qta_vend'] or 0)
             tot_vend_val = float(vendita['tot_val_vend'] or 0)
-            
+
             saldo_qta = tot_acq_qta - tot_vend_qta
             saldo_val = tot_acq_val - tot_vend_val
-            
+
+            cur.execute("SELECT * FROM crediti ORDER BY COALESCE(data_acquisto, '') DESC, id DESC")
+            righe = cur.fetchall()
+
             return {
                 "tot_acq_qta": tot_acq_qta,
                 "tot_acq_val": tot_acq_val,
                 "tot_vend_qta": tot_vend_qta,
                 "tot_vend_val": tot_vend_val,
                 "saldo_qta": saldo_qta,
-                "saldo_val": saldo_val
+                "saldo_val": saldo_val,
+                "crediti_disponibili": saldo_qta,
+                "disponibili": saldo_qta,
+                "totale_disponibili": saldo_qta,
+                "items": righe
             }
     finally:
         conn.close()
+
+@app.get("/api/lista_crediti")
+def api_lista_crediti(data_da: str = "", data_a: str = "", fornitore_da: str = "", fornitore_a: str = "", request: Request = None):
+    get_current_user(request)
+    return _calcola_riepilogo_crediti(data_da, data_a, fornitore_da, fornitore_a)
+
+@app.get("/api/crediti_disponibili")
+def api_crediti_disponibili(data_da: str = "", data_a: str = "", fornitore_da: str = "", fornitore_a: str = "", request: Request = None):
+    get_current_user(request)
+    return _calcola_riepilogo_crediti(data_da, data_a, fornitore_da, fornitore_a)
 
 # === CREDITI ===
 @app.get("/api/crediti")
