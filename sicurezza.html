@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Sicurezza</title>
-<script src="[https://telegram.org/js/telegram-web-app.js](https://telegram.org/js/telegram-web-app.js)"></script>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; padding: 20px 15px; }
@@ -28,21 +28,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .section.active { display: block; }
 .btn-back { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: white; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 15px; }
 .btn-back:active { background: #f0f0f0; }
-.form-card { background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.form-card-title { font-size: 16px; font-weight: 700; color: #2c3e50; margin-bottom: 12px; }
 .form-group { margin-bottom: 12px; }
 label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #555; }
-select, input[type="date"], input[type="time"], input[type="text"], input[type="number"], textarea {
+select, input[type="date"] {
     width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: white; color: #222;
 }
-input[readonly], textarea[readonly] {
-    background: #f3f4f6;
-    color: #374151;
-    border-color: #d1d5db;
-    cursor: default;
-}
-textarea { min-height: 70px; resize: vertical; background: #ffffff; }
-textarea[readonly] { min-height: 60px; }
 .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .module-list { margin-top: 20px; }
 .module-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; background: white; }
@@ -55,8 +45,6 @@ input:checked + .slider { background-color: #27ae60; }
 input:checked + .slider:before { transform: translateX(24px); }
 .btn-save { width: 100%; padding: 13px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
 .btn-save:disabled { background: #95a5a6; cursor: not-allowed; }
-.btn-filter { padding: 10px 14px; background: #0088cc; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.btn-reset { padding: 10px 12px; background: #e5e7eb; color: #333; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; }
 .success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; }
 .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -65,8 +53,6 @@ input:checked + .slider:before { transform: translateX(24px); }
 .search-box { position: relative; margin-bottom: 12px; }
 .search-box input { width: 100%; padding: 10px 10px 10px 35px; border-radius: 10px; border: 1px solid #e0e0e0; background: white; font-size: 15px; outline: none; }
 .search-box .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #888; font-size: 14px; pointer-events: none; }
-.filter-row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
-.filter-row select { flex: 1; }
 .list-item { background: white; padding: 10px 12px; border-bottom: 1px solid #efeff4; display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .list-item:first-child { border-top-left-radius: 10px; border-top-right-radius: 10px; }
 .list-item:last-child { border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; border-bottom: none; }
@@ -83,7 +69,6 @@ input:checked + .slider:before { transform: translateX(24px); }
 .btn-edit { background: #f39c12; color: white; }
 .btn-delete { background: #e74c3c; color: white; }
 .empty-state { text-align: center; padding: 30px 20px; color: #999; background: white; border-radius: 12px; border: 1px solid #e0e0e0; }
-
 .modal-overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.6); z-index: 200;
@@ -118,8 +103,6 @@ input:checked + .slider:before { transform: translateX(24px); }
     background: none; border: none; font-size: 24px;
     color: #999999; cursor: pointer; line-height: 1;
 }
-.history-box { margin-top: 14px; border-top: 1px solid #e5e7eb; padding-top: 10px; }
-.history-item { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -128,7 +111,7 @@ input:checked + .slider:before { transform: translateX(24px); }
         <div class="header">
             <div class="icon">🔐</div>
             <h2>Sicurezza</h2>
-            <div class="subtitle">Gestione permessi, accessi e ingressi</div>
+            <div class="subtitle">Gestione permessi e accessi</div>
         </div>
         <div class="grid">
             <button type="button" class="grid-btn" onclick="apriSezione('gestione')">
@@ -139,7 +122,7 @@ input:checked + .slider:before { transform: translateX(24px); }
                 <span class="btn-icon">📋</span>
                 <span class="btn-label">Lista Permessi</span>
             </button>
-            <button type="button" class="grid-btn" onclick="apriSezione('ingressi')">
+            <button type="button" class="grid-btn" onclick="apriIngressi()">
                 <span class="btn-icon">🚪</span>
                 <span class="btn-label">Ingressi</span>
             </button>
@@ -191,81 +174,6 @@ input:checked + .slider:before { transform: translateX(24px); }
         </div>
         <div id="listContainer"></div>
     </div>
-
-    <div id="section-ingressi" class="section">
-        <button type="button" class="btn-back" onclick="tornaMenu()">← Indietro</button>
-        <div class="form-card">
-            <div class="form-card-title">🚪 Ingressi (Lettura Dati + Aggiungi Nota)</div>
-            <div class="form-group">
-                <label for="ingresso-seleziona-nominativo">Seleziona Nominativo da leggere:</label>
-                <select id="ingresso-seleziona-nominativo" onchange="caricaDatiIngressoNominativo(this.value)">
-                    <option value="">-- Seleziona nominativo --</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="ingresso-nominativo">Nominativo (Output):</label>
-                <input type="text" id="ingresso-nominativo" readonly>
-            </div>
-            <div class="date-row">
-                <div class="form-group">
-                    <label for="ingresso-data-in">DataIngresso (GG/MM/AAAA):</label>
-                    <input type="text" id="ingresso-data-in" placeholder="GG/MM/AAAA" oninput="aggiornaTempoIngresso()">
-                </div>
-                <div class="form-group">
-                    <label for="ingresso-ora-in">OraEntrata (HH:MM):</label>
-                    <input type="time" id="ingresso-ora-in" oninput="aggiornaTempoIngresso()">
-                </div>
-            </div>
-            <div class="date-row">
-                <div class="form-group">
-                    <label for="ingresso-data-out">DataUscita (GG/MM/AAAA):</label>
-                    <input type="text" id="ingresso-data-out" placeholder="GG/MM/AAAA" oninput="aggiornaTempoIngresso()">
-                </div>
-                <div class="form-group">
-                    <label for="ingresso-ora-out">OraUscita (HH:MM):</label>
-                    <input type="time" id="ingresso-ora-out" oninput="aggiornaTempoIngresso()">
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="ingresso-tempo">Tempo (differenza in minuti tra Ingresso e Uscita):</label>
-                <input type="number" id="ingresso-tempo" min="0" value="0" readonly>
-            </div>
-            <div class="date-row">
-                <div class="form-group">
-                    <label for="ingresso-form-vis">FormVisualizzato:</label>
-                    <input type="text" id="ingresso-form-vis" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="ingresso-posizione">Posizione:</label>
-                    <input type="text" id="ingresso-posizione" readonly>
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="ingresso-note-esistenti">Note / Info già salvate:</label>
-                <textarea id="ingresso-note-esistenti" readonly placeholder="Nessuna nota salvata per questo nominativo..."></textarea>
-            </div>
-            <div class="form-group">
-                <label for="ingresso-note">Nuova Nota / Info da aggiungere:</label>
-                <textarea id="ingresso-note" placeholder="Scrivi la nota o informazione da aggiungere..."></textarea>
-            </div>
-            <button type="button" class="btn-save" id="btn-salva-ingresso" onclick="salvaIngresso()">💾 Salva Nota e Aggiorna</button>
-            <div class="error-msg" id="ingressi-error-msg"></div>
-            <div class="success-msg" id="ingressi-success-msg"></div>
-        </div>
-
-        <div class="list-header">
-            <div class="list-title">📌 Registro Ingressi</div>
-            <div class="total-badge" id="ingressi-total-badge">Totale: 0</div>
-        </div>
-        <div class="filter-row">
-            <select id="filtro-nominativo-ingressi">
-                <option value="">Tutti i Nominativi</option>
-            </select>
-            <button type="button" class="btn-filter" onclick="applicaFiltroIngressi()">Filtra</button>
-            <button type="button" class="btn-reset" onclick="resetFiltroIngressi()">Reset</button>
-        </div>
-        <div id="ingressiListContainer"></div>
-    </div>
 </div>
 
 <div class="modal-overlay" id="infoModal" onclick="chiudiInfoOverlay(event)">
@@ -273,14 +181,6 @@ input:checked + .slider:before { transform: translateX(24px); }
         <button type="button" class="close-modal" onclick="chiudiInfoPermesso()">×</button>
         <h3>ℹ️ Dettagli Permessi</h3>
         <div id="infoContent"></div>
-    </div>
-</div>
-
-<div class="modal-overlay" id="ingressoDettaglioModal" onclick="chiudiIngressoDettaglioOverlay(event)">
-    <div class="modal">
-        <button type="button" class="close-modal" onclick="chiudiIngressoDettaglio()">×</button>
-        <h3>📝 Note / Dettaglio Ingresso</h3>
-        <div id="ingressoDettaglioContent"></div>
     </div>
 </div>
 
@@ -308,28 +208,21 @@ const MODULE_LABELS = {
 };
 let permessiCorrenti = {};
 let listaPermessi = [];
-let listaIngressi = [];
-let elencoNominativi = [];
 
-async function apriSezione(tab) {
+function apriSezione(tab) {
     document.getElementById('menu-principale').style.display = 'none';
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     if (tab === 'gestione') {
         document.getElementById('section-gestione').classList.add('active');
         if (document.getElementById('utente-select').options.length <= 1) caricaUtenti();
-    } else if (tab === 'ingressi') {
-        document.getElementById('section-ingressi').classList.add('active');
-        inizializzaCampiOutputIngressi();
-        await caricaNominativiPerIngressi();
-        await caricaIngressi();
-        const nomCorrente = document.getElementById('ingresso-nominativo').value.trim();
-        if (nomCorrente) {
-            await caricaDatiIngressoNominativo(nomCorrente);
-        }
     } else {
         document.getElementById('section-lista').classList.add('active');
         caricaLista();
     }
+}
+
+function apriIngressi() {
+    window.location.href = 'ingressi.html?t=' + Date.now();
 }
 
 function apriAmici() {
@@ -342,422 +235,6 @@ function tornaMenu() {
 }
 
 function chiudi() { tg.close(); }
-
-function formattaDataItaliana(dateObj) {
-    const d = dateObj || new Date();
-    const gg = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const aaaa = d.getFullYear();
-    return `${gg}/${mm}/${aaaa}`;
-}
-
-function formattaOraItaliana(dateObj) {
-    const d = dateObj || new Date();
-    const hh = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${min}`;
-}
-
-function parseDataOraItaliana(strData, strOra) {
-    if (!strData) return null;
-    const pulita = String(strData).trim();
-    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(pulita);
-    if (!match) return null;
-    const giorno = parseInt(match[1], 10);
-    const mese = parseInt(match[2], 10);
-    const anno = parseInt(match[3], 10);
-    if (mese < 1 || mese > 12 || giorno < 1 || giorno > 31) return null;
-
-    let ore = 0;
-    let minuti = 0;
-    if (strOra && /^\d{1,2}:\d{2}/.test(String(strOra).trim())) {
-        const partiOra = String(strOra).trim().split(':');
-        ore = parseInt(partiOra[0], 10) || 0;
-        minuti = parseInt(partiOra[1], 10) || 0;
-    }
-
-    const dt = new Date(anno, mese - 1, giorno, ore, minuti, 0, 0);
-    if (dt.getFullYear() !== anno || dt.getMonth() !== (mese - 1) || dt.getDate() !== giorno) {
-        return null;
-    }
-    return dt;
-}
-
-function calcolaDifferenzaMinuti(dataInStr, oraInStr, dataOutStr, oraOutStr) {
-    const dtIn = parseDataOraItaliana(dataInStr, oraInStr);
-    const dtOut = parseDataOraItaliana(dataOutStr, oraOutStr);
-    if (!dtIn || !dtOut) return 0;
-    const diffMs = dtOut.getTime() - dtIn.getTime();
-    if (diffMs <= 0) return 0;
-    return Math.round(diffMs / 60000);
-}
-
-function aggiornaTempoIngresso() {
-    const dIn = document.getElementById('ingresso-data-in').value.trim();
-    const oIn = document.getElementById('ingresso-ora-in').value.trim();
-    const dOut = document.getElementById('ingresso-data-out').value.trim();
-    const oOut = document.getElementById('ingresso-ora-out').value.trim();
-    document.getElementById('ingresso-tempo').value = calcolaDifferenzaMinuti(dIn, oIn, dOut, oOut);
-}
-
-function rilevaNominativoSessione() {
-    const tgUser = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
-    if (tgUser) {
-        const nomeCompleto = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ').trim();
-        return nomeCompleto || tgUser.username || String(tgUser.id || 'Operatore');
-    }
-    return 'Admin';
-}
-
-function inizializzaCampiOutputIngressi(datiCustom = null) {
-    const adesso = new Date();
-    const oggiIt = formattaDataItaliana(adesso);
-    const oraIt = formattaOraItaliana(adesso);
-    const nom = (datiCustom && datiCustom.nominativo) ? String(datiCustom.nominativo) : rilevaNominativoSessione();
-    const dIn = (datiCustom && datiCustom.data_ingresso) ? String(datiCustom.data_ingresso) : oggiIt;
-    const oIn = (datiCustom && datiCustom.ora_entrata) ? String(datiCustom.ora_entrata) : oraIt;
-    const dOut = (datiCustom && datiCustom.data_uscita) ? String(datiCustom.data_uscita) : oggiIt;
-    const oOut = (datiCustom && datiCustom.ora_uscita) ? String(datiCustom.ora_uscita) : oraIt;
-    const formVis = (datiCustom && datiCustom.form_visualizzato) ? String(datiCustom.form_visualizzato) : 'Sicurezza / Ingressi';
-    const pos = (datiCustom && datiCustom.posizione) ? String(datiCustom.posizione) : 'Form Ingressi';
-    const noteSalvate = (datiCustom && datiCustom.note) ? String(datiCustom.note) : '';
-    const tempoCalcolato = (datiCustom && typeof datiCustom.tempo === 'number')
-        ? datiCustom.tempo
-        : calcolaDifferenzaMinuti(dIn, oIn, dOut, oOut);
-
-    document.getElementById('ingresso-nominativo').value = nom;
-    document.getElementById('ingresso-data-in').value = dIn;
-    document.getElementById('ingresso-ora-in').value = oIn;
-    document.getElementById('ingresso-data-out').value = dOut;
-    document.getElementById('ingresso-ora-out').value = oOut;
-    document.getElementById('ingresso-tempo').value = tempoCalcolato;
-    document.getElementById('ingresso-form-vis').value = formVis;
-    document.getElementById('ingresso-posizione').value = pos;
-    document.getElementById('ingresso-note-esistenti').value = noteSalvate;
-}
-
-async function caricaNominativiPerIngressi() {
-    try {
-        const res = await fetch('/api/nominativi?nocache=' + Date.now());
-        if (!res.ok) return;
-        const rows = await res.json();
-        elencoNominativi = [...new Set(
-            (Array.isArray(rows) ? rows : [])
-                .map(r => (r.nominativo || r.nome || '').trim())
-                .filter(Boolean)
-        )];
-        popolaSelectLetturaNominativi(listaIngressi);
-    } catch (e) {}
-}
-
-function popolaSelectLetturaNominativi(itemsIngressi = []) {
-    const sel = document.getElementById('ingresso-seleziona-nominativo');
-    if (!sel) return;
-    const sessioneNom = rilevaNominativoSessione();
-    const nomiIngressi = (Array.isArray(itemsIngressi) ? itemsIngressi : [])
-        .map(it => (it.nominativo || '').trim())
-        .filter(Boolean);
-    const tutti = [...new Set([sessioneNom, ...elencoNominativi, ...nomiIngressi])].sort((a, b) => a.localeCompare(b, 'it'));
-
-    sel.innerHTML = '<option value="">-- Seleziona nominativo --</option>';
-    tutti.forEach(nome => {
-        const opt = document.createElement('option');
-        opt.value = nome;
-        opt.textContent = nome;
-        sel.appendChild(opt);
-    });
-    const corrente = document.getElementById('ingresso-nominativo').value.trim();
-    if (corrente && tutti.includes(corrente)) {
-        sel.value = corrente;
-    }
-}
-
-async function caricaDatiIngressoNominativo(nominativo) {
-    const nomPulito = String(nominativo || '').trim();
-    if (!nomPulito) return;
-
-    let record = listaIngressi.find(
-        it => (it.nominativo || '').trim().toLowerCase() === nomPulito.toLowerCase()
-    );
-
-    try {
-        const res = await fetch(`/api/ingressi/dettaglio?nominativo=${encodeURIComponent(nomPulito)}&nocache=` + Date.now());
-        if (res.ok) {
-            const rows = await res.json();
-            if (Array.isArray(rows) && rows.length > 0) {
-                record = rows[0];
-            }
-        }
-    } catch (e) {}
-
-    const adesso = new Date();
-    const oggiIt = formattaDataItaliana(adesso);
-    const oraIt = formattaOraItaliana(adesso);
-    const dIn = (record && record.data_ingresso) ? record.data_ingresso : oggiIt;
-    const oIn = (record && record.ora_entrata) ? record.ora_entrata : oraIt;
-    const dOut = (record && record.data_uscita) ? record.data_uscita : oggiIt;
-    const oOut = (record && record.ora_uscita) ? record.ora_uscita : oraIt;
-    const tempoVal = (record && typeof record.tempo === 'number')
-        ? record.tempo
-        : calcolaDifferenzaMinuti(dIn, oIn, dOut, oOut);
-    const formVis = (record && record.form_visualizzato) ? record.form_visualizzato : 'Sicurezza / Ingressi';
-    const pos = (record && record.posizione) ? record.posizione : 'Form Ingressi';
-    const noteSalvate = (record && record.note) ? record.note : '';
-
-    document.getElementById('ingresso-nominativo').value = nomPulito;
-    document.getElementById('ingresso-data-in').value = dIn;
-    document.getElementById('ingresso-ora-in').value = oIn;
-    document.getElementById('ingresso-data-out').value = dOut;
-    document.getElementById('ingresso-ora-out').value = oOut;
-    document.getElementById('ingresso-tempo').value = tempoVal;
-    document.getElementById('ingresso-form-vis').value = formVis;
-    document.getElementById('ingresso-posizione').value = pos;
-    document.getElementById('ingresso-note-esistenti').value = noteSalvate;
-
-    const sel = document.getElementById('ingresso-seleziona-nominativo');
-    if (sel) sel.value = nomPulito;
-}
-
-function aggiornaSelectFiltroNominativi(items) {
-    const sel = document.getElementById('filtro-nominativo-ingressi');
-    const valoreAttuale = sel.value;
-    const nomiDaIngressi = (Array.isArray(items) ? items : [])
-        .map(it => (it.nominativo || '').trim())
-        .filter(Boolean);
-    const tuttiNomi = [...new Set([...elencoNominativi, ...nomiDaIngressi])].sort((a, b) => a.localeCompare(b, 'it'));
-
-    sel.innerHTML = '<option value="">Tutti i Nominativi</option>';
-    tuttiNomi.forEach(nome => {
-        const opt = document.createElement('option');
-        opt.value = nome;
-        opt.textContent = nome;
-        sel.appendChild(opt);
-    });
-    if (valoreAttuale && tuttiNomi.includes(valoreAttuale)) {
-        sel.value = valoreAttuale;
-    }
-}
-
-async function caricaIngressi(nominativoFiltro = null) {
-    const sel = document.getElementById('filtro-nominativo-ingressi');
-    const filtro = nominativoFiltro !== null ? nominativoFiltro : (sel ? sel.value : '');
-    try {
-        const url = filtro
-            ? `/api/ingressi?nominativo=${encodeURIComponent(filtro)}&nocache=` + Date.now()
-            : '/api/ingressi?nocache=' + Date.now();
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const dati = await res.json();
-        listaIngressi = Array.isArray(dati) ? dati : [];
-        if (!filtro) {
-            aggiornaSelectFiltroNominativi(listaIngressi);
-        } else {
-            aggiornaSelectFiltroNominativi([...listaIngressi, ...(sel.value ? [{ nominativo: sel.value }] : [])]);
-            sel.value = filtro;
-        }
-        popolaSelectLetturaNominativi(listaIngressi);
-        document.getElementById('ingressi-total-badge').textContent = 'Totale: ' + listaIngressi.length;
-        renderIngressi(listaIngressi);
-    } catch (e) {
-        document.getElementById('ingressiListContainer').innerHTML = `<div class="empty-state">Errore caricamento ingressi: ${e.message}</div>`;
-    }
-}
-
-function applicaFiltroIngressi() {
-    const nom = document.getElementById('filtro-nominativo-ingressi').value;
-    caricaIngressi(nom);
-}
-
-function resetFiltroIngressi() {
-    document.getElementById('filtro-nominativo-ingressi').value = '';
-    caricaIngressi('');
-}
-
-async function salvaIngresso() {
-    const nominativo = document.getElementById('ingresso-nominativo').value.trim();
-    const dataIngresso = document.getElementById('ingresso-data-in').value.trim();
-    const oraEntrata = document.getElementById('ingresso-ora-in').value.trim();
-    const dataUscita = document.getElementById('ingresso-data-out').value.trim();
-    const oraUscita = document.getElementById('ingresso-ora-out').value.trim();
-    const formVisualizzato = document.getElementById('ingresso-form-vis').value.trim();
-    const posizione = document.getElementById('ingresso-posizione').value.trim();
-    const note = document.getElementById('ingresso-note').value.trim();
-
-    if (!nominativo) {
-        mostraErroreIngressi('Seleziona o carica un nominativo.');
-        return;
-    }
-
-    const tempoMinuti = calcolaDifferenzaMinuti(dataIngresso, oraEntrata, dataUscita, oraUscita);
-    document.getElementById('ingresso-tempo').value = tempoMinuti;
-
-    const btn = document.getElementById('btn-salva-ingresso');
-    btn.disabled = true;
-    btn.textContent = '⏳ Aggiornamento...';
-    try {
-        const res = await fetch('/api/ingressi', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                dati: {
-                    nominativo,
-                    data_ingresso: dataIngresso,
-                    ora_entrata: oraEntrata,
-                    data_uscita: dataUscita,
-                    ora_uscita: oraUscita,
-                    tempo: tempoMinuti,
-                    form_visualizzato: formVisualizzato,
-                    posizione,
-                    note
-                }
-            })
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || 'HTTP ' + res.status);
-        }
-        mostraSuccessoIngressi('✅ Dati aggiornati e nota salvata!');
-        document.getElementById('ingresso-note').value = '';
-        await caricaIngressi(document.getElementById('filtro-nominativo-ingressi').value);
-        await caricaDatiIngressoNominativo(nominativo);
-        setTimeout(() => nascondiMessaggiIngressi(), 3000);
-    } catch (e) {
-        mostraErroreIngressi('❌ ' + e.message);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '💾 Salva Nota e Aggiorna';
-    }
-}
-
-function renderIngressi(items) {
-    const container = document.getElementById('ingressiListContainer');
-    container.innerHTML = '';
-    if (!items || items.length === 0) {
-        container.innerHTML = '<div class="empty-state">Nessun ingresso registrato.</div>';
-        return;
-    }
-    items.forEach((item, index) => {
-        const div = document.createElement('div');
-        div.className = 'list-item';
-        const nom = item.nominativo || 'Sconosciuto';
-        const dIn = item.data_ingresso || '-';
-        const oIn = item.ora_entrata || '';
-        const dOut = item.data_uscita || '-';
-        const oOut = item.ora_uscita || '';
-        const tempo = Number(item.tempo || 0);
-        const formVis = item.form_visualizzato || '-';
-        const pos = item.posizione || '-';
-        const nomSicuro = nom.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-
-        div.onclick = () => {
-            caricaDatiIngressoNominativo(nom);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        };
-
-        div.innerHTML = `
-            <div class="number">${index + 1}</div>
-            <div class="info">
-                <div class="name">${nom}</div>
-                <div class="subtitle">
-                    Ingresso: <strong>${dIn} ${oIn}</strong> — Uscita: <strong>${dOut} ${oOut}</strong> — Tempo: <strong>${tempo} min</strong><br>
-                    FormVisualizzato: ${formVis} | Posizione: ${pos}
-                </div>
-            </div>
-            <div class="actions">
-                <button type="button" class="btn-action btn-info" onclick="event.stopPropagation(); apriNoteDettaglioIngresso('${nomSicuro}', ${item.id})" title="Note / Dettaglio per Nominativo">📝</button>
-                <button type="button" class="btn-action btn-delete" onclick="event.stopPropagation(); eliminaIngresso(${item.id}, '${nomSicuro}')" title="Cancella">🗑️</button>
-            </div>
-        `;
-        container.appendChild(div);
-    });
-}
-
-async function apriNoteDettaglioIngresso(nominativo, ingressoId) {
-    let filtratiPerNominativo = listaIngressi.filter(
-        it => (it.nominativo || '').trim().toLowerCase() === String(nominativo || '').trim().toLowerCase()
-    );
-    try {
-        const res = await fetch(`/api/ingressi/dettaglio?nominativo=${encodeURIComponent(nominativo)}&nocache=` + Date.now());
-        if (res.ok) {
-            const rows = await res.json();
-            if (Array.isArray(rows)) filtratiPerNominativo = rows;
-        }
-    } catch (e) {}
-
-    const target = filtratiPerNominativo.find(it => Number(it.id) === Number(ingressoId)) || filtratiPerNominativo[0] || {};
-    const v = (val) => (val !== undefined && val !== null && String(val).trim() !== '') ? val : '-';
-
-    let html = '<div class="info-grid">';
-    html += '<div class="info-section-title">Dettaglio Ingresso (Output)</div>';
-    html += `<div class="info-row"><div class="info-label">Nominativo:</div><div class="info-value">${v(nominativo)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">DataIngresso:</div><div class="info-value">${v(target.data_ingresso)} ${v(target.ora_entrata)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">DataUscita:</div><div class="info-value">${v(target.data_uscita)} ${v(target.ora_uscita)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Tempo:</div><div class="info-value">${Number(target.tempo || 0)} min</div></div>`;
-    html += `<div class="info-row"><div class="info-label">FormVisualizzato:</div><div class="info-value">${v(target.form_visualizzato)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Posizione:</div><div class="info-value">${v(target.posizione)}</div></div>`;
-    html += '<div class="info-section-title">Note / Dettaglio</div>';
-    html += `<div class="info-row" style="flex-direction:column;"><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;white-space:pre-line;">${v(target.note)}</div></div>`;
-    html += '</div>';
-
-    html += `<div class="history-box"><div class="info-section-title">Storico filtrato per Nominativo (${filtratiPerNominativo.length})</div>`;
-    filtratiPerNominativo.forEach(r => {
-        html += `<div class="history-item">
-            <div><strong>${v(r.data_ingresso)} ${v(r.ora_entrata)} → ${v(r.data_uscita)} ${v(r.ora_uscita)}</strong> (${Number(r.tempo || 0)} min)</div>
-            <div>Form: ${v(r.form_visualizzato)} | Posizione: ${v(r.posizione)}</div>
-            <div style="white-space:pre-line;">Note: ${v(r.note)}</div>
-        </div>`;
-    });
-    html += '</div>';
-
-    document.getElementById('ingressoDettaglioContent').innerHTML = html;
-    document.getElementById('ingressoDettaglioModal').classList.add('active');
-}
-
-function chiudiIngressoDettaglio() {
-    document.getElementById('ingressoDettaglioModal').classList.remove('active');
-}
-
-function chiudiIngressoDettaglioOverlay(event) {
-    if (event.target && event.target.id === 'ingressoDettaglioModal') {
-        chiudiIngressoDettaglio();
-    }
-}
-
-function eliminaIngresso(id, nominativo) {
-    tg.showConfirm(`Cancellare l'ingresso di:\n${nominativo}?`, async (ok) => {
-        if (!ok) return;
-        try {
-            const res = await fetch(`/api/ingressi/${id}`, { method: 'DELETE' });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.detail || 'HTTP ' + res.status);
-            }
-            await caricaIngressi(document.getElementById('filtro-nominativo-ingressi').value);
-            tg.showPopup({ title: '✅ Cancellato', message: `Ingresso di ${nominativo} eliminato.` });
-        } catch (e) {
-            tg.showPopup({ title: '❌ Errore', message: e.message });
-        }
-    });
-}
-
-function mostraErroreIngressi(msg) {
-    const el = document.getElementById('ingressi-error-msg');
-    el.textContent = msg;
-    el.style.display = 'block';
-    document.getElementById('ingressi-success-msg').style.display = 'none';
-}
-
-function mostraSuccessoIngressi(msg) {
-    const el = document.getElementById('ingressi-success-msg');
-    el.textContent = msg;
-    el.style.display = 'block';
-    document.getElementById('ingressi-error-msg').style.display = 'none';
-}
-
-function nascondiMessaggiIngressi() {
-    document.getElementById('ingressi-error-msg').style.display = 'none';
-    document.getElementById('ingressi-success-msg').style.display = 'none';
-}
 
 async function caricaUtenti() {
     try {
