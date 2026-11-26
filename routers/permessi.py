@@ -2,13 +2,13 @@ from fastapi import APIRouter, Request, HTTPException
 from auth import get_current_user
 from database import db_conn
 from config import ALL_MODULES
-from models import AmicoPayload
+from models import AmicoPayload, PermessiPayload
 from datetime import datetime
 
 router = APIRouter()
 
 # -----------------------------------------------------------------------------
-# 1. DROPDOWN NOMINATIVI (Tutti i clienti potenziali )
+# 1. DROPDOWN NOMINATIVI (Tutti i clienti potenziali)
 # -----------------------------------------------------------------------------
 @router.get("/api/nominativi")
 def api_nominativi(request: Request):
@@ -132,3 +132,87 @@ def api_elimina_amico(amico_id: int, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+# -----------------------------------------------------------------------------
+# 6. PERMESSI UTENTE (Mantenuto per compatibilità con altri form)
+# -----------------------------------------------------------------------------
+@router.get("/api/permessi/{user_id}")
+def api_get_permessi(user_id: int, request: Request):
+    """Restituisce permessi modulo per modulo + date utente."""
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT modulo, attivo FROM permessi WHERE user_id = %s", (user_id,))
+            rows = cur.fetchall()
+            perms = {}
+            for row in rows:
+                d = dict(row) if isinstance(row, dict) else dict(zip(["modulo", "attivo"], row))
+                perms[d["modulo"]] = d["attivo"]
+            for mod in ALL_MODULES:
+                if mod not in perms:
+                    perms[mod] = False
+            
+            cur.execute("""
+                SELECT data_inizio_validita, data_revoca, data_fine_validita
+                FROM permessi WHERE user_id = %s LIMIT 1
+            """, (user_id,))
+            date_row = cur.fetchone()
+            
+            dates = {"data_inizio_validita": "", "data_revoca": "", "data_fine_validita": ""}
+            if date_row:
+                d = dict(date_row) if isinstance(date_row, dict) else dict(zip(
+                    ["data_inizio_validita", "data_revoca", "data_fine_validita"], date_row
+                ))
+                for k in dates:
+                    if d.get(k):
+                        dates[k] = str(d[k])[:10]
+            
+            return {"permessi": perms, "date": dates}
+    finally:
+        conn.close()
+
+@router.post("/api/salva_permessi")
+def api_salva_permessi(payload: PermessiPayload, request: Request):
+    """Salva permessi moduli + date validità."""
+    get_current_user(request)
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM autorizzati WHERE id = %s", (payload.user_id,))
+            if not cur.fetchone():
+                cur.execute("SELECT nominativo FROM nominativi WHERE id = %s", (payload.user_id,))
+                nom = cur.fetchone()
+                nome = nom["nominativo"] if nom else f"Nominativo #{payload.user_id}"
+                cur.execute("""
+                    INSERT INTO autorizzati (id, telegram_id, password, nome)
+                    VALUES (%s, %s, 'auto', %s)
+                    ON CONFLICT (id) DO NOTHING
+                """, (payload.user_id, -payload.user_id, nome))
+
+            for modulo, attivo in payload.permessi.items():
+                if modulo in ALL_MODULES:
+                    cur.execute("""
+                        INSERT INTO permessi (user_id, modulo, attivo)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (user_id, modulo) DO UPDATE SET attivo = EXCLUDED.attivo
+                    """, (payload.user_id, modulo, bool(attivo)))
+
+            cur.execute("""
+                UPDATE permessi SET
+                    data_inizio_validita = %s,
+                    data_revoca = %s,
+                    data_fine_validita = %s
+                WHERE user_id = %s
+            """, (
+                payload.data_inizio_validita,
+                payload.data_revoca,
+                payload.data_fine_validita,
+                payload.user_id
+            ))
+            conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+    return {"ok": True}
