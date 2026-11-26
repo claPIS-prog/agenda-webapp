@@ -12,10 +12,11 @@ router = APIRouter()
 # -----------------------------------------------------------------------------
 @router.get("/api/nominativi")
 def api_nominativi(request: Request):
-    """Restituisce TUTTI i nominativi per la selezione."""
+    """Restituisce TUTTI i nominativi per la selezione nella dropdown."""
     conn = db_conn()
     try:
         with conn.cursor() as cur:
+            # Legge dalla tabella 'nominativi' che contiene tutti i clienti
             cur.execute("SELECT id, nominativo as nome FROM nominativi ORDER BY nominativo")
             return cur.fetchall()
     finally:
@@ -30,19 +31,18 @@ def api_amici(request: Request):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Leggiamo solo da autorizzati. Se vuoi il nome completo, facciamo join con nominativi
-            # Assumendo che autorizzati abbia un campo 'nome' o 'telegram_id' collegabile
-            # Per sicurezza, leggiamo direttamente da autorizzati come fonte di verità degli "Amici"
+            # Join per avere il nome completo dal nominativo se manca in autorizzati
             cur.execute("""
-                SELECT a.id, a.telegram_id, a.password, a.nome 
+                SELECT a.id, a.telegram_id, a.password, 
+                       COALESCE(a.nome, n.nominativo) as nome
                 FROM autorizzati a
-                ORDER BY a.nome
+                LEFT JOIN nominativi n ON n.id = a.id
+                ORDER BY nome
             """)
             rows = cur.fetchall()
             result = []
             for r in rows:
                 record = dict(r) if isinstance(r, dict) else dict(zip([desc[0] for desc in cur.description], r))
-                # Pulizia dati sensibili se necessario, ma qui servono per edit
                 result.append(record)
             return result
     finally:
@@ -71,21 +71,16 @@ def api_get_amico(user_id: int, request: Request):
 # -----------------------------------------------------------------------------
 @router.post("/api/salva_amico")
 def api_salva_amico(payload: AmicoPayload, request: Request):
-    """Crea o aggiorna un amico in autorizzati."""
+    """Crea o aggiorna un amico in autorizzati usando l'ID del nominativo."""
     get_current_user(request)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            # Verifica se esiste già
-            cur.execute("SELECT id FROM autorizzati WHERE id = %s", (payload.telegram_id,)) # Usiamo telegram_id come chiave univoca o ID? 
-            # Nota: Nel tuo modello AmicoPayload c'è telegram_id. 
-            # Se stai usando l'ID del nominativo come ID utente, dobbiamo adattare.
-            # Assumo che tu voglia usare l'ID del nominativo come ID in autorizzati.
+            # payload.telegram_id qui rappresenta l'ID del nominativo selezionato
+            user_id = payload.telegram_id 
             
-            # Controllo esistenza per ID nominativo
-            cur.execute("SELECT id FROM autorizzati WHERE id = %s", (payload.telegram_id,)) 
-            # ATTENZIONE: payload.telegram_id qui rappresenta l'ID del nominativo selezionato
-            
+            # Verifica se esiste già in autorizzati
+            cur.execute("SELECT id FROM autorizzati WHERE id = %s", (user_id,))
             exists = cur.fetchone()
             
             if exists:
@@ -95,20 +90,20 @@ def api_salva_amico(payload: AmicoPayload, request: Request):
                         password = %s, 
                         nome = %s 
                     WHERE id = %s
-                """, (payload.telegram_id, payload.password, payload.nome, payload.telegram_id))
+                """, (user_id, payload.password, payload.nome, user_id))
             else:
                 cur.execute("""
                     INSERT INTO autorizzati (id, telegram_id, password, nome)
                     VALUES (%s, %s, %s, %s)
-                """, (payload.telegram_id, payload.telegram_id, payload.password, payload.nome))
+                """, (user_id, user_id, payload.password, payload.nome))
                 
-                # Crea permessi default disattivati
+                # Crea permessi default disattivati per il nuovo utente
                 for mod in ALL_MODULES:
                     cur.execute("""
                         INSERT INTO permessi (user_id, modulo, attivo)
                         VALUES (%s, %s, FALSE)
                         ON CONFLICT (user_id, modulo) DO NOTHING
-                    """, (payload.telegram_id, mod))
+                    """, (user_id, mod))
             
             conn.commit()
             return {"ok": True}
