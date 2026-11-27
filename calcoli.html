@@ -1,252 +1,198 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Calcoli</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        :root {
-            --tg-theme-bg-color: #ffffff;
-            --tg-theme-text-color: #000000;
-            --tg-theme-hint-color: #999999;
-            --tg-theme-link-color: #2481cc;
-            --tg-theme-button-color: #2481cc;
-            --tg-theme-button-text-color: #ffffff;
-            --tg-theme-secondary-bg-color: #f4f4f5;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--tg-theme-secondary-bg-color);
-            margin: 0;
-            padding: 0;
-            color: var(--tg-theme-text-color);
-            font-size: 14px;
-        }
-
-        .container { max-width: 600px; margin: 0 auto; padding: 15px; }
-
-        /* Header Dashboard */
-        .header { text-align: center; margin-bottom: 20px; }
-        .dashboard-btn {
-            background-color: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
-            border: none; padding: 8px 16px; border-radius: 20px;
-            font-weight: bold; font-size: 13px; cursor: pointer;
-            display: inline-flex; align-items: center; gap: 5px;
-        }
-
-        /* Sezione Filtri */
-        .filters-section {
-            background: white; border-radius: 12px; padding: 15px;
-            margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        .section-title {
-            background: #eef2f7; color: #555; padding: 6px 12px;
-            border-radius: 6px; font-weight: bold; font-size: 12px;
-            margin-bottom: 12px; display: flex; align-items: center; gap: 5px;
-        }
-        .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .filter-group label { display: block; font-size: 11px; color: #666; margin-bottom: 4px; font-weight: 600; }
-        .filter-group select, .filter-group input {
-            width: 100%; padding: 8px; border: 1px solid #ddd;
-            border-radius: 6px; font-size: 13px; background: #fafafa; box-sizing: border-box;
-        }
-
-        /* Contatori */
-        .counters-bar {
-            background: #f0f7ff; border: 1px solid #cce5ff; border-radius: 8px;
-            padding: 10px; display: flex; justify-content: space-around;
-            margin-bottom: 15px; font-size: 13px; font-weight: 600;
-        }
-        .counter-item span { color: var(--tg-theme-link-color); }
-
-        /* Sezione Nuovo */
-        .new-section {
-            background: white; border-radius: 12px; padding: 15px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        .new-header {
-            background: var(--tg-theme-button-color); color: white;
-            padding: 8px 12px; border-radius: 6px; font-weight: bold;
-            font-size: 12px; margin-bottom: 12px; display: flex; align-items: center; gap: 5px;
-        }
-        .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
-        .input-group { flex: 1; }
-        .input-group label { display: block; font-size: 11px; color: #666; margin-bottom: 4px; }
-        .input-group input {
-            width: 100%; padding: 8px; border: 1px solid #ddd;
-            border-radius: 6px; font-size: 14px; box-sizing: border-box;
-        }
-
-        /* Loading & Error */
-        #loadingOverlay {
-            position: fixed; inset: 0; background: rgba(255,255,255,0.9);
-            display: flex; align-items: center; justify-content: center;
-            z-index: 1000; font-weight: bold; color: var(--tg-theme-link-color);
-        }
-        .error-msg {
-            color: #dc3545; background: #fff5f5; padding: 10px;
-            border-radius: 6px; text-align: center; margin-top: 10px; display: none;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Calcoli</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f5; color: #333; padding: 20px 15px; }
+.container { max-width: 720px; margin: 0 auto; }
+.header { text-align: center; margin-bottom: 16px; }
+.header .icon { font-size: 32px; margin-bottom: 4px; }
+.header h2 { font-size: 20px; font-weight: 700; color: #2c3e50; }
+.btn-top { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: #0088cc; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 14px; }
+.btn-top:active { background: #006fa6; }
+.card { background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }
+select, input[type="text"], input[type="number"], input[type="date"] {
+    width: 100%; padding: 9px 10px; border: 1px solid #d5d5d5; border-radius: 8px;
+    font-size: 13px; background: white; color: #222;
+}
+.kpi-box { background: #f8f9fa; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; text-align: center; font-size: 13px; font-weight: 600; }
+.btn-primary { width: 100%; padding: 11px; background: #0088cc; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.error-banner {
+    display: none; background: #e74c3c; color: white; padding: 10px 12px;
+    border-radius: 8px; margin-bottom: 12px; font-size: 13px; font-weight: 600;
+}
+.list-item { background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; margin-bottom: 8px; }
+.list-item .title { font-size: 14px; font-weight: 700; color: #222; }
+.list-item .meta { font-size: 12px; color: #666; margin-top: 4px; }
+.empty-state { text-align: center; padding: 20px; color: #777; background: white; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 13px; }
+</style>
 </head>
 <body>
-
-<div id="loadingOverlay">⏳ Caricamento dati...</div>
-
 <div class="container">
-    <!-- Header -->
+    <button type="button" class="btn-top" onclick="tornaContabilita()">📊 Dashboard Contabile</button>
+
     <div class="header">
-        <h2 style="margin:0 0 10px 0; font-size:18px;">📊 Calcoli</h2>
-        <button class="dashboard-btn" onclick="alert('Dashboard Contabile in sviluppo')">📈 Dashboard Contabile</button>
+        <div class="icon">🧮</div>
+        <h2>Calcoli</h2>
     </div>
 
-    <!-- Filtri -->
-    <div class="filters-section">
-        <div class="section-title">🔍 FILTRI</div>
-        
-        <div class="filter-grid">
-            <div class="filter-group">
-                <label>Nominativo DA:</label>
-                <select id="nom-da"><option value="">-- Tutti --</option></select>
+    <div class="card">
+        <div class="grid-2">
+            <div>
+                <label for="nominativo-da">Nominativo Da</label>
+                <select id="nominativo-da" onchange="caricaCalcoli()"><option value="">- Tutti -</option></select>
             </div>
-            <div class="filter-group">
-                <label>Nominativo A:</label>
-                <select id="nom-a"><option value="">-- Tutti --</option></select>
+            <div>
+                <label for="nominativo-a">Nominativo A</label>
+                <select id="nominativo-a" onchange="caricaCalcoli()"><option value="">- Tutti -</option></select>
             </div>
         </div>
 
-        <div class="filter-grid">
-            <div class="filter-group">
-                <label>Reseller DA:</label>
-                <select id="res-da"><option value="">-- Tutti --</option></select>
+        <div class="grid-2">
+            <div>
+                <label for="data-da">Data Da</label>
+                <input type="date" id="data-da" onchange="caricaCalcoli()">
             </div>
-            <div class="filter-group">
-                <label>Reseller A:</label>
-                <select id="res-a"><option value="">-- Tutti --</option></select>
-            </div>
-        </div>
-
-        <div class="filter-grid">
-            <div class="filter-group">
-                <label>Procuratore DA:</label>
-                <select id="proc-da"><option value="">-- Tutti --</option></select>
-            </div>
-            <div class="filter-group">
-                <label>Procuratore A:</label>
-                <select id="proc-a"><option value="">-- Tutti --</option></select>
+            <div>
+                <label for="data-a">Data A</label>
+                <input type="date" id="data-a" onchange="caricaCalcoli()">
             </div>
         </div>
 
-        <div class="filter-grid">
-            <div class="filter-group">
-                <label>Periodo DA:</label>
-                <input type="date" id="date-from">
-            </div>
-            <div class="filter-group">
-                <label>Periodo A:</label>
-                <input type="date" id="date-to">
-            </div>
+        <div class="grid-3">
+            <div class="kpi-box">Nuovi: <span id="kpi-nuovi">0</span></div>
+            <div class="kpi-box">Rinnovi: <span id="kpi-rinnovi">0</span></div>
+            <div class="kpi-box">Omaggi: <span id="kpi-omaggi">0</span></div>
         </div>
+
+        <div class="error-banner" id="error-banner"></div>
+
+        <button type="button" class="btn-primary" onclick="caricaCalcoli()">🔄 Aggiorna Calcoli</button>
     </div>
 
-    <!-- Contatori -->
-    <div class="counters-bar">
-        <div class="counter-item">💼 Nuovi: <span id="cnt-nuovi">0</span></div>
-        <div class="counter-item">🔄 Rinnovi: <span id="cnt-rinnovi">0</span></div>
-        <div class="counter-item">🎁 Omaggi: <span id="cnt-omaggi">0</span></div>
-    </div>
-
-    <!-- Errore -->
-    <div id="errorMsg" class="error-msg"></div>
-
-    <!-- Sezione Nuovo (Placeholder come da screenshot) -->
-    <div class="new-section">
-        <div class="new-header">➕ NUOVO</div>
-        <div class="input-group" style="margin-bottom:10px;">
-            <label>Importo Nuovo (€):</label>
-            <input type="number" placeholder="0" readonly style="background:#f9f9f9;">
-        </div>
-        <div class="input-row">
-            <div class="input-group">
-                <label>Acconto Nuovo (€):</label>
-                <input type="number" placeholder="0" readonly style="background:#f9f9f9;">
-            </div>
-            <div class="input-group">
-                <label>Acconto Saldo Nuovo (€):</label>
-                <input type="number" placeholder="0" readonly style="background:#f9f9f9;">
-            </div>
-        </div>
-    </div>
+    <div id="listaCalcoliContainer"></div>
 </div>
 
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
+const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+if (tg && typeof tg.expand === 'function') {
+    tg.expand();
+}
 
-// Adatta colori al tema Telegram
-document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#ffffff');
-document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#000000');
-document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color || '#f4f4f5');
+function tornaContabilita() {
+    window.location.href = 'contabilita.html?v=' + Date.now();
+}
 
-let globalData = [];
+function mostraErroreBanner(msg) {
+    const el = document.getElementById('error-banner');
+    el.textContent = '✖ Errore: ' + msg;
+    el.style.display = 'block';
+}
 
-async function caricaDati() {
-    const loader = document.getElementById('loadingOverlay');
-    const errorBox = document.getElementById('errorMsg');
-    
-    try {
-        // Timeout di sicurezza 10s
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+function nascondiErroreBanner() {
+    const el = document.getElementById('error-banner');
+    el.textContent = '';
+    el.style.display = 'none';
+}
 
-        // Chiamata all'endpoint che abbiamo aggiunto nel Python
-        const res = await fetch('/api/calcoli?nocache=' + Date.now(), { 
-            signal: controller.signal 
+function popolaNominativi(righe) {
+    const nomi = [...new Set(
+        (Array.isArray(righe) ? righe : [])
+            .map(r => String(r.nominativo || r.fornitore || '').trim())
+            .filter(Boolean)
+    )].sort();
+
+    ['nominativo-da', 'nominativo-a'].forEach(id => {
+        const sel = document.getElementById(id);
+        const curr = sel.value;
+        sel.innerHTML = '<option value="">- Tutti -</option>';
+        nomi.forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = n;
+            opt.textContent = n;
+            sel.appendChild(opt);
         });
-        clearTimeout(timeoutId);
+        if (curr && nomi.includes(curr)) {
+            sel.value = curr;
+        }
+    });
+}
 
-        if (!res.ok) throw new Error(`Errore Server ${res.status}`);
+function renderCalcoli(payload) {
+    const righe = Array.isArray(payload)
+        ? payload
+        : (Array.isArray(payload && payload.righe) ? payload.righe : (Array.isArray(payload && payload.items) ? payload.items : []));
 
-        const json = await res.json();
-        
-        // Gestione formato { data: [...], totali: {...} }
-        globalData = json.data || [];
-        const totali = json.totali || {};
+    popolaNominativi(righe);
 
-        // Aggiorna contatori
-        document.getElementById('cnt-nuovi').textContent = totali.nuovi || 0;
-        document.getElementById('cnt-rinnovi').textContent = totali.rinnovi || 0;
-        document.getElementById('cnt-omaggi').textContent = totali.omaggi || 0;
+    const nuovi = (payload && payload.nuovi !== undefined) ? payload.nuovi : righe.length;
+    const rinnovi = (payload && payload.rinnovi !== undefined) ? payload.rinnovi : 0;
+    const omaggi = (payload && payload.omaggi !== undefined) ? payload.omaggi : 0;
 
-        // Popola i filtri Select
-        popolaSelect('nom-da', 'nom-a', globalData.map(r => r.nominativo).filter(Boolean));
-        // Se hai colonne reseller/procuratore nel DB, decommenta queste righe:
-        // popolaSelect('res-da', 'res-a', [...new Set(globalData.map(r => r.reseller_id))].filter(Boolean));
-        // popolaSelect('proc-da', 'proc-a', [...new Set(globalData.map(r => r.procuratore_id))].filter(Boolean));
+    document.getElementById('kpi-nuovi').textContent = nuovi;
+    document.getElementById('kpi-rinnovi').textContent = rinnovi;
+    document.getElementById('kpi-omaggi').textContent = omaggi;
 
-        loader.style.display = 'none';
-        console.log("✅ Dati Calcoli caricati:", globalData.length);
+    const container = document.getElementById('listaCalcoliContainer');
+    container.innerHTML = '';
 
+    if (!righe.length) {
+        container.innerHTML = '<div class="empty-state">Nessun calcolo trovato per i filtri selezionati.</div>';
+        return;
+    }
+
+    righe.forEach((r, idx) => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        const titolo = r.nominativo || r.fornitore || ('Record #' + (r.id || (idx + 1)));
+        const dataVal = r.data || r.data_acquisto || '-';
+        const importoVal = (r.importo !== undefined && r.importo !== null) ? r.importo : (r.valore || 0);
+        const noteVal = r.note ? ' | Note: ' + r.note : '';
+
+        div.innerHTML = `
+            <div class="title">${idx + 1}. ${titolo} — € ${Number(importoVal || 0).toFixed(2)}</div>
+            <div class="meta">Data: <strong>${dataVal}</strong>${noteVal}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+async function caricaCalcoli() {
+    nascondiErroreBanner();
+    const params = new URLSearchParams();
+    const nomDa = document.getElementById('nominativo-da').value;
+    const nomA = document.getElementById('nominativo-a').value;
+    const dataDa = document.getElementById('data-da').value;
+    const dataA = document.getElementById('data-a').value;
+
+    if (nomDa) params.set('nominativo_da', nomDa);
+    if (nomA) params.set('nominativo_a', nomA);
+    if (dataDa) params.set('data_da', dataDa);
+    if (dataA) params.set('data_a', dataA);
+    params.set('nocache', String(Date.now()));
+
+    try {
+        const res = await fetch('/api/calcoli?' + params.toString());
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || ('Errore Server ' + res.status));
+        }
+        const data = await res.json();
+        renderCalcoli(data);
     } catch (e) {
-        loader.style.display = 'none';
-        errorBox.style.display = 'block';
-        errorBox.textContent = "❌ Errore: " + e.message;
-        console.error(e);
+        mostraErroreBanner(e.message || 'Errore Server 500');
+        document.getElementById('listaCalcoliContainer').innerHTML = '';
     }
 }
 
-function popolaSelect(idDa, idA, items) {
-    const unique = [...new Set(items)].sort();
-    const opts = '<option value="">-- Tutti --</option>' + unique.map(i => `<option value="${i}">${i}</option>`).join('');
-    document.getElementById(idDa).innerHTML = opts;
-    document.getElementById(idA).innerHTML = opts;
-}
-
-// Avvio
-caricaDati();
+caricaCalcoli();
 </script>
 </body>
 </html>
