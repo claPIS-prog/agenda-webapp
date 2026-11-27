@@ -120,6 +120,8 @@ textarea { min-height: 68px; resize: vertical; }
             <label for="acquisto-fornitore">Fornitore:</label>
             <select id="acquisto-fornitore">
                 <option value="">-- Seleziona Fornitore --</option>
+                <option value="Pierino">Pierino</option>
+                <option value="Altro">Altro</option>
             </select>
         </div>
         <div class="form-group">
@@ -184,6 +186,8 @@ textarea { min-height: 68px; resize: vertical; }
             <label for="edit-fornitore">Fornitore:</label>
             <select id="edit-fornitore">
                 <option value="">-- Seleziona Fornitore --</option>
+                <option value="Pierino">Pierino</option>
+                <option value="Altro">Altro</option>
             </select>
         </div>
 
@@ -232,6 +236,8 @@ if (tg && typeof tg.expand === 'function') {
     tg.expand();
 }
 
+const FORNITORI_FISSI = ["Pierino", "Altro"];
+
 const MODALITA_PAGAMENTO_DEFAULT = [
     "Contanti",
     "Bonifico Bancario",
@@ -264,26 +270,19 @@ function aggiornaValoreTotaleAcquisto() {
     document.getElementById('acquisto-valore-tot').value = (qta * unit).toFixed(2);
 }
 
-async function caricaFornitori() {
+function caricaFornitori() {
     const sel = document.getElementById('acquisto-fornitore');
-    try {
-        const res = await fetch('/api/resellers?nocache=' + Date.now());
-        if (res.ok) {
-            const rows = await res.json();
-            const nomi = [...new Set(
-                (Array.isArray(rows) ? rows : [])
-                    .map(r => (r.nominativo || r.nome || '').trim())
-                    .filter(Boolean)
-            )];
-            sel.innerHTML = '<option value="">-- Seleziona Fornitore --</option>';
-            nomi.forEach(nome => {
-                const opt = document.createElement('option');
-                opt.value = nome;
-                opt.textContent = nome;
-                sel.appendChild(opt);
-            });
-        }
-    } catch (e) {}
+    const valoreAttuale = sel.value;
+    sel.innerHTML = '<option value="">-- Seleziona Fornitore --</option>';
+    FORNITORI_FISSI.forEach(nome => {
+        const opt = document.createElement('option');
+        opt.value = nome;
+        opt.textContent = nome;
+        sel.appendChild(opt);
+    });
+    if (valoreAttuale && FORNITORI_FISSI.includes(valoreAttuale)) {
+        sel.value = valoreAttuale;
+    }
 }
 
 async function caricaModalitaPagamento() {
@@ -505,16 +504,19 @@ function chiudiInfoOverlay(event) {
 
 function popolaSelectModifica(item) {
     const selFornitore = document.getElementById('edit-fornitore');
-    const selFornitoreOrigine = document.getElementById('acquisto-fornitore');
-    if (selFornitore && selFornitoreOrigine) {
-        selFornitore.innerHTML = selFornitoreOrigine.innerHTML;
+    if (selFornitore) {
         const valForn = item.fornitore || '';
-        if (valForn && ![...selFornitore.options].some(o => o.value === valForn)) {
-            const opt = document.createElement('option');
-            opt.value = valForn;
-            opt.textContent = valForn;
-            selFornitore.appendChild(opt);
+        const opzioniForn = [...FORNITORI_FISSI];
+        if (valForn && !opzioniForn.includes(valForn)) {
+            opzioniForn.push(valForn);
         }
+        selFornitore.innerHTML = '<option value="">-- Seleziona Fornitore --</option>';
+        opzioniForn.forEach(nome => {
+            const opt = document.createElement('option');
+            opt.value = nome;
+            opt.textContent = nome;
+            selFornitore.appendChild(opt);
+        });
         selFornitore.value = valForn;
     }
 
@@ -678,8 +680,8 @@ function nascondiMessaggi() {
 (async function initCrediti() {
     impostaDateDefault();
     aggiornaValoreTotaleAcquisto();
+    caricaFornitori();
     await Promise.all([
-        caricaFornitori(),
         caricaModalitaPagamento(),
         caricaMovimentiCrediti()
     ]);
