@@ -51,7 +51,9 @@ def api_calcoli(
         with conn.cursor() as cur:
             cur.execute("SELECT to_regclass('public.calcoli') AS tab")
             tab_row = cur.fetchone()
-            tab_exists = bool(tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0]))
+            tab_exists = bool(
+                tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+            )
 
             if not tab_exists:
                 return {"righe": [], "items": [], "totale": 0, "count": 0}
@@ -59,16 +61,16 @@ def api_calcoli(
             query = "SELECT * FROM calcoli WHERE 1=1"
             params = []
             if data_da:
-                query += " AND COALESCE(data, '') >= %s"
+                query += " AND COALESCE(data::text, '') >= %s"
                 params.append(data_da)
             if data_a:
-                query += " AND COALESCE(data, '') <= %s"
+                query += " AND COALESCE(data::text, '') <= %s"
                 params.append(data_a)
             if nominativo_da:
-                query += " AND COALESCE(nominativo, '') >= %s"
+                query += " AND COALESCE(nominativo::text, '') >= %s"
                 params.append(nominativo_da)
             if nominativo_a:
-                query += " AND COALESCE(nominativo, '') <= %s"
+                query += " AND COALESCE(nominativo::text, '') <= %s"
                 params.append(nominativo_a)
             query += " ORDER BY id DESC"
 
@@ -77,7 +79,9 @@ def api_calcoli(
             except Exception:
                 conn.rollback()
                 with conn.cursor() as cur2:
-                    return _estrai_righe_e_conteggi(cur2, "SELECT * FROM calcoli ORDER BY id DESC", [])
+                    return _estrai_righe_e_conteggi(
+                        cur2, "SELECT * FROM calcoli ORDER BY id DESC", []
+                    )
     except HTTPException:
         raise
     except Exception as e:
