@@ -218,8 +218,9 @@ def _leggi_calcoli_fallback(
                 query += " AND COALESCE(nominativo::text, '') <= %s"
                 params.append(nominativo_a.strip())
             if tipo:
-                query += " AND LOWER(COALESCE(tipo::text, '')) = LOWER(%s)"
+                query += " AND (LOWER(COALESCE(tipo::text, '')) = LOWER(%s) OR LOWER(COALESCE(categoria::text, '')) LIKE LOWER(%s))"
                 params.append(tipo.strip())
+                params.append(f"%{tipo.strip()}%")
             query += " ORDER BY id DESC"
 
             cur.execute(query, params)
@@ -302,6 +303,94 @@ def root():
 @app.head("/health")
 def health():
     return {"ok": True}
+
+
+@app.get("/api/rinnovi")
+@app.get("/api/rinnovo")
+def api_rinnovi_lista(request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    dati = _leggi_calcoli_fallback(tipo="Rinnovo", request=request)
+    righe = dati.get("righe", [])
+    if righe:
+        return righe
+    for tab in ("rinnovi", "rinnovo"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        if rows:
+            return rows
+    return []
+
+
+@app.post("/api/rinnovi")
+@app.post("/api/rinnovo")
+async def api_rinnovi_crea(request: Request):
+    _verifica_utente_se_disponibile(request)
+    try:
+        payload = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"JSON non valido: {e}")
+
+    data = payload or {}
+    nominativo = str(data.get("nominativo") or data.get("nome") or "").strip()
+    if not nominativo:
+        raise HTTPException(status_code=400, detail="Nominativo obbligatorio")
+
+    try:
+        from db import db_conn
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database non disponibile: {e}")
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.calcoli') AS tab")
+            tab_row = cur.fetchone()
+            tab_exists = bool(
+                tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+            )
+            if not tab_exists:
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS calcoli (
+                        id SERIAL PRIMARY KEY,
+                        nominativo TEXT NOT NULL,
+                        tipo TEXT,
+                        categoria TEXT,
+                        data TEXT,
+                        scadenza TEXT,
+                        importo NUMERIC DEFAULT 0,
+                        metodo_pagamento TEXT,
+                        note TEXT
+                    )
+                    """
+                )
+
+            data_op = str(data.get("data") or "").strip()
+            scadenza = str(data.get("scadenza") or "").strip()
+            try:
+                importo = float(data.get("importo") or 0)
+            except Exception:
+                importo = 0.0
+            metodo = str(data.get("metodo_pagamento") or "").strip()
+            note = str(data.get("note") or "").strip()
+
+            cur.execute(
+                """
+                INSERT INTO calcoli (nominativo, tipo, categoria, data, scadenza, importo, metodo_pagamento, note)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, nominativo, tipo, categoria, data, scadenza, importo, metodo_pagamento, note
+                """,
+                (nominativo, "Rinnovo", "Rinnovo", data_op, scadenza, importo, metodo, note),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        if isinstance(row, dict):
+            return {"ok": True, **row}
+        return {"ok": True, "nominativo": nominativo, "tipo": "Rinnovo"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore salvataggio rinnovo: {e}")
+    finally:
+        conn.close()
 
 
 @app.get("/api/nominativi")
