@@ -1,3 +1,4 @@
+
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Request
 from db import db_conn, estrai_dati, get_current_user
@@ -104,6 +105,12 @@ def _elimina_credito_by_id(record_id: int):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
+            try:
+                cur.execute("UPDATE rinnovi SET credito_id = NULL WHERE credito_id = %s", (int(record_id),))
+            except Exception:
+                conn.rollback()
+                with conn.cursor() as cur2:
+                    cur2.execute("DELETE FROM rinnovi WHERE credito_id = %s", (int(record_id),))
             cur.execute("DELETE FROM crediti WHERE id = %s", (int(record_id),))
         conn.commit()
     except Exception as e:
