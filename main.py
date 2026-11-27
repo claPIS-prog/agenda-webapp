@@ -15,6 +15,26 @@ MODALITA_PAGAMENTO_DEFAULT = [
     {"id": 7, "nome": "Altro"},
 ]
 
+HTML_ALIASES = {
+    "contabilita_dettaglio": ["contabilita_dettagli.html", "contabilita_dettaglio.html"],
+    "contabilita_dettagli": ["contabilita_dettagli.html", "contabilita_dettaglio.html"],
+    "tabella": ["tabelle.html", "tabella.html"],
+    "tabelle": ["tabelle.html", "tabella.html"],
+}
+
+
+def _trova_file_html(page_name: str):
+    safe_name = os.path.basename(page_name).strip()
+    if not safe_name:
+        return None
+    nomi_candidati = HTML_ALIASES.get(safe_name, [f"{safe_name}.html"])
+    for nome in nomi_candidati:
+        for base_dir in ("", "static", "templates"):
+            percorso = os.path.join(base_dir, nome) if base_dir else nome
+            if os.path.isfile(percorso):
+                return percorso
+    return None
+
 
 def _leggi_calcoli_fallback(
     nominativo: str = "",
@@ -138,9 +158,9 @@ except Exception as e:
 @app.get("/")
 @app.head("/")
 def root():
-    for candidate in ("index.html", "static/index.html", "templates/index.html"):
-        if os.path.exists(candidate):
-            return FileResponse(candidate)
+    percorso = _trova_file_html("index")
+    if percorso:
+        return FileResponse(percorso)
     return {"ok": True, "service": "AgendaGest WebApp"}
 
 
@@ -179,68 +199,12 @@ def api_metodi_pagamento(request: Request = None):
     return MODALITA_PAGAMENTO_DEFAULT
 
 
-@app.get("/contabilita.html")
-def serve_contabilita():
-    for candidate in ("contabilita.html", "static/contabilita.html", "templates/contabilita.html"):
-        if os.path.exists(candidate):
-            return FileResponse(candidate)
-    raise HTTPException(status_code=404, detail="contabilita.html non trovato")
-
-
-@app.get("/calcoli.html")
-def serve_calcoli():
-    for candidate in ("calcoli.html", "static/calcoli.html", "templates/calcoli.html"):
-        if os.path.exists(candidate):
-            return FileResponse(candidate)
-    raise HTTPException(status_code=404, detail="calcoli.html non trovato")
-
-
-@app.get("/crediti.html")
-def serve_crediti():
-    for candidate in ("crediti.html", "static/crediti.html", "templates/crediti.html"):
-        if os.path.exists(candidate):
-            return FileResponse(candidate)
-    raise HTTPException(status_code=404, detail="crediti.html non trovato")
-
-
-@app.get("/lista_calcoli.html")
-def serve_lista_calcoli():
-    for candidate in ("lista_calcoli.html", "static/lista_calcoli.html", "templates/lista_calcoli.html"):
-        if os.path.exists(candidate):
-            return FileResponse(candidate)
-    raise HTTPException(status_code=404, detail="lista_calcoli.html non trovato")
-
-
-@app.get("/contabilita_dettagli.html")
-@app.get("/contabilita_dettaglio.html")
-def serve_contabilita_dettagli():
-    for candidate in (
-        "contabilita_dettagli.html",
-        "contabilita_dettaglio.html",
-        "static/contabilita_dettagli.html",
-        "static/contabilita_dettaglio.html",
-        "templates/contabilita_dettagli.html",
-        "templates/contabilita_dettaglio.html",
-    ):
-        if os.path.exists(candidate):
-            return FileResponse(candidate)
-    raise HTTPException(status_code=404, detail="contabilita_dettagli.html non trovato")
-
-
-@app.get("/tabelle.html")
-@app.get("/tabella.html")
-def serve_tabelle():
-    for candidate in (
-        "tabelle.html",
-        "tabella.html",
-        "static/tabelle.html",
-        "static/tabella.html",
-        "templates/tabelle.html",
-        "templates/tabella.html",
-    ):
-        if os.path.exists(candidate):
-            return FileResponse(candidate)
-    raise HTTPException(status_code=404, detail="tabelle.html non trovato")
+@app.get("/{page_name}.html")
+def serve_any_html(page_name: str):
+    percorso = _trova_file_html(page_name)
+    if percorso:
+        return FileResponse(percorso)
+    raise HTTPException(status_code=404, detail=f"{page_name}.html non trovato")
 
 
 if os.path.isdir("static"):
