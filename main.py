@@ -108,7 +108,6 @@ def serve_contabilita():
             return FileResponse(candidate)
     raise HTTPException(status_code=404, detail="contabilita.html non trovato")
 
-
 @app.get("/calcoli.html")
 def serve_calcoli():
     for candidate in ("calcoli.html", "static/calcoli.html", "templates/calcoli.html"):
@@ -123,6 +122,12 @@ def serve_crediti():
             return FileResponse(candidate)
     raise HTTPException(status_code=404, detail="crediti.html non trovato")
 
+@app.get("/lista_calcoli.html")
+def serve_lista_calcoli():
+    for candidate in ("lista_calcoli.html", "static/lista_calcoli.html", "templates/lista_calcoli.html"):
+        if os.path.exists(candidate):
+            return FileResponse(candidate)
+    raise HTTPException(status_code=404, detail="lista_calcoli.html non trovato")
 
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
