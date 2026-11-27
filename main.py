@@ -25,6 +25,8 @@ HTML_ALIASES = {
 
 def _trova_file_html(page_name: str):
     safe_name = os.path.basename(page_name).strip()
+    if safe_name.lower().endswith(".html"):
+        safe_name = safe_name[:-5]
     if not safe_name:
         return None
     nomi_candidati = HTML_ALIASES.get(safe_name, [f"{safe_name}.html"])
@@ -170,6 +172,37 @@ def health():
     return {"ok": True}
 
 
+@app.get("/api/nominativi")
+def api_nominativi(request: Request = None):
+    try:
+        from db import db_conn, get_current_user
+        if request is not None:
+            try:
+                get_current_user(request)
+            except Exception:
+                pass
+        conn = db_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT to_regclass('public.nominativi') AS tab")
+                tab_row = cur.fetchone()
+                tab_exists = bool(
+                    tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+                )
+                if tab_exists:
+                    cur.execute("SELECT DISTINCT nominativo FROM nominativi WHERE nominativo IS NOT NULL AND nominativo <> '' ORDER BY nominativo ASC")
+                    rows = cur.fetchall() or []
+                    return [
+                        {"nominativo": r["nominativo"] if isinstance(r, dict) else r[0]}
+                        for r in rows
+                    ]
+        finally:
+            conn.close()
+    except Exception:
+        pass
+    return []
+
+
 @app.get("/api/metodi_pagamento")
 def api_metodi_pagamento(request: Request = None):
     try:
@@ -205,6 +238,16 @@ def serve_any_html(page_name: str):
     if percorso:
         return FileResponse(percorso)
     raise HTTPException(status_code=404, detail=f"{page_name}.html non trovato")
+
+
+@app.get("/{page_name}")
+def serve_page_without_ext(page_name: str):
+    if page_name.startswith("api/") or page_name in ("health", "docs", "redoc", "openapi.json"):
+        raise HTTPException(status_code=404, detail="Not Found")
+    percorso = _trova_file_html(page_name)
+    if percorso:
+        return FileResponse(percorso)
+    raise HTTPException(status_code=404, detail=f"{page_name} non trovato")
 
 
 if os.path.isdir("static"):
