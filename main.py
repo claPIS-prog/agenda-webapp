@@ -75,14 +75,26 @@ def _leggi_tabella_semplice(table_name: str, order_col: str = "id"):
             if not tab_exists:
                 return []
             try:
-                cur.execute(f"SELECT * FROM {tab} ORDER BY {order_col} ASC")
+                cur.execute(f"SELECT * FROM {tab} ORDER BY {order_col} DESC")
             except Exception:
                 conn.rollback()
-                cur.execute(f"SELECT * FROM {tab}")
+                try:
+                    cur.execute(f"SELECT * FROM {tab} ORDER BY {order_col} ASC")
+                except Exception:
+                    conn.rollback()
+                    cur.execute(f"SELECT * FROM {tab}")
             rows = cur.fetchall() or []
             return [dict(r) for r in rows]
     finally:
         conn.close()
+
+
+def _leggi_contatti_da_tabelle_note():
+    for tab in ("nominativi", "contatti", "clienti", "anagrafica"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        if rows:
+            return rows
+    return []
 
 
 async def _crea_voce_tabella(table_name: str, request: Request, campi_chiave: tuple[str, ...]):
@@ -486,6 +498,7 @@ async def api_rinnovi_crea(request: Request):
         conn.close()
 
 
+@app.get("/api/contatti")
 @app.get("/api/nominativi")
 def api_nominativi(request: Request = None):
     try:
@@ -494,15 +507,22 @@ def api_nominativi(request: Request = None):
         conn = db_conn()
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT to_regclass('public.nominativi') AS tab")
-                tab_row = cur.fetchone()
-                tab_exists = bool(
-                    tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
-                )
-                if tab_exists:
-                    cur.execute("SELECT * FROM nominativi ORDER BY id DESC")
+                for tab in ("nominativi", "contatti", "clienti", "anagrafica"):
+                    cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{tab}",))
+                    tab_row = cur.fetchone()
+                    tab_exists = bool(
+                        tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+                    )
+                    if not tab_exists:
+                        continue
+                    try:
+                        cur.execute(f"SELECT * FROM {tab} ORDER BY id DESC")
+                    except Exception:
+                        conn.rollback()
+                        cur.execute(f"SELECT * FROM {tab}")
                     rows = cur.fetchall() or []
-                    return [dict(r) for r in rows]
+                    if rows:
+                        return [dict(r) for r in rows]
         finally:
             conn.close()
     except HTTPException:
@@ -512,6 +532,7 @@ def api_nominativi(request: Request = None):
     return []
 
 
+@app.post("/api/contatti")
 @app.post("/api/nominativi")
 async def api_nominativi_crea(request: Request):
     _verifica_utente_se_disponibile(request)
@@ -584,26 +605,6 @@ async def api_nominativi_crea(request: Request):
         raise HTTPException(status_code=500, detail=f"Errore salvataggio nominativo: {e}")
     finally:
         conn.close()
-
-
-@app.get("/api/crediti")
-@app.get("/api/crediti/lista")
-def api_crediti_lista(request: Request = None):
-    _verifica_utente_se_disponibile(request)
-    for tab in ("crediti", "transazioni_crediti", "movimenti_crediti"):
-        rows = _leggi_tabella_semplice(tab, "id")
-        if rows:
-            return rows
-    return []
-
-
-@app.post("/api/crediti")
-async def api_crediti_crea(request: Request):
-    return await _crea_voce_tabella(
-        "crediti",
-        request,
-        ("NumerazTransCrediti", "numeraz_trans_crediti", "codice", "nome", "nominativo"),
-    )
 
 
 @app.get("/api/metodi_pagamento")

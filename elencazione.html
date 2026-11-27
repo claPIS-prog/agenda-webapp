@@ -153,6 +153,20 @@
     return [];
   }
 
+  function leggiNome(it) {
+    if (typeof it === "string") return it;
+    return (
+      it.nominativo ||
+      it.nome ||
+      it.cliente ||
+      it.user_id ||
+      it.username ||
+      it.telefono ||
+      it.cellulare ||
+      "Senza nominativo"
+    );
+  }
+
   function renderLista(items) {
     const box = document.getElementById("listaContainer");
     const badge = document.getElementById("badgeCount");
@@ -167,13 +181,14 @@
       if (typeof it === "string") {
         return `<div class="card-item"><div class="card-top"><span>${it}</span></div></div>`;
       }
-      const nom = it.nominativo || it.nome || it.cliente || "Senza nominativo";
-      const tel = it.telefono || it.cellulare || "-";
+      const nom = leggiNome(it);
+      const tel = it.telefono || it.cellulare || it.num_cellulare || "-";
       const tipo = it.tipo ? ` &nbsp;|&nbsp; <strong>Tipo:</strong> ${String(it.tipo)}` : "";
       const srv = it.server ? ` &nbsp;|&nbsp; <strong>Server:</strong> ${String(it.server)}` : "";
       const res = it.reseller ? ` &nbsp;|&nbsp; <strong>Reseller:</strong> ${String(it.reseller)}` : "";
-      const scad = it.data_fine ? ` &nbsp;|&nbsp; <strong>Scadenza:</strong> ${String(it.data_fine)}` : "";
-      const note = (it.informazioni || it.note) ? `<br><strong>Note:</strong> ${String(it.informazioni || it.note)}` : "";
+      const scad = (it.data_fine || it.scadenza) ? ` &nbsp;|&nbsp; <strong>Scadenza:</strong> ${String(it.data_fine || it.scadenza)}` : "";
+      const noteText = it.informazioni || it.note || it.info || "";
+      const note = noteText ? `<br><strong>Note:</strong> ${String(noteText)}` : "";
       return `
         <div class="card-item">
           <div class="card-top">
@@ -196,10 +211,10 @@
     }
     const filtrati = tuttiContatti.filter((it) => {
       if (typeof it === "string") return it.toLowerCase().includes(q);
-      const blob = [
-        it.nominativo, it.nome, it.cliente, it.telefono, it.cellulare,
-        it.tipo, it.server, it.reseller, it.citta, it.informazioni, it.note
-      ].filter(Boolean).join(" ").toLowerCase();
+      const blob = Object.values(it || {})
+        .filter((v) => v !== null && v !== undefined && typeof v !== "object")
+        .join(" ")
+        .toLowerCase();
       return blob.includes(q);
     });
     renderLista(filtrati);
@@ -209,16 +224,18 @@
     const box = document.getElementById("listaContainer");
     box.innerHTML = '<div class="empty-box">Caricamento contatti...</div>';
 
-    const urls = ["/api/contatti", "/api/nominativi"];
+    const urls = ["/api/contatti", "/api/nominativi", "/api/clienti"];
     for (const url of urls) {
       try {
         const res = await fetch(url, { headers: getAuthHeaders() });
         if (!res.ok) continue;
         const json = await res.json();
         const arr = estraiArray(json);
-        tuttiContatti = arr;
-        applicaFiltro();
-        return;
+        if (arr.length > 0) {
+          tuttiContatti = arr;
+          applicaFiltro();
+          return;
+        }
       } catch (e) {}
     }
 
