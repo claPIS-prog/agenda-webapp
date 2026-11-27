@@ -13,7 +13,7 @@ h2 { text-align: center; margin-top: 0; color: #333; }
 .counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
 .counter-wrapper { text-align: center; }
 .input-row { display: flex; gap: 10px; margin-bottom: 15px; }
-.input-row select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 15px; }
+.input-row select { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 15px; background: white; }
 .btn-add { padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
 .btn-add:active { background: #388e3c; }
 textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; font-family: inherit; resize: vertical; min-height: 80px; margin-bottom: 15px; }
@@ -21,7 +21,7 @@ textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5p
 .item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .item-head strong { color: #222; font-size: 15px; }
 .item small { color: #666; display: block; font-size: 13px; margin: 4px 0; }
-.item .messaggio { color: #333; font-size: 14px; margin: 8px 0; padding: 8px; background: white; border-radius: 4px; border: 1px solid #e0e0e0; }
+.item .messaggio { color: #333; font-size: 14px; margin: 8px 0; padding: 8px; background: white; border-radius: 4px; border: 1px solid #e0e0e0; white-space: pre-wrap; }
 .item-actions { display: flex; gap: 6px; margin-top: 8px; }
 .btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; }
 .btn-wa { background: #25d366; color: white; }
@@ -44,23 +44,46 @@ textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5p
 </div>
 <label style="font-weight: bold; margin-bottom: 8px; display: block;">Messaggio:</label>
 <textarea id="messaggio" placeholder="Scrivi il messaggio..."></textarea>
-<button class="btn-add" onclick="aggiungi()" style="width: 100%; padding: 12px;">➕ Aggiungi</button>
+<button class="btn-add" id="btnAdd" onclick="aggiungi()" style="width: 100%; padding: 12px;">➕ Aggiungi</button>
 <div id="lista" style="margin-top: 20px;"><div class="empty">Caricamento...</div></div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
-const tg = window.Telegram.WebApp; tg.expand();
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (tg && typeof tg.expand === 'function') {
+    try { tg.expand(); } catch (e) {}
+}
 
 function getHeaders(contentType) {
     const headers = {};
     if (contentType) headers['Content-Type'] = contentType;
-    const initData = tg.initData;
+    const initData = tg && tg.initData ? tg.initData : '';
     if (initData) headers['X-Telegram-Init-Data'] = initData;
     return headers;
 }
 
 let note = [];
 let nominativi = [];
+
+function estraiLista(data) {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === 'object') {
+        for (const k of ['items', 'righe', 'note', 'nominativi', 'data', 'results']) {
+            if (Array.isArray(data[k])) return data[k];
+        }
+    }
+    return [];
+}
+
+function nomeNominativo(n) {
+    if (!n || typeof n !== 'object') return '';
+    return n.nominativo || n.nome || n.cliente || '';
+}
+
+function telefonoNominativo(n) {
+    if (!n || typeof n !== 'object') return '';
+    return n.telefono || n.cellulare || n.num_cellulare || '';
+}
 
 async function carica() {
     const box = document.getElementById('lista');
@@ -70,15 +93,18 @@ async function carica() {
             fetch('/api/nominativi', { headers: getHeaders() })
         ]);
         if (!resNote.ok || !resNom.ok) {
-            if (resNote.status === 403 || resNom.status === 403) {
+            const st = !resNote.ok ? resNote.status : resNom.status;
+            if (st === 403 || st === 401) {
                 box.innerHTML = '<div class="error">⛔ Permesso negato.</div>';
             } else {
-                box.innerHTML = '<div class="error">Errore server</div>';
+                box.innerHTML = '<div class="error">Errore server (HTTP ' + st + ')</div>';
             }
             return;
         }
-        note = await resNote.json();
-        nominativi = await resNom.json();
+        const rawNote = await resNote.json();
+        const rawNom = await resNom.json();
+        note = estraiLista(rawNote);
+        nominativi = estraiLista(rawNom);
         popolaSelect();
         render();
     } catch (e) {
@@ -88,22 +114,33 @@ async function carica() {
 
 function popolaSelect() {
     const sel = document.getElementById('nominativo_id');
-    sel.innerHTML = '<option value="">-- Seleziona --</option>' + 
-        nominativi.map(n => '<option value="' + n.id + '">' + n.nominativo + '</option>').join('');
+    const corrente = sel.value;
+    sel.innerHTML = '<option value="">-- Seleziona --</option>' +
+        nominativi.map(n => '<option value="' + n.id + '">' + nomeNominativo(n) + '</option>').join('');
+    if (corrente) sel.value = corrente;
+}
+
+function formattaData(raw) {
+    if (!raw) return new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return String(raw);
+    return d.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function render() {
     aggiornaContatore(note.length);
-    if (note.length === 0) {
+    if (!Array.isArray(note) || note.length === 0) {
         document.getElementById('lista').innerHTML = '<div class="empty">Nessun messaggio salvato.</div>';
         return;
     }
     document.getElementById('lista').innerHTML = note.map(n => {
-        const data = new Date(n.creato_il).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const nom = n.nominativo || n.nome || '';
+        const msg = n.messaggio || n.testo || n.nota || '';
+        const data = formattaData(n.creato_il || n.created_at || n.data);
         return '<div class="item">' +
-            '<div class="item-head"><strong>' + (n.nominativo || '') + '</strong></div>' +
+            '<div class="item-head"><strong>' + nom + '</strong></div>' +
             '<small>Data: ' + data + '</small>' +
-            '<div class="messaggio">' + (n.messaggio || '') + '</div>' +
+            '<div class="messaggio">' + msg + '</div>' +
             '<div class="item-actions">' +
             '<button class="btn btn-wa" onclick="inviaWhatsApp(' + n.id + ')">💬 WhatsApp</button>' +
             '<button class="btn btn-del" onclick="cancella(' + n.id + ')">🗑️ Cancella</button>' +
@@ -119,14 +156,15 @@ function mostraToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
     t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2000);
+    setTimeout(() => t.classList.remove('show'), 2200);
 }
 
 async function aggiungi() {
-    const nominativoId = parseInt(document.getElementById('nominativo_id').value);
+    const selVal = document.getElementById('nominativo_id').value;
+    const nominativoId = parseInt(selVal, 10);
     const messaggio = document.getElementById('messaggio').value.trim();
-    
-    if (!nominativoId) {
+
+    if (!selVal || Number.isNaN(nominativoId)) {
         mostraToast('⚠️ Seleziona un nominativo');
         return;
     }
@@ -134,33 +172,78 @@ async function aggiungi() {
         mostraToast('⚠️ Scrivi un messaggio');
         return;
     }
-    
-    const dati = {
+
+    const nomObj = nominativi.find(x => String(x.id) === String(selVal));
+    const nomTesto = nomeNominativo(nomObj);
+    const telTesto = telefonoNominativo(nomObj);
+
+    const payloadDiretto = {
         nominativo_id: nominativoId,
-        messaggio: messaggio
+        nominativo: nomTesto,
+        telefono: telTesto,
+        messaggio: messaggio,
+        testo: messaggio
     };
-    
+
+    const btn = document.getElementById('btnAdd');
+    if (btn) btn.disabled = true;
+
     try {
-        const res = await fetch('/api/note', {
+        let res = await fetch('/api/note', {
             method: 'POST',
             headers: getHeaders('application/json'),
-            body: JSON.stringify({ dati: dati })
+            body: JSON.stringify(payloadDiretto)
         });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        if (res.status === 422 || res.status === 400) {
+            res = await fetch('/api/note', {
+                method: 'POST',
+                headers: getHeaders('application/json'),
+                body: JSON.stringify({ dati: { nominativo_id: nominativoId, messaggio: messaggio } })
+            });
+        }
+
+        if (!res.ok) {
+            let dettaglio = 'HTTP ' + res.status;
+            try {
+                const errJson = await res.json();
+                if (errJson && errJson.detail) {
+                    dettaglio = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+                }
+            } catch (e) {}
+            throw new Error(dettaglio);
+        }
+
         document.getElementById('messaggio').value = '';
         mostraToast('✅ Messaggio salvato');
         await carica();
     } catch (e) {
         mostraToast('❌ Errore: ' + e.message);
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 
 function inviaWhatsApp(id) {
     const n = note.find(x => x.id === id);
     if (!n) return;
-    
-    const testo = 'Ciao ' + (n.nominativo || '') + ',\n\n' + (n.messaggio || '');
-    const url = 'https://wa.me/?text=' + encodeURIComponent(testo);
+
+    const nom = n.nominativo || n.nome || '';
+    const msg = n.messaggio || n.testo || n.nota || '';
+    const testo = 'Ciao ' + nom + ',\n\n' + msg;
+
+    const nomObj = nominativi.find(x =>
+        (n.nominativo_id && String(x.id) === String(n.nominativo_id)) ||
+        (nom && nomeNominativo(x).toLowerCase() === String(nom).toLowerCase())
+    );
+    let tel = String(n.telefono || telefonoNominativo(nomObj) || '').replace(/[^\d+]/g, '');
+    if (tel.startsWith('+')) tel = tel.slice(1);
+    if (tel && tel.length === 10 && tel.startsWith('3')) tel = '39' + tel;
+
+    const url = tel
+        ? 'https://wa.me/' + tel + '?text=' + encodeURIComponent(testo)
+        : 'https://wa.me/?text=' + encodeURIComponent(testo);
+
     window.open(url, '_blank');
     mostraToast('💬 WhatsApp aperto');
 }
@@ -168,8 +251,8 @@ function inviaWhatsApp(id) {
 async function cancella(id) {
     const n = note.find(x => x.id === id);
     if (!n) return;
-    if (!confirm('Cancellare il messaggio per "' + n.nominativo + '"?')) return;
-    
+    if (!confirm('Cancellare il messaggio per "' + (n.nominativo || '') + '"?')) return;
+
     try {
         const res = await fetch('/api/note/' + id, { method: 'DELETE', headers: getHeaders() });
         if (!res.ok) throw new Error('HTTP ' + res.status);
