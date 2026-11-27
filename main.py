@@ -1,5 +1,6 @@
 import os
 import re
+from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -97,19 +98,9 @@ async def _crea_voce_tabella(table_name: str, request: Request, campi_chiave: tu
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"JSON non valido: {e}")
 
-    data = payload or {}
-    valore = ""
-    for chiave in campi_chiave:
-        if data.get(chiave) is not None and str(data.get(chiave)).strip():
-            valore = str(data.get(chiave)).strip()
-            break
-    if not valore:
-        for v in data.values():
-            if v is not None and str(v).strip():
-                valore = str(v).strip()
-                break
-    if not valore:
-        raise HTTPException(status_code=400, detail="Valore obbligatorio")
+    raw_data = payload or {}
+    data = raw_data.get("dati") if isinstance(raw_data.get("dati"), dict) else raw_data
+    merged = {**raw_data, **(data if isinstance(data, dict) else {})}
 
     try:
         from db import db_conn
@@ -124,6 +115,113 @@ async def _crea_voce_tabella(table_name: str, request: Request, campi_chiave: tu
             tab_exists = bool(
                 tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
             )
+
+            if tab == "note":
+                if not tab_exists:
+                    cur.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS note (
+                            id SERIAL PRIMARY KEY,
+                            nominativo_id INTEGER,
+                            nominativo TEXT,
+                            messaggio TEXT,
+                            creato_il TIMESTAMPTZ DEFAULT NOW()
+                        )
+                        """
+                    )
+
+                cur.execute(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = 'note'
+                    """
+                )
+                cols_rows = cur.fetchall() or []
+                colonne_reali = {
+                    (r["column_name"] if isinstance(r, dict) else r[0]) for r in cols_rows
+                }
+
+                nom_id = merged.get("nominativo_id")
+                try:
+                    nom_id = int(nom_id) if nom_id not in (None, "") else None
+                except Exception:
+                    nom_id = None
+
+                nom_testo = str(merged.get("nominativo") or merged.get("nome") or "").strip()
+                if not nom_testo and nom_id is not None:
+                    for t_nom in ("nominativi", "contatti", "clienti", "anagrafica"):
+                        try:
+                            cur.execute(f"SELECT * FROM {t_nom} WHERE id = %s LIMIT 1", (nom_id,))
+                            r_nom = cur.fetchone()
+                            if r_nom:
+                                d_nom = dict(r_nom) if isinstance(r_nom, dict) else {}
+                                nom_testo = str(
+                                    d_nom.get("nominativo") or d_nom.get("nome") or d_nom.get("cliente") or ""
+                                ).strip()
+                                if nom_testo:
+                                    break
+                        except Exception:
+                            conn.rollback()
+
+                msg_testo = str(
+                    merged.get("messaggio") or merged.get("testo") or merged.get("nota") or ""
+                ).strip()
+                if not msg_testo and not nom_testo:
+                    raise HTTPException(status_code=400, detail="Messaggio obbligatorio")
+
+                mappa_note = {
+                    "nominativo_id": nom_id,
+                    "nominativo": nom_testo,
+                    "nome": nom_testo,
+                    "messaggio": msg_testo,
+                    "testo": msg_testo,
+                    "nota": msg_testo,
+                    "creato_il": datetime.now(timezone.utc).isoformat(),
+                }
+
+                cols_insert = []
+                vals_insert = []
+                for col_name, val in mappa_note.items():
+                    if col_name in colonne_reali and val is not None and col_name != "id":
+                        cols_insert.append(col_name)
+                        vals_insert.append(val)
+
+                if not cols_insert:
+                    raise HTTPException(status_code=500, detail="Nessuna colonna compatibile trovata nella tabella note")
+
+                placeholders = ", ".join(["%s"] * len(cols_insert))
+                cols_sql = ", ".join(cols_insert)
+                cur.execute(
+                    f"INSERT INTO note ({cols_sql}) VALUES ({placeholders}) RETURNING *",
+                    vals_insert,
+                )
+                row = cur.fetchone()
+                conn.commit()
+                if isinstance(row, dict):
+                    res_row = dict(row)
+                    if "nominativo" not in res_row and nom_testo:
+                        res_row["nominativo"] = nom_testo
+                    if "messaggio" not in res_row and msg_testo:
+                        res_row["messaggio"] = msg_testo
+                    if "creato_il" not in res_row:
+                        res_row["creato_il"] = mappa_note["creato_il"]
+                    return {"ok": True, **res_row}
+                return {"ok": True, "nominativo": nom_testo, "messaggio": msg_testo}
+
+            valore = ""
+            for chiave in campi_chiave:
+                if merged.get(chiave) is not None and str(merged.get(chiave)).strip():
+                    valore = str(merged.get(chiave)).strip()
+                    break
+            if not valore:
+                for v in merged.values():
+                    if v is not None and str(v).strip() and not isinstance(v, (dict, list)):
+                        valore = str(v).strip()
+                        break
+            if not valore:
+                raise HTTPException(status_code=400, detail="Valore obbligatorio")
+
             if not tab_exists:
                 cur.execute(
                     f"""
@@ -142,6 +240,9 @@ async def _crea_voce_tabella(table_name: str, request: Request, campi_chiave: tu
         if isinstance(row, dict):
             return {"ok": True, **row}
         return {"ok": True, "id": row[0] if row else None, "nome": valore}
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Errore salvataggio in {tab}: {e}")
