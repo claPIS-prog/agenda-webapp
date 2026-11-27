@@ -212,8 +212,16 @@ def serve_lista_calcoli():
 
 
 @app.get("/contabilita_dettagli.html")
+@app.get("/contabilita_dettaglio.html")
 def serve_contabilita_dettagli():
-    for candidate in ("contabilita_dettagli.html", "static/contabilita_dettagli.html", "templates/contabilita_dettagli.html"):
+    for candidate in (
+        "contabilita_dettagli.html",
+        "contabilita_dettaglio.html",
+        "static/contabilita_dettagli.html",
+        "static/contabilita_dettaglio.html",
+        "templates/contabilita_dettagli.html",
+        "templates/contabilita_dettaglio.html",
+    ):
         if os.path.exists(candidate):
             return FileResponse(candidate)
     raise HTTPException(status_code=404, detail="contabilita_dettagli.html non trovato")
