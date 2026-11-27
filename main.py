@@ -116,6 +116,13 @@ def serve_calcoli():
             return FileResponse(candidate)
     raise HTTPException(status_code=404, detail="calcoli.html non trovato")
 
+@app.get("/crediti.html")
+def serve_crediti():
+    for candidate in ("crediti.html", "static/crediti.html", "templates/crediti.html"):
+        if os.path.exists(candidate):
+            return FileResponse(candidate)
+    raise HTTPException(status_code=404, detail="crediti.html non trovato")
+
 
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
