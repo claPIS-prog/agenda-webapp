@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lista Contatti</title>
+<title>Lista Contatti - Movimenti Nominativi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   * { box-sizing: border-box; }
@@ -19,7 +19,7 @@
     padding: 16px;
   }
   .container {
-    max-width: 860px;
+    max-width: 980px;
     margin: 0 auto;
     background: #ffffff;
     border-radius: 10px;
@@ -29,7 +29,7 @@
   h2 {
     text-align: center;
     margin: 0 0 6px;
-    color: #333333;
+    color: #222222;
     font-size: 20px;
   }
   .badge-wrap {
@@ -45,10 +45,25 @@
     padding: 4px 10px;
     border-radius: 999px;
   }
+  .section-box {
+    background: #fafafa;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .section-title {
+    font-size: 12px;
+    font-weight: bold;
+    color: #0088cc;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
   .toolbar {
     display: flex;
     gap: 10px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     flex-wrap: wrap;
   }
   .search-input {
@@ -58,9 +73,10 @@
     border: 1px solid #d0d7de;
     border-radius: 6px;
     font-size: 14px;
+    background: #ffffff;
   }
   .btn {
-    padding: 10px 14px;
+    padding: 9px 13px;
     border: none;
     border-radius: 6px;
     font-size: 13px;
@@ -69,15 +85,22 @@
     color: #ffffff;
     background: #0088cc;
   }
-  .btn-green {
-    background: #2e7d32;
+  .btn:active { opacity: 0.85; }
+  .btn-green { background: #2e7d32; }
+  .btn-info { background: #0277bd; }
+  .btn-warn { background: #ef6c00; }
+  .btn-danger { background: #c62828; }
+  .btn-gray { background: #607d8b; }
+  .btn-sm {
+    padding: 6px 10px;
+    font-size: 12px;
   }
   .empty-box {
     text-align: center;
     padding: 28px 16px;
     color: #666666;
     font-size: 14px;
-    background: #fafafa;
+    background: #ffffff;
     border: 1px dashed #d0d7de;
     border-radius: 8px;
   }
@@ -87,7 +110,7 @@
     border-radius: 8px;
     padding: 12px 14px;
     margin-bottom: 10px;
-    background: #fcfcfc;
+    background: #ffffff;
   }
   .card-top {
     display: flex;
@@ -103,6 +126,110 @@
     font-size: 13px;
     color: #555555;
     line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 999;
+  }
+  .modal-backdrop.open {
+    display: flex;
+  }
+  .modal-box {
+    width: 100%;
+    max-width: 700px;
+    max-height: 88vh;
+    overflow-y: auto;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 18px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 10px;
+  }
+  .modal-title {
+    font-size: 17px;
+    font-weight: bold;
+    color: #222222;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  @media (max-width: 600px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  .field {
+    margin-bottom: 10px;
+  }
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    color: #444444;
+    margin-bottom: 4px;
+  }
+  .field input, .field textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #222222;
+  }
+  .field textarea {
+    min-height: 72px;
+    resize: vertical;
+  }
+  .detail-row {
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 13px;
+    color: #333333;
+  }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .status-banner {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: none;
+  }
+  .status-banner.ok {
+    display: block;
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #a5d6a7;
+  }
+  .status-banner.err {
+    display: block;
+    background: #ffebee;
+    color: #b71c1c;
+    border: 1px solid #ef9a9a;
   }
 </style>
 </head>
@@ -111,17 +238,58 @@
   <h2>📋 Lista Contatti</h2>
   <div class="badge-wrap"><span class="badge" id="badgeCount">Totale: 0</span></div>
 
-  <div class="toolbar">
-    <input type="text" id="filtroContatto" class="search-input" placeholder="Cerca per nominativo, telefono, server o note..." oninput="applicaFiltro()">
-    <button type="button" class="btn" onclick="caricaContatti()">🔄 Aggiorna</button>
-    <button type="button" class="btn btn-green" onclick="vaiNuovoNominativo()">➕ Nuovo Nominativo</button>
+  <div class="section-box">
+    <div class="section-title">Movimenti Nominativi</div>
+    <div class="toolbar">
+      <input type="text" id="filtroContatto" class="search-input" placeholder="Cerca per nominativo, telefono, server, reseller o note..." oninput="applicaFiltro()">
+      <button type="button" class="btn" onclick="caricaContatti()">🔄 Aggiorna</button>
+      <button type="button" class="btn btn-green" onclick="vaiNuovoNominativo()">➕ Nuovo Nominativo</button>
+    </div>
+    <div id="statusBanner" class="status-banner"></div>
+    <div id="listaContainer"></div>
   </div>
+</div>
 
-  <div id="listaContainer"></div>
+<!-- Modale Note / Dettaglio -->
+<div id="modalDettaglio" class="modal-backdrop" onclick="chiudiModaleSeSfondo(event, 'modalDettaglio')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="dettaglioTitolo">Note / Dettaglio Nominativo</div>
+      <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalDettaglio')">✕</button>
+    </div>
+    <div id="dettaglioCorpo"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-warn btn-sm" id="btnDettaglioModifica">✏️ Modifica Tutti i Campi</button>
+      <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalDettaglio')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale Modifica Completa -->
+<div id="modalModifica" class="modal-backdrop" onclick="chiudiModaleSeSfondo(event, 'modalModifica')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Modifica Nominativo (Tutti i Campi)</div>
+      <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalModifica')">✕</button>
+    </div>
+    <form id="formModificaNominativo" onsubmit="salvaModificaNominativo(event)">
+      <input type="hidden" id="edit_id">
+      <div id="editCampiDinamici" class="grid-2"></div>
+      <div class="field" style="margin-top:10px;">
+        <label for="edit_note">Note / Informazioni</label>
+        <textarea id="edit_note"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalModifica')">Annulla</button>
+        <button type="submit" class="btn btn-green btn-sm">💾 Salva Modifiche</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <script>
   let tuttiContatti = [];
+  let contattoCorrenteIdx = -1;
 
   try {
     if (window.Telegram && window.Telegram.WebApp) {
@@ -141,6 +309,20 @@
 
   function vaiNuovoNominativo() {
     window.location.href = "/index.html?t=" + Date.now();
+  }
+
+  function mostraBanner(testo, ok) {
+    const el = document.getElementById("statusBanner");
+    if (!el) return;
+    el.textContent = testo;
+    el.className = "status-banner " + (ok ? "ok" : "err");
+  }
+
+  function nascondiBanner() {
+    const el = document.getElementById("statusBanner");
+    if (!el) return;
+    el.className = "status-banner";
+    el.textContent = "";
   }
 
   function estraiArray(data) {
@@ -167,6 +349,10 @@
     );
   }
 
+  function trovaIndiceContatto(item) {
+    return tuttiContatti.indexOf(item);
+  }
+
   function renderLista(items) {
     const box = document.getElementById("listaContainer");
     const badge = document.getElementById("badgeCount");
@@ -181,6 +367,7 @@
       if (typeof it === "string") {
         return `<div class="card-item"><div class="card-top"><span>${it}</span></div></div>`;
       }
+      const idx = trovaIndiceContatto(it);
       const nom = leggiNome(it);
       const tel = it.telefono || it.cellulare || it.num_cellulare || "-";
       const tipo = it.tipo ? ` &nbsp;|&nbsp; <strong>Tipo:</strong> ${String(it.tipo)}` : "";
@@ -189,6 +376,7 @@
       const scad = (it.data_fine || it.scadenza) ? ` &nbsp;|&nbsp; <strong>Scadenza:</strong> ${String(it.data_fine || it.scadenza)}` : "";
       const noteText = it.informazioni || it.note || it.info || "";
       const note = noteText ? `<br><strong>Note:</strong> ${String(noteText)}` : "";
+
       return `
         <div class="card-item">
           <div class="card-top">
@@ -197,6 +385,11 @@
           </div>
           <div class="card-meta">
             ${tipo}${srv}${res}${scad}${note}
+          </div>
+          <div class="card-actions">
+            <button type="button" class="btn btn-info btn-sm" onclick="apriNoteDettaglio(${idx})">📝 Note / Dettaglio</button>
+            <button type="button" class="btn btn-warn btn-sm" onclick="apriModifica(${idx})">✏️ Modifica</button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="eliminaNominativo(${idx})">🗑️ Elimina</button>
           </div>
         </div>
       `;
@@ -220,7 +413,181 @@
     renderLista(filtrati);
   }
 
+  function chiudiModale(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove("open");
+  }
+
+  function chiudiModaleSeSfondo(ev, id) {
+    if (ev && ev.target && ev.target.id === id) {
+      chiudiModale(id);
+    }
+  }
+
+  function apriNoteDettaglio(idx) {
+    const item = tuttiContatti[idx];
+    if (!item || typeof item !== "object") return;
+    contattoCorrenteIdx = idx;
+
+    document.getElementById("dettaglioTitolo").textContent = `📄 Dettaglio: ${leggiNome(item)}`;
+    const corpo = document.getElementById("dettaglioCorpo");
+    const entries = Object.entries(item);
+
+    corpo.innerHTML = entries.map(([chiave, valore]) => {
+      const valStr = valore === null || valore === undefined || valore === "" ? "-" : String(valore);
+      return `<div class="detail-row"><strong>${chiave}:</strong> ${valStr}</div>`;
+    }).join("");
+
+    const btnMod = document.getElementById("btnDettaglioModifica");
+    btnMod.onclick = function () {
+      chiudiModale("modalDettaglio");
+      apriModifica(idx);
+    };
+
+    document.getElementById("modalDettaglio").classList.add("open");
+  }
+
+  function apriModifica(idx) {
+    const item = tuttiContatti[idx];
+    if (!item || typeof item !== "object") return;
+    contattoCorrenteIdx = idx;
+
+    const idVal = item.id !== undefined && item.id !== null ? String(item.id) : "";
+    document.getElementById("edit_id").value = idVal;
+
+    const campiNoteKeys = ["note", "informazioni", "info", "annotazioni"];
+    let noteVal = "";
+    for (const k of campiNoteKeys) {
+      if (item[k] !== undefined && item[k] !== null && String(item[k]).trim() !== "") {
+        noteVal = String(item[k]);
+        break;
+      }
+    }
+    document.getElementById("edit_note").value = noteVal;
+
+    const contenitore = document.getElementById("editCampiDinamici");
+    const chiaviEscluse = new Set(["id", ...campiNoteKeys]);
+    const chiavi = Object.keys(item).filter((k) => !chiaviEscluse.has(k));
+
+    contenitore.innerHTML = chiavi.map((chiave) => {
+      const val = item[chiave] === null || item[chiave] === undefined ? "" : String(item[chiave]);
+      const safeVal = val.replace(/"/g, "&quot;");
+      return `
+        <div class="field">
+          <label for="edit_field_${chiave}">${chiave}</label>
+          <input type="text" id="edit_field_${chiave}" data-campo="${chiave}" value="${safeVal}">
+        </div>
+      `;
+    }).join("");
+
+    document.getElementById("modalModifica").classList.add("open");
+  }
+
+  async function salvaModificaNominativo(ev) {
+    ev.preventDefault();
+    const item = tuttiContatti[contattoCorrenteIdx];
+    if (!item || typeof item !== "object") return;
+
+    const aggiornato = { ...item };
+    const inputs = document.querySelectorAll("#editCampiDinamici input[data-campo]");
+    inputs.forEach((inp) => {
+      const campo = inp.getAttribute("data-campo");
+      aggiornato[campo] = inp.value;
+    });
+
+    const noteNuove = document.getElementById("edit_note").value;
+    if ("note" in aggiornato || !("informazioni" in aggiornato)) {
+      aggiornato.note = noteNuove;
+    }
+    if ("informazioni" in aggiornato) {
+      aggiornato.informazioni = noteNuove;
+    }
+
+    const idRecord = item.id;
+    const urlsPut = idRecord !== undefined && idRecord !== null
+      ? [`/api/contatti/${encodeURIComponent(idRecord)}`, `/api/nominativi/${encodeURIComponent(idRecord)}`]
+      : [];
+
+    let ok = false;
+    for (const url of urlsPut) {
+      try {
+        const res = await fetch(url, {
+          method: "PUT",
+          headers: getAuthHeaders(),
+          body: JSON.stringify(aggiornato)
+        });
+        if (res.ok) {
+          ok = true;
+          break;
+        }
+      } catch (e) {}
+    }
+
+    if (!ok) {
+      for (const url of ["/api/contatti", "/api/nominativi"]) {
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: getAuthHeaders(),
+            body: JSON.stringify(aggiornato)
+          });
+          if (res.ok) {
+            ok = true;
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+
+    tuttiContatti[contattoCorrenteIdx] = aggiornato;
+    applicaFiltro();
+    chiudiModale("modalModifica");
+    mostraBanner(
+      ok ? "Modifiche salvate su server e aggiornate in lista." : "Modifiche aggiornate in lista (endpoint di salvataggio non trovato).",
+      true
+    );
+  }
+
+  async function eliminaNominativo(idx) {
+    const item = tuttiContatti[idx];
+    if (!item || typeof item !== "object") return;
+
+    const nome = leggiNome(item);
+    const conferma = window.confirm(`Vuoi davvero eliminare "${nome}"?`);
+    if (!conferma) return;
+
+    const idRecord = item.id;
+    let eliminatoServer = false;
+
+    if (idRecord !== undefined && idRecord !== null) {
+      const urlsDel = [
+        `/api/contatti/${encodeURIComponent(idRecord)}`,
+        `/api/nominativi/${encodeURIComponent(idRecord)}`
+      ];
+      for (const url of urlsDel) {
+        try {
+          const res = await fetch(url, {
+            method: "DELETE",
+            headers: getAuthHeaders()
+          });
+          if (res.ok) {
+            eliminatoServer = true;
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+
+    tuttiContatti.splice(idx, 1);
+    applicaFiltro();
+    mostraBanner(
+      eliminatoServer ? `Nominativo "${nome}" eliminato dal database.` : `Nominativo "${nome}" rimosso dalla lista.`,
+      true
+    );
+  }
+
   async function caricaContatti() {
+    nascondiBanner();
     const box = document.getElementById("listaContainer");
     box.innerHTML = '<div class="empty-box">Caricamento contatti...</div>';
 

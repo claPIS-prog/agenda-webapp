@@ -89,14 +89,6 @@ def _leggi_tabella_semplice(table_name: str, order_col: str = "id"):
         conn.close()
 
 
-def _leggi_contatti_da_tabelle_note():
-    for tab in ("nominativi", "contatti", "clienti", "anagrafica"):
-        rows = _leggi_tabella_semplice(tab, "id")
-        if rows:
-            return rows
-    return []
-
-
 async def _crea_voce_tabella(table_name: str, request: Request, campi_chiave: tuple[str, ...]):
     tab = _nome_tabella_sicuro(table_name)
     _verifica_utente_se_disponibile(request)
@@ -180,6 +172,102 @@ def _elimina_voce_tabella(table_name: str, item_id: int, request: Request):
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Errore eliminazione da {tab}: {e}")
+    finally:
+        conn.close()
+
+
+def _aggiorna_record_dinamico(item_id: int, data: dict, request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    try:
+        from db import db_conn
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database non disponibile: {e}")
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            for tab in ("nominativi", "contatti", "clienti", "anagrafica"):
+                cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{tab}",))
+                tab_row = cur.fetchone()
+                tab_exists = bool(
+                    tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+                )
+                if not tab_exists:
+                    continue
+
+                cur.execute(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = 'public' AND table_name = %s
+                    """,
+                    (tab,),
+                )
+                cols_rows = cur.fetchall() or []
+                colonne_tabella = {
+                    (r["column_name"] if isinstance(r, dict) else r[0]) for r in cols_rows
+                }
+
+                aggiornabili = []
+                valori = []
+                for k, v in (data or {}).items():
+                    col_pulita = re.sub(r"[^a-zA-Z0-9_]", "", str(k))
+                    if col_pulita and col_pulita != "id" and col_pulita in colonne_tabella:
+                        aggiornabili.append(f"{col_pulita} = %s")
+                        valori.append(v)
+
+                if not aggiornabili:
+                    continue
+
+                cur.execute(f"SELECT id FROM {tab} WHERE id = %s", (int(item_id),))
+                esiste = cur.fetchone()
+                if not esiste:
+                    continue
+
+                valori.append(int(item_id))
+                sql = f"UPDATE {tab} SET {', '.join(aggiornabili)} WHERE id = %s RETURNING *"
+                cur.execute(sql, valori)
+                row = cur.fetchone()
+                conn.commit()
+                if isinstance(row, dict):
+                    return {"ok": True, "tabella": tab, **row}
+                return {"ok": True, "tabella": tab, "id": item_id}
+        return {"ok": True, "id": item_id}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore aggiornamento record: {e}")
+    finally:
+        conn.close()
+
+
+def _elimina_record_nominativo(item_id: int, request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    try:
+        from db import db_conn
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database non disponibile: {e}")
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            for tab in ("nominativi", "contatti", "clienti", "anagrafica"):
+                cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{tab}",))
+                tab_row = cur.fetchone()
+                tab_exists = bool(
+                    tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+                )
+                if not tab_exists:
+                    continue
+                cur.execute(f"DELETE FROM {tab} WHERE id = %s RETURNING id", (int(item_id),))
+                deleted = cur.fetchone()
+                if deleted:
+                    conn.commit()
+                    return {"ok": True, "tabella": tab, "id": item_id}
+        conn.commit()
+        return {"ok": True, "id": item_id}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore eliminazione record: {e}")
     finally:
         conn.close()
 
@@ -605,6 +693,24 @@ async def api_nominativi_crea(request: Request):
         raise HTTPException(status_code=500, detail=f"Errore salvataggio nominativo: {e}")
     finally:
         conn.close()
+
+
+@app.put("/api/contatti/{item_id}")
+@app.patch("/api/contatti/{item_id}")
+@app.put("/api/nominativi/{item_id}")
+@app.patch("/api/nominativi/{item_id}")
+async def api_nominativi_aggiorna(item_id: int, request: Request):
+    try:
+        payload = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"JSON non valido: {e}")
+    return _aggiorna_record_dinamico(item_id, payload or {}, request)
+
+
+@app.delete("/api/contatti/{item_id}")
+@app.delete("/api/nominativi/{item_id}")
+def api_nominativi_elimina(item_id: int, request: Request):
+    return _elimina_record_nominativo(item_id, request)
 
 
 @app.get("/api/metodi_pagamento")
