@@ -8,7 +8,7 @@ from pydantic import BaseModel
 import uvicorn
 
 from db import ALL_MODULES, db_conn, estrai_dati, get_current_user, init_db
-from routes.crediti import router as crediti_router
+from routers.crediti import router as crediti_router
 
 init_db()
 
