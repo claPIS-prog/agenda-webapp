@@ -1311,6 +1311,18 @@ async def _salva_acquisto_credito(d: dict, id_record: int | None = None):
         conn.close()
 
 # === CREDITI ===
+def _elimina_credito_by_id(record_id: int):
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM crediti WHERE id = %s", (int(record_id),))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore cancellazione credito: {e}")
+    finally:
+        conn.close()
+
 @app.get("/api/crediti")
 def api_crediti(request: Request):
     get_current_user(request)
@@ -1335,13 +1347,15 @@ async def api_crediti_modifica(id: int, request: Request):
 @app.delete("/api/credito/{id}")
 def api_crediti_cancella(id: int, request: Request):
     get_current_user(request)
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM crediti WHERE id = %s", (id,))
-        conn.commit()
-    finally:
-        conn.close()
+    _elimina_credito_by_id(id)
+    return {"ok": True}
+
+@app.delete("/api/crediti")
+@app.delete("/api/credito")
+def api_crediti_cancella_query(id: int | None = None, request: Request = None):
+    get_current_user(request)
+    if id is not None:
+        _elimina_credito_by_id(id)
     return {"ok": True}
 
 @app.api_route("/api/{percorso:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])

@@ -29,32 +29,56 @@ textarea { min-height: 68px; resize: vertical; }
 .btn-primary { width: 100%; padding: 12px; background: #0088cc; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; }
 .btn-save { width: 100%; padding: 13px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px; }
 .btn-save:disabled { background: #95a5a6; cursor: not-allowed; }
-.btn-secondary { padding: 9px 12px; background: #e5e7eb; color: #333; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
 .error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; font-size: 13px; }
 .success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; font-size: 13px; }
 .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .list-title { font-size: 17px; font-weight: 700; color: #2c3e50; }
 .total-badge { background: #3498db; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; }
 .list-item { background: white; padding: 11px 13px; border: 1px solid #e6e6e6; border-radius: 10px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
-.list-item .num { font-weight: 700; color: #888; min-width: 24px; text-align: right; }
+.list-item .num { font-weight: 700; color: #888; min-width: 24px; text-align: right; flex-shrink: 0; }
 .list-item .info { flex: 1; overflow: hidden; }
 .list-item .title { font-weight: 700; font-size: 14px; color: #222; }
 .list-item .meta { font-size: 12px; color: #666; margin-top: 2px; line-height: 1.4; }
 .list-item .actions { display: flex; gap: 6px; flex-shrink: 0; }
-.btn-icon { width: 32px; height: 32px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; color: white; display: flex; align-items: center; justify-content: center; }
-.btn-del { background: #e74c3c; }
+.btn-action { width: 32px; height: 32px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; color: white; display: flex; align-items: center; justify-content: center; }
+.btn-action:active { transform: scale(0.92); }
+.btn-info { background: #0088cc; color: white; }
+.btn-del { background: #e74c3c; color: white; }
 .empty-state { text-align: center; padding: 24px; color: #888; background: white; border-radius: 10px; border: 1px solid #e0e0e0; }
 .modal-overlay {
     display: none; position: fixed; inset: 0;
     background: rgba(0,0,0,0.6); z-index: 200;
-    align-items: center; justify-content: center; padding: 15px;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(2px); padding: 15px;
 }
 .modal-overlay.active { display: flex; }
 .modal {
-    background: white; border-radius: 12px; padding: 20px;
-    width: 100%; max-width: 460px; max-height: 85vh; overflow-y: auto; position: relative;
+    background: #ffffff; color: #333333;
+    border-radius: 12px; padding: 25px;
+    width: 100%; max-width: 480px; max-height: 85vh;
+    overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    position: relative;
 }
-.close-modal { position: absolute; top: 12px; right: 14px; background: none; border: none; font-size: 22px; color: #777; cursor: pointer; }
+.modal h3 {
+    margin-top: 0; text-align: center; color: #333333;
+    border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 15px;
+    font-size: 18px;
+}
+.info-grid { display: grid; grid-template-columns: 1fr; gap: 8px; font-size: 14px; }
+.info-row { display: flex; border-bottom: 1px solid #f0f0f0; padding-bottom: 6px; }
+.info-label { font-weight: bold; color: #555555; width: 155px; flex-shrink: 0; }
+.info-value { color: #222222; word-break: break-word; flex-grow: 1; }
+.info-section-title {
+    font-size: 12px; color: #0088cc; font-weight: bold;
+    text-transform: uppercase; margin-top: 12px; margin-bottom: 6px;
+    border-bottom: 1px solid #e0e0e0; padding-bottom: 2px;
+}
+.info-section-title:first-child { margin-top: 0; }
+.close-modal {
+    position: absolute; top: 15px; right: 15px;
+    background: none; border: none; font-size: 24px;
+    color: #999999; cursor: pointer; line-height: 1;
+}
 </style>
 </head>
 <body>
@@ -141,6 +165,15 @@ textarea { min-height: 68px; resize: vertical; }
     <div id="listaCreditiContainer"></div>
 </div>
 
+<!-- Modal Dettagli / Note Movimento Crediti (Layout identico a Lista Contatti) -->
+<div class="modal-overlay" id="infoModal" onclick="chiudiInfoOverlay(event)">
+    <div class="modal">
+        <button type="button" class="close-modal" onclick="chiudiInfoCredito()">×</button>
+        <h3>ℹ️ Dettagli Movimento Crediti</h3>
+        <div id="infoContent"></div>
+    </div>
+</div>
+
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
@@ -151,6 +184,7 @@ const MODALITA_PAGAMENTO_DEFAULT = [
     "Carta di Credito / Debito",
     "PayPal",
     "Ricarica / Postepay",
+    "Crypto",
     "Altro"
 ];
 
@@ -364,20 +398,67 @@ function renderMovimentiCrediti(items) {
                 </div>
             </div>
             <div class="actions">
-                <button type="button" class="btn-icon btn-del" onclick="eliminaMovimento(${item.id})" title="Elimina">🗑️</button>
+                <button type="button" class="btn-action btn-info" onclick="event.stopPropagation(); apriInfoCredito(${item.id})" title="Note / Dettagli">ℹ️</button>
+                <button type="button" class="btn-action btn-del" onclick="event.stopPropagation(); eliminaMovimento(${item.id})" title="Elimina">🗑️</button>
             </div>
         `;
         container.appendChild(div);
     });
 }
 
+function apriInfoCredito(id) {
+    const item = movimentiCrediti.find(m => Number(m.id) === Number(id));
+    if (!item) return;
+
+    const v = (val) => (val !== undefined && val !== null && String(val).trim() !== '') ? val : '-';
+    const qta = Number(item.quantita || 0);
+    const valTot = Number(item.valore || 0);
+    const prezzoUnit = qta > 0 ? (valTot / qta).toFixed(2) : '0.00';
+
+    let html = '<div class="info-grid">';
+    html += '<div class="info-section-title">Generale</div>';
+    html += `<div class="info-row"><div class="info-label">ID Transazione:</div><div class="info-value">#${v(item.id)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Fornitore:</div><div class="info-value">${v(item.fornitore)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Data Acquisto:</div><div class="info-value">${v(item.data_acquisto)}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Modalità Pagamento:</div><div class="info-value">${v(item.modalita_pagamento)}</div></div>`;
+
+    html += '<div class="info-section-title">Importi & Crediti</div>';
+    html += `<div class="info-row"><div class="info-label">Quantità Crediti:</div><div class="info-value">${qta}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Prezzo Unitario:</div><div class="info-value">€ ${prezzoUnit}</div></div>`;
+    html += `<div class="info-row"><div class="info-label">Valore Totale:</div><div class="info-value">€ ${valTot.toFixed(2)}</div></div>`;
+
+    html += '<div class="info-section-title">Note / Informazioni</div>';
+    html += `<div class="info-row" style="flex-direction:column;"><div class="info-label" style="width:100%;margin-bottom:4px;">Note:</div><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;white-space:pre-line;">${v(item.note)}</div></div>`;
+    html += '</div>';
+
+    document.getElementById('infoContent').innerHTML = html;
+    document.getElementById('infoModal').classList.add('active');
+}
+
+function chiudiInfoCredito() {
+    document.getElementById('infoModal').classList.remove('active');
+}
+
+function chiudiInfoOverlay(event) {
+    if (event.target && event.target.id === 'infoModal') {
+        chiudiInfoCredito();
+    }
+}
+
 function eliminaMovimento(id) {
     tg.showConfirm('Eliminare questo movimento crediti?', async (ok) => {
         if (!ok) return;
         try {
-            const res = await fetch(`/api/crediti/${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const res = await fetch(`/api/crediti/${encodeURIComponent(id)}?nocache=${Date.now()}`, {
+                method: 'DELETE'
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || 'HTTP ' + res.status);
+            }
+            mostraSuccesso('✅ Movimento crediti eliminato!');
             await caricaMovimentiCrediti();
+            setTimeout(nascondiMessaggi, 2500);
         } catch (e) {
             mostraErrore('❌ ' + e.message);
         }
