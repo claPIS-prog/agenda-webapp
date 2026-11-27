@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lista Rinnovi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="/auth.js"></script>
 <style>
   * { box-sizing: border-box; }
   html, body {
@@ -20,7 +19,7 @@
     padding: 16px;
   }
   .container {
-    max-width: 780px;
+    max-width: 980px;
     margin: 0 auto;
     background: #ffffff;
     border-radius: 10px;
@@ -30,12 +29,12 @@
   h2 {
     text-align: center;
     margin: 0 0 6px;
-    color: #333333;
+    color: #222222;
     font-size: 20px;
   }
   .badge-wrap {
     text-align: center;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
   .badge {
     display: inline-block;
@@ -43,7 +42,7 @@
     color: #ffffff;
     font-size: 12px;
     font-weight: bold;
-    padding: 4px 10px;
+    padding: 4px 12px;
     border-radius: 999px;
   }
   .toolbar {
@@ -51,17 +50,19 @@
     gap: 10px;
     margin-bottom: 14px;
     flex-wrap: wrap;
+    align-items: center;
   }
   .search-input {
     flex: 1;
-    min-width: 200px;
+    min-width: 220px;
     padding: 10px 12px;
     border: 1px solid #d0d7de;
     border-radius: 6px;
     font-size: 14px;
+    background: #ffffff;
   }
   .btn {
-    padding: 10px 14px;
+    padding: 9px 13px;
     border: none;
     border-radius: 6px;
     font-size: 13px;
@@ -70,9 +71,14 @@
     color: #ffffff;
     background: #0088cc;
   }
-  .btn-green {
-    background: #2e7d32;
-  }
+  .btn:active { opacity: 0.85; }
+  .btn-green { background: #2e7d32; }
+  .btn-info { background: #0277bd; }
+  .btn-warn { background: #ef6c00; }
+  .btn-danger { background: #c62828; }
+  .btn-gray { background: #607d8b; }
+  .btn-sm { padding: 6px 10px; font-size: 12px; }
+
   .empty-box {
     text-align: center;
     padding: 28px 16px;
@@ -82,13 +88,14 @@
     border: 1px dashed #d0d7de;
     border-radius: 8px;
   }
+
   .card-item {
     border: 1px solid #e0e0e0;
     border-left: 4px solid #0088cc;
     border-radius: 8px;
     padding: 12px 14px;
     margin-bottom: 10px;
-    background: #fcfcfc;
+    background: #ffffff;
   }
   .card-top {
     display: flex;
@@ -98,30 +105,180 @@
     font-weight: bold;
     color: #222222;
     margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .importo-badge {
+    color: #15803d;
+    font-size: 15px;
+    font-weight: bold;
   }
   .card-meta {
     font-size: 13px;
     color: #555555;
-    line-height: 1.45;
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .status-banner {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: none;
+  }
+  .status-banner.ok {
+    display: block;
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #a5d6a7;
+  }
+  .status-banner.err {
+    display: block;
+    background: #ffebee;
+    color: #b71c1c;
+    border: 1px solid #ef9a9a;
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 999;
+  }
+  .modal-backdrop.open {
+    display: flex;
+  }
+  .modal-box {
+    width: 100%;
+    max-width: 680px;
+    max-height: 88vh;
+    overflow-y: auto;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 18px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 10px;
+  }
+  .modal-title {
+    font-size: 17px;
+    font-weight: bold;
+    color: #222222;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  @media (max-width: 600px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  .field {
+    margin-bottom: 10px;
+  }
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    color: #444444;
+    margin-bottom: 4px;
+  }
+  .field input, .field textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #222222;
+  }
+  .field textarea {
+    min-height: 72px;
+    resize: vertical;
+  }
+  .detail-row {
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 13px;
+    color: #333333;
+  }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
   }
 </style>
 </head>
 <body>
 <div class="container">
-  <h2>📋 Lista Rinnovi</h2>
-  <div class="badge-wrap"><span class="badge">Rinnovi</span></div>
+  <h2>🔄 Lista Rinnovi</h2>
+  <div class="badge-wrap"><span class="badge" id="badgeCount">Rinnovi</span></div>
 
   <div class="toolbar">
-    <input type="text" id="filtroNominativo" class="search-input" placeholder="Cerca per nominativo..." oninput="applicaFiltro()">
-    <button type="button" class="btn" onclick="caricaRinnovi()">🔄 Aggiorna</button>
+    <input type="text" id="filtroNominativo" class="search-input" list="listaNominativi" placeholder="Cerca per nominativo..." oninput="applicaFiltro()" onchange="applicaFiltro()">
+    <datalist id="listaNominativi"></datalist>
     <button type="button" class="btn btn-green" onclick="vaiNuovoRinnovo()">➕ Nuovo Rinnovo</button>
   </div>
 
-  <div id="listaContainer"></div>
+  <div id="statusBanner" class="status-banner"></div>
+  <div id="listaRinnovi"></div>
+</div>
+
+<!-- Modale Note / Dettagli -->
+<div id="modalDettaglio" class="modal-backdrop" onclick="chiudiModaleSeSfondo(event, 'modalDettaglio')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="dettaglioTitolo">Note / Dettagli Rinnovo</div>
+      <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalDettaglio')">✕</button>
+    </div>
+    <div id="dettaglioCorpo"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-warn btn-sm" id="btnDettaglioModifica">✏️ Modifica</button>
+      <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalDettaglio')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale Modifica Tutti i Campi -->
+<div id="modalModifica" class="modal-backdrop" onclick="chiudiModaleSeSfondo(event, 'modalModifica')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Modifica Rinnovo (Tutti i Campi)</div>
+      <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalModifica')">✕</button>
+    </div>
+    <form id="formModificaRinnovo" onsubmit="salvaModifica(event)">
+      <div id="editCampiDinamici" class="grid-2"></div>
+      <div class="field" style="margin-top:10px;">
+        <label for="edit_note">Note</label>
+        <textarea id="edit_note"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalModifica')">Annulla</button>
+        <button type="submit" class="btn btn-green btn-sm">💾 Salva Modifiche</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <script>
   let tuttiRinnovi = [];
+  let idxCorrente = -1;
 
   try {
     if (window.Telegram && window.Telegram.WebApp) {
@@ -132,9 +289,7 @@
   function getAuthHeaders() {
     const headers = { "Content-Type": "application/json" };
     try {
-      if (typeof window.getAuthHeaders === "function" && window.getAuthHeaders !== getAuthHeaders) {
-        Object.assign(headers, window.getAuthHeaders());
-      } else if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
         headers["X-Telegram-Init-Data"] = window.Telegram.WebApp.initData;
       }
     } catch (e) {}
@@ -142,53 +297,110 @@
   }
 
   function vaiNuovoRinnovo() {
-    window.location.href = "/rinnovi.html?t=" + Date.now();
+    window.location.href = "/rinnovo.html?t=" + Date.now();
+  }
+
+  function mostraBanner(testo, ok) {
+    const el = document.getElementById("statusBanner");
+    el.textContent = testo;
+    el.className = "status-banner " + (ok ? "ok" : "err");
+  }
+
+  function nascondiBanner() {
+    const el = document.getElementById("statusBanner");
+    el.className = "status-banner";
+    el.textContent = "";
   }
 
   function estraiArray(data) {
     if (Array.isArray(data)) return data;
     if (data && typeof data === "object") {
-      for (const k of ["righe", "items", "rinnovi", "data", "results"]) {
+      for (const k of ["righe", "items", "rinnovi", "nominativi", "contatti", "data", "results"]) {
         if (Array.isArray(data[k])) return data[k];
       }
     }
     return [];
   }
 
-  function eRinnovo(item) {
-    if (!item || typeof item !== "object") return false;
-    const campi = [item.tipo, item.categoria, item.operazione, item.voce, item.stato];
-    const testo = campi.filter(Boolean).join(" ").toLowerCase();
-    if (!testo) return true;
-    return testo.includes("rinnov");
+  function leggiNome(it) {
+    if (typeof it === "string") return it;
+    return it.nominativo || it.nome || it.cliente || "Senza nominativo";
   }
 
-  function renderLista(items) {
-    const box = document.getElementById("listaContainer");
+  function formattaNumeroBreve(v) {
+    if (v === null || v === undefined || v === "") return "0";
+    const n = Number(String(v).replace(",", "."));
+    if (!Number.isFinite(n)) return String(v);
+    return Number.isInteger(n) ? String(n) : String(n).replace(/\.?0+$/, "");
+  }
+
+  function formattaCrediti(it) {
+    const dato = it.credito_dato ?? it.CreditoDato ?? it.creditodato;
+    const rich = it.credito_richiesto ?? it.CreditoRichiesto ?? it.creditorichiesto;
+    if (dato !== undefined && dato !== null && dato !== "" || rich !== undefined && rich !== null && rich !== "") {
+      return `${formattaNumeroBreve(dato ?? 0)}/${formattaNumeroBreve(rich ?? 0)}`;
+    }
+    return "0/0";
+  }
+
+  function popolaDatalistNominativi(listaNomi) {
+    const dl = document.getElementById("listaNominativi");
+    if (!dl) return;
+    const unici = [];
+    const visti = new Set();
+    for (const n of listaNomi) {
+      const pulito = String(n || "").trim();
+      if (!pulito) continue;
+      const chiave = pulito.toLowerCase();
+      if (!visti.has(chiave)) {
+        visti.add(chiave);
+        unici.push(pulito);
+      }
+    }
+    unici.sort((a, b) => a.localeCompare(b, "it", { sensitivity: "base" }));
+    dl.innerHTML = unici.map((nome) => `<option value="${nome.replace(/"/g, "&quot;")}"></option>`).join("");
+  }
+
+  function renderRinnovi(items) {
+    const box = document.getElementById("listaRinnovi");
+    const badge = document.getElementById("badgeCount");
+    if (badge) badge.textContent = `Rinnovi: ${items.length}`;
+
     if (!items.length) {
       box.innerHTML = '<div class="empty-box">Nessun rinnovo trovato</div>';
       return;
     }
 
     box.innerHTML = items.map((it) => {
-      const nom = it.nominativo || it.nome || it.cliente || "Senza nominativo";
-      const dataOp = it.data || it.data_operazione || it.created_at || "-";
-      const scad = it.scadenza || it.data_scadenza || "-";
-      const imp = (it.importo !== undefined && it.importo !== null && it.importo !== "")
-        ? `${it.importo} €`
-        : "-";
-      const metodo = it.metodo_pagamento || it.pagamento || "-";
-      const note = it.note ? `<br><strong>Note:</strong> ${String(it.note)}` : "";
+      const idx = tuttiRinnovi.indexOf(it);
+      const nom = leggiNome(it);
+      const dataOp = it.data || it.data_operazione || "-";
+      const scad = it.scadenza || it.data_scadenza || it.data_fine || "-";
+      const pag = it.metodo_pagamento || it.pagamento || "-";
+      const cred = formattaCrediti(it);
+      const impRaw = it.importo ?? it.Importo ?? 0;
+      const impNum = Number(String(impRaw).replace(",", "."));
+      const impTesto = Number.isFinite(impNum) ? `${impNum.toFixed(0)} €` : `${impRaw} €`;
+      const noteText = it.note || it.informazioni || "";
+      const noteHtml = noteText ? `<br><strong>Note:</strong> ${String(noteText)}` : "";
+
       return `
         <div class="card-item">
           <div class="card-top">
             <span>${String(nom)}</span>
-            <span>${String(imp)}</span>
+            <span class="importo-badge">${impTesto}</span>
           </div>
           <div class="card-meta">
             <strong>Data:</strong> ${String(dataOp)} &nbsp;|&nbsp;
             <strong>Scadenza:</strong> ${String(scad)} &nbsp;|&nbsp;
-            <strong>Pagamento:</strong> ${String(metodo)}${note}
+            <strong>Pagamento:</strong> ${String(pag)} &nbsp;|&nbsp;
+            <strong>Crediti:</strong> ${cred}
+            ${noteHtml}
+          </div>
+          <div class="card-actions">
+            <button type="button" class="btn btn-info btn-sm" onclick="apriNoteDettagli(${idx})">📝 Note / Dettagli</button>
+            <button type="button" class="btn btn-warn btn-sm" onclick="apriModifica(${idx})">✏️ Modifica</button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="cancellaRinnovo(${idx})">🗑️ Cancella</button>
           </div>
         </div>
       `;
@@ -198,38 +410,180 @@
   function applicaFiltro() {
     const q = (document.getElementById("filtroNominativo").value || "").trim().toLowerCase();
     if (!q) {
-      renderLista(tuttiRinnovi);
+      renderRinnovi(tuttiRinnovi);
       return;
     }
-    const filtrati = tuttiRinnovi.filter((it) => {
-      const nom = String(it.nominativo || it.nome || it.cliente || "").toLowerCase();
-      const note = String(it.note || "").toLowerCase();
-      return nom.includes(q) || note.includes(q);
-    });
-    renderLista(filtrati);
+    const filtrati = tuttiRinnovi.filter((it) => leggiNome(it).toLowerCase().includes(q));
+    renderRinnovi(filtrati);
   }
 
-  async function caricaRinnovi() {
-    const box = document.getElementById("listaContainer");
-    box.innerHTML = '<div class="empty-box">Caricamento rinnovi...</div>';
+  function chiudiModale(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove("open");
+  }
 
-    const urls = [
-      "/api/rinnovi",
-      "/api/calcoli?tipo=Rinnovo",
-      "/api/calcoli/lista?tipo=Rinnovo",
-      "/api/calcoli",
-      "/api/calcoli/lista"
-    ];
+  function chiudiModaleSeSfondo(ev, id) {
+    if (ev && ev.target && ev.target.id === id) {
+      chiudiModale(id);
+    }
+  }
 
-    for (const url of urls) {
+  function apriNoteDettagli(idx) {
+    const item = tuttiRinnovi[idx];
+    if (!item) return;
+    idxCorrente = idx;
+
+    document.getElementById("dettaglioTitolo").textContent = `📄 Dettagli Rinnovo: ${leggiNome(item)}`;
+    const corpo = document.getElementById("dettaglioCorpo");
+    corpo.innerHTML = Object.entries(item).map(([k, v]) => {
+      const val = v === null || v === undefined || v === "" ? "-" : String(v);
+      return `<div class="detail-row"><strong>${k}:</strong> ${val}</div>`;
+    }).join("");
+
+    document.getElementById("btnDettaglioModifica").onclick = function () {
+      chiudiModale("modalDettaglio");
+      apriModifica(idx);
+    };
+
+    document.getElementById("modalDettaglio").classList.add("open");
+  }
+
+  function apriModifica(idx) {
+    const item = tuttiRinnovi[idx];
+    if (!item) return;
+    idxCorrente = idx;
+
+    const campiNoteKeys = ["note", "informazioni", "info"];
+    let noteVal = "";
+    for (const k of campiNoteKeys) {
+      if (item[k] !== undefined && item[k] !== null && String(item[k]).trim() !== "") {
+        noteVal = String(item[k]);
+        break;
+      }
+    }
+    document.getElementById("edit_note").value = noteVal;
+
+    const contenitore = document.getElementById("editCampiDinamici");
+    const escluse = new Set(["id", ...campiNoteKeys]);
+    const chiavi = Object.keys(item).filter((k) => !escluse.has(k));
+
+    contenitore.innerHTML = chiavi.map((chiave) => {
+      const val = item[chiave] === null || item[chiave] === undefined ? "" : String(item[chiave]);
+      const safeVal = val.replace(/"/g, "&quot;");
+      return `
+        <div class="field">
+          <label for="edit_field_${chiave}">${chiave}</label>
+          <input type="text" id="edit_field_${chiave}" data-campo="${chiave}" value="${safeVal}">
+        </div>
+      `;
+    }).join("");
+
+    document.getElementById("modalModifica").classList.add("open");
+  }
+
+  async function salvaModifica(ev) {
+    ev.preventDefault();
+    const item = tuttiRinnovi[idxCorrente];
+    if (!item) return;
+
+    const aggiornato = { ...item };
+    document.querySelectorAll("#editCampiDinamici input[data-campo]").forEach((inp) => {
+      aggiornato[inp.getAttribute("data-campo")] = inp.value;
+    });
+
+    const noteNuove = document.getElementById("edit_note").value;
+    if ("note" in aggiornato || !("informazioni" in aggiornato)) aggiornato.note = noteNuove;
+    if ("informazioni" in aggiornato) aggiornato.informazioni = noteNuove;
+
+    const idRecord = item.id;
+    let ok = false;
+    if (idRecord !== undefined && idRecord !== null) {
+      for (const url of [
+        `/api/rinnovi/${encodeURIComponent(idRecord)}`,
+        `/api/rinnovo/${encodeURIComponent(idRecord)}`
+      ]) {
+        try {
+          const res = await fetch(url, {
+            method: "PUT",
+            headers: getAuthHeaders(),
+            body: JSON.stringify(aggiornato)
+          });
+          if (res.ok) {
+            ok = true;
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+
+    tuttiRinnovi[idxCorrente] = aggiornato;
+    applicaFiltro();
+    chiudiModale("modalModifica");
+    mostraBanner(ok ? "Rinnovo modificato e salvato su server." : "Rinnovo aggiornato in elenco.", true);
+  }
+
+  async function cancellaRinnovo(idx) {
+    const item = tuttiRinnovi[idx];
+    if (!item) return;
+
+    const nome = leggiNome(item);
+    if (!window.confirm(`Vuoi davvero cancellare il rinnovo di "${nome}"?`)) return;
+
+    const idRecord = item.id;
+    let ok = false;
+    if (idRecord !== undefined && idRecord !== null) {
+      for (const url of [
+        `/api/rinnovi/${encodeURIComponent(idRecord)}`,
+        `/api/rinnovo/${encodeURIComponent(idRecord)}`
+      ]) {
+        try {
+          const res = await fetch(url, {
+            method: "DELETE",
+            headers: getAuthHeaders()
+          });
+          if (res.ok) {
+            ok = true;
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+
+    tuttiRinnovi.splice(idx, 1);
+    applicaFiltro();
+    mostraBanner(ok ? `Rinnovo di "${nome}" cancellato dal database.` : `Rinnovo di "${nome}" rimosso dall'elenco.`, true);
+  }
+
+  async function caricaNominativi() {
+    for (const url of ["/api/nominativi", "/api/contatti"]) {
       try {
         const res = await fetch(url, { headers: getAuthHeaders() });
         if (!res.ok) continue;
         const json = await res.json();
-        const raw = estraiArray(json);
-        const filtrati = raw.filter(eRinnovo);
-        if (filtrati.length > 0 || url.includes("rinnovi") || url.includes("tipo=Rinnovo")) {
-          tuttiRinnovi = filtrati;
+        const arr = estraiArray(json);
+        if (arr.length > 0) {
+          popolaDatalistNominativi(arr.map(leggiNome));
+          return;
+        }
+      } catch (e) {}
+    }
+    popolaDatalistNominativi(tuttiRinnovi.map(leggiNome));
+  }
+
+  async function caricaRinnovi() {
+    nascondiBanner();
+    const box = document.getElementById("listaRinnovi");
+    box.innerHTML = '<div class="empty-box">Caricamento rinnovi...</div>';
+
+    for (const url of ["/api/rinnovi", "/api/calcoli?tipo=Rinnovo"]) {
+      try {
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const arr = estraiArray(json);
+        if (arr.length > 0) {
+          tuttiRinnovi = arr;
+          await caricaNominativi();
           applicaFiltro();
           return;
         }
@@ -237,7 +591,8 @@
     }
 
     tuttiRinnovi = [];
-    renderLista([]);
+    await caricaNominativi();
+    renderRinnovi([]);
   }
 
   caricaRinnovi();
