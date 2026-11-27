@@ -1,19 +1,9 @@
 import os
-from datetime import datetime
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
-
-
-def _to_float(val, default: float = 0.0) -> float:
-    if val is None or val == "":
-        return default
-    try:
-        return float(val)
-    except (ValueError, TypeError):
-        return default
 
 
 def _leggi_calcoli_fallback(
@@ -111,12 +101,20 @@ def health():
     return {"ok": True}
 
 
+@app.get("/contabilita.html")
+def serve_contabilita():
+    for candidate in ("contabilita.html", "static/contabilita.html", "templates/contabilita.html"):
+        if os.path.exists(candidate):
+            return FileResponse(candidate)
+    raise HTTPException(status_code=404, detail="contabilita.html non trovato")
+
+
 @app.get("/calcoli.html")
 def serve_calcoli():
     for candidate in ("calcoli.html", "static/calcoli.html", "templates/calcoli.html"):
         if os.path.exists(candidate):
             return FileResponse(candidate)
-    return {"detail": "calcoli.html non trovato"}
+    raise HTTPException(status_code=404, detail="calcoli.html non trovato")
 
 
 if os.path.isdir("static"):
