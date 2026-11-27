@@ -395,9 +395,11 @@ def api_procuratori_elimina(item_id: int, request: Request):
 
 @app.get("/api/operatori")
 @app.get("/api/operatore")
+@app.get("/api/operatori_it")
+@app.get("/api/operatore_it")
 def api_operatori_lista(request: Request = None):
     _verifica_utente_se_disponibile(request)
-    for tab in ("operatori", "operatore"):
+    for tab in ("operatori_it", "operatori", "operatore_it", "operatore"):
         rows = _leggi_tabella_semplice(tab, "id")
         if rows:
             return rows
@@ -406,14 +408,90 @@ def api_operatori_lista(request: Request = None):
 
 @app.post("/api/operatori")
 @app.post("/api/operatore")
+@app.post("/api/operatori_it")
+@app.post("/api/operatore_it")
 async def api_operatori_crea(request: Request):
-    return await _crea_voce_tabella("operatori", request, ("nome", "operatore", "valore", "descrizione"))
+    return await _crea_voce_tabella("operatori_it", request, ("nome", "operatore", "operatori_it", "valore", "descrizione"))
 
 
 @app.delete("/api/operatori/{item_id}")
 @app.delete("/api/operatore/{item_id}")
+@app.delete("/api/operatori_it/{item_id}")
+@app.delete("/api/operatore_it/{item_id}")
 def api_operatori_elimina(item_id: int, request: Request):
-    return _elimina_voce_tabella("operatori", item_id, request)
+    return _elimina_voce_tabella("operatori_it", item_id, request)
+
+
+@app.get("/api/server")
+@app.get("/api/servers")
+def api_server_lista(request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    for tab in ("server", "servers"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        if rows:
+            return rows
+    return []
+
+
+@app.post("/api/server")
+@app.post("/api/servers")
+async def api_server_crea(request: Request):
+    return await _crea_voce_tabella("server", request, ("nome", "server", "valore", "descrizione"))
+
+
+@app.delete("/api/server/{item_id}")
+@app.delete("/api/servers/{item_id}")
+def api_server_elimina(item_id: int, request: Request):
+    return _elimina_voce_tabella("server", item_id, request)
+
+
+@app.get("/api/sistemi_operativi")
+@app.get("/api/sistema_operativo")
+@app.get("/api/so")
+def api_sistemi_operativi_lista(request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    for tab in ("sistemi_operativi", "sistema_operativo", "so"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        if rows:
+            return rows
+    return []
+
+
+@app.post("/api/sistemi_operativi")
+@app.post("/api/sistema_operativo")
+@app.post("/api/so")
+async def api_sistemi_operativi_crea(request: Request):
+    return await _crea_voce_tabella("sistemi_operativi", request, ("nome", "sistema_operativo", "so", "valore", "descrizione"))
+
+
+@app.delete("/api/sistemi_operativi/{item_id}")
+@app.delete("/api/sistema_operativo/{item_id}")
+@app.delete("/api/so/{item_id}")
+def api_sistemi_operativi_elimina(item_id: int, request: Request):
+    return _elimina_voce_tabella("sistemi_operativi", item_id, request)
+
+
+@app.get("/api/buffett")
+@app.get("/api/buffet")
+def api_buffett_lista(request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    for tab in ("buffett", "buffet"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        if rows:
+            return rows
+    return []
+
+
+@app.post("/api/buffett")
+@app.post("/api/buffet")
+async def api_buffett_crea(request: Request):
+    return await _crea_voce_tabella("buffett", request, ("nome", "buffett", "buffet", "valore", "descrizione"))
+
+
+@app.delete("/api/buffett/{item_id}")
+@app.delete("/api/buffet/{item_id}")
+def api_buffett_elimina(item_id: int, request: Request):
+    return _elimina_voce_tabella("buffett", item_id, request)
 
 
 @app.get("/api/dispositivi")
@@ -463,17 +541,20 @@ def api_permessi_elimina(item_id: int, request: Request):
 
 
 @app.get("/api/tabelle/{table_name}")
+@app.get("/api/{table_name}")
 def api_tabella_generica_lista(table_name: str, request: Request = None):
     _verifica_utente_se_disponibile(request)
     return _leggi_tabella_semplice(table_name, "id")
 
 
 @app.post("/api/tabelle/{table_name}")
+@app.post("/api/{table_name}")
 async def api_tabella_generica_crea(table_name: str, request: Request):
     return await _crea_voce_tabella(table_name, request, ("nome", "valore", "descrizione"))
 
 
 @app.delete("/api/tabelle/{table_name}/{item_id}")
+@app.delete("/api/{table_name}/{item_id}")
 def api_tabella_generica_elimina(table_name: str, item_id: int, request: Request):
     return _elimina_voce_tabella(table_name, item_id, request)
 
