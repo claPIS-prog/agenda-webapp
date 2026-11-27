@@ -29,8 +29,8 @@ textarea { min-height: 68px; resize: vertical; }
 .btn-primary { width: 100%; padding: 12px; background: #0088cc; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; }
 .btn-save { width: 100%; padding: 13px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px; }
 .btn-save:disabled { background: #95a5a6; cursor: not-allowed; }
-.error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; font-size: 13px; }
-.success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; font-size: 13px; }
+.error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; font-size: 13px; font-weight: 600; }
+.success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; font-size: 13px; font-weight: 600; }
 .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .list-title { font-size: 17px; font-weight: 700; color: #2c3e50; }
 .total-badge { background: #3498db; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600; }
@@ -162,10 +162,11 @@ textarea { min-height: 68px; resize: vertical; }
     <div id="listaCreditiContainer"></div>
 </div>
 
+<!-- Modal Dettaglio Movimento Crediti (stile Lista Contatti) -->
 <div class="modal-overlay" id="infoModal" onclick="chiudiInfoOverlay(event)">
     <div class="modal">
         <button type="button" class="close-modal" onclick="chiudiInfoCredito()">×</button>
-        <h3>ℹ️ Dettagli Movimento Crediti</h3>
+        <h3>ℹ️ Dettaglio Movimento Crediti</h3>
         <div id="infoContent"></div>
     </div>
 </div>
@@ -295,7 +296,7 @@ async function salvaSaldoIniziale() {
         await caricaMovimentiCrediti();
         setTimeout(nascondiMessaggi, 3000);
     } catch (e) {
-        mostraErrore('❌ ' + e.message);
+        mostraErrore('❌ HTTP ' + e.message);
     } finally {
         btn.disabled = false;
     }
@@ -348,7 +349,7 @@ async function salvaNuovoAcquisto() {
         await caricaMovimentiCrediti();
         setTimeout(nascondiMessaggi, 3000);
     } catch (e) {
-        mostraErrore('❌ ' + e.message);
+        mostraErrore('❌ HTTP ' + e.message);
     } finally {
         btn.disabled = false;
         btn.textContent = '💾 Salva Nuovo Acquisto';
@@ -394,7 +395,7 @@ function renderMovimentiCrediti(items) {
                 </div>
             </div>
             <div class="actions">
-                <button type="button" class="btn-action btn-info" onclick="event.stopPropagation(); apriInfoCredito(${item.id})" title="Note / Dettagli">ℹ️</button>
+                <button type="button" class="btn-action btn-info" onclick="event.stopPropagation(); apriInfoCredito(${item.id})" title="Dettaglio">ℹ️</button>
                 <button type="button" class="btn-action btn-del" onclick="event.stopPropagation(); eliminaMovimento(${item.id})" title="Elimina">🗑️</button>
             </div>
         `;
@@ -447,7 +448,7 @@ async function eseguiEliminazioneMovimento(id) {
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'HTTP ' + res.status);
+        throw new Error(err.detail || '500');
     }
     mostraSuccesso('✅ Movimento crediti eliminato!');
     await caricaMovimentiCrediti();
@@ -462,14 +463,14 @@ function eliminaMovimento(id) {
                 try {
                     await eseguiEliminazioneMovimento(id);
                 } catch (e) {
-                    mostraErrore('❌ ' + e.message);
+                    mostraErrore('❌ HTTP ' + e.message);
                 }
             });
             return;
         } catch (e) {}
     }
     if (confirm('Eliminare questo movimento crediti?')) {
-        eseguiEliminazioneMovimento(id).catch((e) => mostraErrore('❌ ' + e.message));
+        eseguiEliminazioneMovimento(id).catch((e) => mostraErrore('❌ HTTP ' + e.message));
     }
 }
 
