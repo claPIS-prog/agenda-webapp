@@ -91,7 +91,6 @@ textarea { min-height: 68px; resize: vertical; }
         <div class="subtitle">Saldo iniziale e nuovi acquisti credito</div>
     </div>
 
-    <!-- Saldo Iniziale -->
     <div class="card">
         <div class="card-title">Saldo Iniziale</div>
         <div class="form-group">
@@ -109,7 +108,6 @@ textarea { min-height: 68px; resize: vertical; }
         <button type="button" class="btn-primary" id="btn-salva-saldo-iniziale" onclick="salvaSaldoIniziale()">💾 Salva Saldo Iniziale</button>
     </div>
 
-    <!-- Nuovo Acquisto Credito -->
     <div class="card">
         <div class="card-title">Nuovo Acquisto Credito</div>
         <div class="form-group">
@@ -157,7 +155,6 @@ textarea { min-height: 68px; resize: vertical; }
         <div class="success-msg" id="success-msg"></div>
     </div>
 
-    <!-- Elenco Acquisti / Movimenti -->
     <div class="list-header">
         <div class="list-title">📋 Movimenti Crediti</div>
         <div class="total-badge" id="total-badge">Totale: 0</div>
@@ -165,7 +162,6 @@ textarea { min-height: 68px; resize: vertical; }
     <div id="listaCreditiContainer"></div>
 </div>
 
-<!-- Modal Dettagli / Note Movimento Crediti (Layout identico a Lista Contatti) -->
 <div class="modal-overlay" id="infoModal" onclick="chiudiInfoOverlay(event)">
     <div class="modal">
         <button type="button" class="close-modal" onclick="chiudiInfoCredito()">×</button>
@@ -445,24 +441,36 @@ function chiudiInfoOverlay(event) {
     }
 }
 
-function eliminaMovimento(id) {
-    tg.showConfirm('Eliminare questo movimento crediti?', async (ok) => {
-        if (!ok) return;
-        try {
-            const res = await fetch(`/api/crediti/${encodeURIComponent(id)}?nocache=${Date.now()}`, {
-                method: 'DELETE'
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.detail || 'HTTP ' + res.status);
-            }
-            mostraSuccesso('✅ Movimento crediti eliminato!');
-            await caricaMovimentiCrediti();
-            setTimeout(nascondiMessaggi, 2500);
-        } catch (e) {
-            mostraErrore('❌ ' + e.message);
-        }
+async function eseguiEliminazioneMovimento(id) {
+    const res = await fetch(`/api/crediti/${encodeURIComponent(id)}?nocache=${Date.now()}`, {
+        method: 'DELETE'
     });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'HTTP ' + res.status);
+    }
+    mostraSuccesso('✅ Movimento crediti eliminato!');
+    await caricaMovimentiCrediti();
+    setTimeout(nascondiMessaggi, 2500);
+}
+
+function eliminaMovimento(id) {
+    if (tg && typeof tg.showConfirm === 'function') {
+        try {
+            tg.showConfirm('Eliminare questo movimento crediti?', async (ok) => {
+                if (!ok) return;
+                try {
+                    await eseguiEliminazioneMovimento(id);
+                } catch (e) {
+                    mostraErrore('❌ ' + e.message);
+                }
+            });
+            return;
+        } catch (e) {}
+    }
+    if (confirm('Eliminare questo movimento crediti?')) {
+        eseguiEliminazioneMovimento(id).catch((e) => mostraErrore('❌ ' + e.message));
+    }
 }
 
 function mostraErrore(msg) {

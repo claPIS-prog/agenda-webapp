@@ -1319,7 +1319,7 @@ def _elimina_credito_by_id(record_id: int):
         conn.commit()
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Errore cancellazione credito: {e}")
+        raise HTTPException(status_code=500, detail=f"Errore DB cancellazione credito: {e}")
     finally:
         conn.close()
 
