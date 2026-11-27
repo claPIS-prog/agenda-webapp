@@ -277,7 +277,7 @@ def _elimina_voce_tabella(table_name: str, item_id: int, request: Request):
         conn.close()
 
 
-def _aggiorna_record_dinamico(item_id: int, data: dict, request: Request = None):
+def _aggiorna_record_dinamico(item_id: int, data: dict, request: Request = None, tabelle_target: tuple[str, ...] = ("nominativi", "contatti", "clienti", "anagrafica", "scadenze", "calcoli", "rinnovi")):
     _verifica_utente_se_disponibile(request)
     try:
         from db import db_conn
@@ -287,7 +287,7 @@ def _aggiorna_record_dinamico(item_id: int, data: dict, request: Request = None)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            for tab in ("nominativi", "contatti", "clienti", "anagrafica", "scadenze", "calcoli"):
+            for tab in tabelle_target:
                 cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{tab}",))
                 tab_row = cur.fetchone()
                 tab_exists = bool(
@@ -341,7 +341,7 @@ def _aggiorna_record_dinamico(item_id: int, data: dict, request: Request = None)
         conn.close()
 
 
-def _elimina_record_nominativo(item_id: int, request: Request = None):
+def _elimina_record_nominativo(item_id: int, request: Request = None, tabelle_target: tuple[str, ...] = ("nominativi", "contatti", "clienti", "anagrafica", "scadenze", "calcoli", "rinnovi")):
     _verifica_utente_se_disponibile(request)
     try:
         from db import db_conn
@@ -351,7 +351,7 @@ def _elimina_record_nominativo(item_id: int, request: Request = None):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            for tab in ("nominativi", "contatti", "clienti", "anagrafica", "scadenze"):
+            for tab in tabelle_target:
                 cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{tab}",))
                 tab_row = cur.fetchone()
                 tab_exists = bool(
@@ -887,6 +887,24 @@ async def api_rinnovi_crea(request: Request):
         raise HTTPException(status_code=500, detail=f"Errore salvataggio rinnovo: {e}")
     finally:
         conn.close()
+
+
+@app.put("/api/rinnovi/{item_id}")
+@app.patch("/api/rinnovi/{item_id}")
+@app.put("/api/rinnovo/{item_id}")
+@app.patch("/api/rinnovo/{item_id}")
+async def api_rinnovi_aggiorna(item_id: int, request: Request):
+    try:
+        payload = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"JSON non valido: {e}")
+    return _aggiorna_record_dinamico(item_id, payload or {}, request, ("calcoli", "rinnovi", "rinnovo"))
+
+
+@app.delete("/api/rinnovi/{item_id}")
+@app.delete("/api/rinnovo/{item_id}")
+def api_rinnovi_elimina(item_id: int, request: Request):
+    return _elimina_record_nominativo(item_id, request, ("calcoli", "rinnovi", "rinnovo"))
 
 
 @app.get("/api/contatti")
