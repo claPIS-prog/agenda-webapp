@@ -2,47 +2,118 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Contabilità</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-h2 { text-align: center; margin-top: 0; color: #333; }
-.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 20px; }
-.btn-modulo { 
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 25px; background: white; border: 1px solid #e0e0e0; border-radius: 8px;
-    text-decoration: none; color: #333; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f4f4f5;
+    color: #333;
+    padding: 20px 15px;
 }
-.btn-modulo:active { transform: scale(0.98); background: #f9f9f9; }
-.btn-modulo .icon { font-size: 28px; margin-bottom: 8px; }
-.btn-modulo .label { font-weight: bold; font-size: 14px; text-align: center; }
-.back-btn { 
-    display: block; width: 100%; padding: 12px; margin-top: 20px;
-    background: #f0f0f0; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;
+.container { max-width: 600px; margin: 0 auto; }
+.card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
+.header { text-align: center; margin-bottom: 20px; }
+.header .icon { font-size: 34px; margin-bottom: 6px; }
+.header h2 { font-size: 21px; font-weight: 700; color: #2c3e50; }
+.header .subtitle { font-size: 13px; color: #777; margin-top: 2px; }
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.menu-btn {
+    background: #ffffff;
+    border: 1px solid #dcdcdc;
+    border-radius: 10px;
+    padding: 18px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #2c3e50;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.menu-btn:active { transform: scale(0.98); background: #f8f9fa; }
+.menu-btn .emoji { font-size: 24px; }
+.menu-btn.full-width { width: 100%; margin-bottom: 14px; }
+.btn-close {
+    width: 100%;
+    padding: 12px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-close:active { background: #2980b9; }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>💰 Contabilità</h2>
-<p style="text-align:center; color:#666; margin-bottom:0;">Gestione calcoli e contabilità</p>
-<div class="grid">
-    <a href="/calcoli.html" class="btn-modulo"><span class="icon">🧮</span><span class="label">Calcoli</span></a>
-    <a href="/lista_calcoli.html" class="btn-modulo"><span class="icon">📋</span><span class="label">Lista Calcoli</span></a>
-    <a href="/crediti.html" class="btn-modulo"><span class="icon">🎫</span><span class="label">Crediti</span></a>
-    <a href="/lista_crediti.html" class="btn-modulo"><span class="icon">📊</span><span class="label">Lista Crediti</span></a>
-    <a href="#" class="btn-modulo" onclick="mostraAvviso(event)"><span class="icon">📒</span><span class="label">Contabilità</span></a>
-</div>
-<button class="back-btn" onclick="tg.close()">↩️ Chiudi</button>
-</div>
-<script>
-const tg = window.Telegram.WebApp; tg.expand();
+    <div class="card">
+        <div class="header">
+            <div class="icon">💰</div>
+            <h2>Contabilità</h2>
+            <div class="subtitle">Gestione calcoli e contabilità</div>
+        </div>
 
-function mostraAvviso(e) {
-    e.preventDefault();
-    alert('🚧 Modulo/Form in allestimento\n\nQuesta funzionalità sarà disponibile a breve.');
+        <div class="grid-2">
+            <button type="button" class="menu-btn" onclick="apriSezione('calcoli.html')">
+                <span class="emoji">🧮</span>
+                <span>Calcoli</span>
+            </button>
+            <button type="button" class="menu-btn" onclick="apriSezione('lista_calcoli.html')">
+                <span class="emoji">📋</span>
+                <span>Lista Calcoli</span>
+            </button>
+        </div>
+
+        <button type="button" class="menu-btn full-width" onclick="apriSezione('crediti.html')">
+            <span class="emoji">💎</span>
+            <span>Crediti</span>
+        </button>
+
+        <button type="button" class="menu-btn full-width" onclick="apriSezione('contabilita_dettaglio.html')">
+            <span class="emoji">📊</span>
+            <span>Contabilità</span>
+        </button>
+
+        <button type="button" class="btn-close" onclick="chiudiWebApp()">✖ Chiudi</button>
+    </div>
+</div>
+
+<script>
+const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+if (tg && typeof tg.expand === 'function') {
+    tg.expand();
+}
+
+function apriSezione(pagina) {
+    window.location.href = pagina + '?v=' + Date.now();
+}
+
+function chiudiWebApp() {
+    if (tg && typeof tg.close === 'function') {
+        tg.close();
+    } else {
+        window.history.back();
+    }
 }
 </script>
 </body>
