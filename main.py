@@ -129,5 +129,12 @@ def serve_lista_calcoli():
             return FileResponse(candidate)
     raise HTTPException(status_code=404, detail="lista_calcoli.html non trovato")
 
+@app.get("/contabilita_dettagli.html")
+def serve_contabilita_dettagli():
+    for candidate in ("contabilita_dettagli.html", "static/contabilita_dettagli.html", "templates/contabilita_dettagli.html"):
+        if os.path.exists(candidate):
+            return FileResponse(candidate)
+    raise HTTPException(status_code=404, detail="contabilita_dettagli.html non trovato")
+
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
