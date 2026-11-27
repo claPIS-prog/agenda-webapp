@@ -300,32 +300,53 @@ def _leggi_calcoli_fallback(
             if not tab_exists:
                 return {"righe": [], "items": [], "totale": 0, "count": 0, "nuovi": 0, "rinnovi": 0, "omaggi": 0}
 
+            cur.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'calcoli'
+                """
+            )
+            cols_rows = cur.fetchall() or []
+            colonne = {
+                (r["column_name"] if isinstance(r, dict) else r[0]) for r in cols_rows
+            }
+            col_nom = next((c for c in ("nominativo", "nome", "cliente") if c in colonne), None)
+            col_data = next((c for c in ("data", "data_operazione", "data_op") if c in colonne), None)
+            col_tipo = next((c for c in ("tipo", "categoria") if c in colonne), None)
+
             query = "SELECT * FROM calcoli WHERE 1=1"
             params = []
-            if nominativo:
-                query += " AND LOWER(COALESCE(nominativo::text, '')) = LOWER(%s)"
+            if nominativo and col_nom:
+                query += f" AND LOWER(COALESCE({col_nom}::text, '')) = LOWER(%s)"
                 params.append(nominativo.strip())
-            if data_da:
-                query += " AND COALESCE(data::text, '') >= %s"
+            if data_da and col_data:
+                query += f" AND COALESCE({col_data}::text, '') >= %s"
                 params.append(data_da.strip())
-            if data_a:
-                query += " AND COALESCE(data::text, '') <= %s"
+            if data_a and col_data:
+                query += f" AND COALESCE({col_data}::text, '') <= %s"
                 params.append(data_a.strip())
-            if nominativo_da:
-                query += " AND COALESCE(nominativo::text, '') >= %s"
+            if nominativo_da and col_nom:
+                query += f" AND COALESCE({col_nom}::text, '') >= %s"
                 params.append(nominativo_da.strip())
-            if nominativo_a:
-                query += " AND COALESCE(nominativo::text, '') <= %s"
+            if nominativo_a and col_nom:
+                query += f" AND COALESCE({col_nom}::text, '') <= %s"
                 params.append(nominativo_a.strip())
-            if tipo:
-                query += " AND (LOWER(COALESCE(tipo::text, '')) = LOWER(%s) OR LOWER(COALESCE(categoria::text, '')) LIKE LOWER(%s))"
-                params.append(tipo.strip())
+            if tipo and col_tipo:
+                query += f" AND LOWER(COALESCE({col_tipo}::text, '')) LIKE LOWER(%s)"
                 params.append(f"%{tipo.strip()}%")
-            query += " ORDER BY id DESC"
+            if "id" in colonne:
+                query += " ORDER BY id DESC"
 
             cur.execute(query, params)
             rows = cur.fetchall() or []
-            righe = [dict(r) for r in rows]
+            righe = []
+            for r in rows:
+                d = dict(r)
+                if "nominativo" not in d and col_nom and d.get(col_nom) is not None:
+                    d["nominativo"] = d[col_nom]
+                righe.append(d)
+
             totale = len(righe)
             return {
                 "righe": righe,
@@ -355,6 +376,8 @@ def _leggi_scadenze_aggregate(request: Request = None):
             scad = r.get("data_fine") or r.get("scadenza") or r.get("data_scadenza") or ""
             if str(scad).strip():
                 copia = dict(r)
+                if not copia.get("nominativo"):
+                    copia["nominativo"] = copia.get("nome") or copia.get("cliente") or ""
                 if not copia.get("scadenza"):
                     copia["scadenza"] = str(scad).strip()
                 if not copia.get("data_fine"):
@@ -368,20 +391,87 @@ def _leggi_scadenze_aggregate(request: Request = None):
 def _assicura_colonne_rinnovi(cur, tab_name: str = "calcoli"):
     tab = _nome_tabella_sicuro(tab_name)
     colonne_extra = [
+        ("nominativo", "TEXT"),
+        ("tipo", "TEXT"),
+        ("categoria", "TEXT"),
+        ("data", "TEXT"),
+        ("scadenza", "TEXT"),
         ("numeraz_trans_crediti", "TEXT"),
         ("credito_richiesto", "NUMERIC DEFAULT 0"),
         ("credito_dato", "NUMERIC DEFAULT 0"),
         ("credito_resta", "NUMERIC DEFAULT 0"),
+        ("importo", "NUMERIC DEFAULT 0"),
         ("importo_acconto", "NUMERIC DEFAULT 0"),
         ("importo_resta", "NUMERIC DEFAULT 0"),
         ("data_credito_saldo", "TEXT"),
         ("numero_credito_saldo", "TEXT"),
+        ("metodo_pagamento", "TEXT"),
+        ("note", "TEXT"),
     ]
     for col, col_type in colonne_extra:
         try:
             cur.execute(f"ALTER TABLE {tab} ADD COLUMN IF NOT EXISTS {col} {col_type}")
         except Exception:
-            pass
+            conn_err = getattr(cur, "connection", None)
+            if conn_err is not None:
+                try:
+                    conn_err.rollback()
+                except Exception:
+                    pass
+
+
+def _inserisci_rinnovo_adattivo(cur, valori_mappati: dict):
+    cur.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'calcoli'
+        """
+    )
+    cols_rows = cur.fetchall() or []
+    colonne_reali = {
+        (r["column_name"] if isinstance(r, dict) else r[0]) for r in cols_rows
+    }
+
+    aliases = {
+        "nominativo": ["nominativo", "nome", "cliente"],
+        "tipo": ["tipo"],
+        "categoria": ["categoria"],
+        "data": ["data", "data_operazione", "data_op"],
+        "scadenza": ["scadenza", "data_scadenza", "data_fine"],
+        "numeraz_trans_crediti": ["numeraz_trans_crediti", "numeraztranscrediti"],
+        "credito_richiesto": ["credito_richiesto", "creditorichiesto"],
+        "credito_dato": ["credito_dato", "creditodato"],
+        "credito_resta": ["credito_resta", "creditoresta"],
+        "importo": ["importo"],
+        "importo_acconto": ["importo_acconto", "importoacconto"],
+        "importo_resta": ["importo_resta", "importoresta"],
+        "metodo_pagamento": ["metodo_pagamento", "pagamento", "modalita_pagamento"],
+        "note": ["note", "informazioni", "info"],
+    }
+
+    colonne_insert = []
+    valori_insert = []
+    for log_col, val in valori_mappati.items():
+        if val is None:
+            continue
+        candidati = aliases.get(log_col, [log_col])
+        col_target = next((c for c in candidati if c in colonne_reali), None)
+        if col_target and col_target not in colonne_insert:
+            colonne_insert.append(col_target)
+            valori_insert.append(val)
+
+    if not colonne_insert:
+        raise HTTPException(status_code=500, detail="Nessuna colonna compatibile trovata nella tabella calcoli")
+
+    placeholders = ", ".join(["%s"] * len(colonne_insert))
+    cols_sql = ", ".join(colonne_insert)
+    cur.execute(
+        f"INSERT INTO calcoli ({cols_sql}) VALUES ({placeholders}) RETURNING *",
+        valori_insert,
+    )
+    row = cur.fetchone()
+    return dict(row) if isinstance(row, dict) else {}
 
 
 _router_calcoli_caricato = False
@@ -583,7 +673,12 @@ async def api_rinnovi_crea(request: Request):
         raise HTTPException(status_code=400, detail=f"JSON non valido: {e}")
 
     data = payload or {}
-    nominativo = str(data.get("nominativo") or data.get("nome") or "").strip()
+    nominativo = str(
+        data.get("nominativo")
+        or data.get("nome")
+        or data.get("cliente")
+        or ""
+    ).strip()
     if not nominativo:
         raise HTTPException(status_code=400, detail="Nominativo obbligatorio")
 
@@ -653,59 +748,24 @@ async def api_rinnovi_crea(request: Request):
             else:
                 _assicura_colonne_rinnovi(cur, "calcoli")
 
-            try:
-                cur.execute(
-                    """
-                    INSERT INTO calcoli (
-                        nominativo, tipo, categoria, data, scadenza,
-                        numeraz_trans_crediti, credito_richiesto, credito_dato, credito_resta,
-                        importo, importo_acconto, importo_resta, metodo_pagamento, note
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id, nominativo, tipo, categoria, data, scadenza,
-                              numeraz_trans_crediti, credito_richiesto, credito_dato, credito_resta,
-                              importo, importo_acconto, importo_resta, metodo_pagamento, note
-                    """,
-                    (
-                        nominativo,
-                        "Rinnovo",
-                        "Rinnovo",
-                        data_op,
-                        scadenza,
-                        numeraz_trans_crediti,
-                        credito_richiesto,
-                        credito_dato,
-                        credito_resta,
-                        importo,
-                        importo_acconto,
-                        importo_resta,
-                        metodo,
-                        note,
-                    ),
-                )
-            except Exception:
-                conn.rollback()
-                cur.execute(
-                    """
-                    INSERT INTO calcoli (nominativo, tipo, categoria, data, scadenza, importo, metodo_pagamento, note)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id, nominativo, tipo, categoria, data, scadenza, importo, metodo_pagamento, note
-                    """,
-                    (nominativo, "Rinnovo", "Rinnovo", data_op, scadenza, importo, metodo, note),
-                )
-            row = cur.fetchone()
-        conn.commit()
-        if isinstance(row, dict):
-            return {
-                "ok": True,
-                "NumerazTransCrediti": numeraz_trans_crediti,
-                "CreditoRichiesto": credito_richiesto,
-                "CreditoDato": credito_dato,
-                "CreditoResta": credito_resta,
-                "ImportoAcconto": importo_acconto,
-                "ImportoResta": importo_resta,
-                **row,
+            valori_mappati = {
+                "nominativo": nominativo,
+                "tipo": "Rinnovo",
+                "categoria": "Rinnovo",
+                "data": data_op,
+                "scadenza": scadenza,
+                "numeraz_trans_crediti": numeraz_trans_crediti,
+                "credito_richiesto": credito_richiesto,
+                "credito_dato": credito_dato,
+                "credito_resta": credito_resta,
+                "importo": importo,
+                "importo_acconto": importo_acconto,
+                "importo_resta": importo_resta,
+                "metodo_pagamento": metodo,
+                "note": note,
             }
+            row = _inserisci_rinnovo_adattivo(cur, valori_mappati)
+        conn.commit()
         return {
             "ok": True,
             "nominativo": nominativo,
@@ -716,7 +776,11 @@ async def api_rinnovi_crea(request: Request):
             "CreditoResta": credito_resta,
             "ImportoAcconto": importo_acconto,
             "ImportoResta": importo_resta,
+            **row,
         }
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Errore salvataggio rinnovo: {e}")
