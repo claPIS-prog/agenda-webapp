@@ -1,4 +1,5 @@
 import os
+import re
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +22,13 @@ HTML_ALIASES = {
     "tabella": ["tabelle.html", "tabella.html"],
     "tabelle": ["tabelle.html", "tabella.html"],
 }
+
+
+def _nome_tabella_sicuro(nome: str) -> str:
+    pulito = re.sub(r"[^a-zA-Z0-9_]", "", (nome or "").strip().lower())
+    if not pulito:
+        raise HTTPException(status_code=400, detail="Nome tabella non valido")
+    return pulito
 
 
 def _trova_file_html(page_name: str):
@@ -50,6 +58,7 @@ def _verifica_utente_se_disponibile(request: Request = None):
 
 
 def _leggi_tabella_semplice(table_name: str, order_col: str = "id"):
+    tab = _nome_tabella_sicuro(table_name)
     try:
         from db import db_conn
     except Exception:
@@ -58,7 +67,7 @@ def _leggi_tabella_semplice(table_name: str, order_col: str = "id"):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{table_name}",))
+            cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{tab}",))
             tab_row = cur.fetchone()
             tab_exists = bool(
                 tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
@@ -66,12 +75,99 @@ def _leggi_tabella_semplice(table_name: str, order_col: str = "id"):
             if not tab_exists:
                 return []
             try:
-                cur.execute(f"SELECT * FROM {table_name} ORDER BY {order_col} ASC")
+                cur.execute(f"SELECT * FROM {tab} ORDER BY {order_col} ASC")
             except Exception:
                 conn.rollback()
-                cur.execute(f"SELECT * FROM {table_name}")
+                cur.execute(f"SELECT * FROM {tab}")
             rows = cur.fetchall() or []
             return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+async def _crea_voce_tabella(table_name: str, request: Request, campi_chiave: tuple[str, ...]):
+    tab = _nome_tabella_sicuro(table_name)
+    _verifica_utente_se_disponibile(request)
+    try:
+        payload = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"JSON non valido: {e}")
+
+    data = payload or {}
+    valore = ""
+    for chiave in campi_chiave:
+        if data.get(chiave) is not None and str(data.get(chiave)).strip():
+            valore = str(data.get(chiave)).strip()
+            break
+    if not valore:
+        for v in data.values():
+            if v is not None and str(v).strip():
+                valore = str(v).strip()
+                break
+    if not valore:
+        raise HTTPException(status_code=400, detail="Valore obbligatorio")
+
+    try:
+        from db import db_conn
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database non disponibile: {e}")
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{tab}",))
+            tab_row = cur.fetchone()
+            tab_exists = bool(
+                tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+            )
+            if not tab_exists:
+                cur.execute(
+                    f"""
+                    CREATE TABLE IF NOT EXISTS {tab} (
+                        id SERIAL PRIMARY KEY,
+                        nome TEXT NOT NULL
+                    )
+                    """
+                )
+            cur.execute(
+                f"INSERT INTO {tab} (nome) VALUES (%s) RETURNING id, nome",
+                (valore,),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        if isinstance(row, dict):
+            return {"ok": True, **row}
+        return {"ok": True, "id": row[0] if row else None, "nome": valore}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore salvataggio in {tab}: {e}")
+    finally:
+        conn.close()
+
+
+def _elimina_voce_tabella(table_name: str, item_id: int, request: Request):
+    tab = _nome_tabella_sicuro(table_name)
+    _verifica_utente_se_disponibile(request)
+    try:
+        from db import db_conn
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database non disponibile: {e}")
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{tab}",))
+            tab_row = cur.fetchone()
+            tab_exists = bool(
+                tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+            )
+            if tab_exists:
+                cur.execute(f"DELETE FROM {tab} WHERE id = %s", (int(item_id),))
+        conn.commit()
+        return {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore eliminazione da {tab}: {e}")
     finally:
         conn.close()
 
@@ -254,96 +350,132 @@ def api_metodi_pagamento(request: Request = None):
 @app.get("/api/reseller")
 @app.get("/api/resellers")
 def api_reseller_lista(request: Request = None):
-    try:
-        _verifica_utente_se_disponibile(request)
-        for tab in ("reseller", "resellers"):
-            rows = _leggi_tabella_semplice(tab, "id")
-            if rows:
-                return rows
-        return []
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Errore lettura reseller: {e}")
+    _verifica_utente_se_disponibile(request)
+    for tab in ("reseller", "resellers"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        if rows:
+            return rows
+    return []
 
 
 @app.post("/api/reseller")
 @app.post("/api/resellers")
 async def api_reseller_crea(request: Request):
-    _verifica_utente_se_disponibile(request)
-    try:
-        payload = await request.json()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"JSON non valido: {e}")
-
-    nome = str((payload or {}).get("nome") or (payload or {}).get("reseller") or "").strip()
-    if not nome:
-        raise HTTPException(status_code=400, detail="Nome reseller obbligatorio")
-
-    try:
-        from db import db_conn
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database non disponibile: {e}")
-
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT to_regclass('public.reseller') AS tab")
-            tab_row = cur.fetchone()
-            tab_exists = bool(
-                tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
-            )
-            if not tab_exists:
-                cur.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS reseller (
-                        id SERIAL PRIMARY KEY,
-                        nome TEXT NOT NULL
-                    )
-                    """
-                )
-            cur.execute(
-                "INSERT INTO reseller (nome) VALUES (%s) RETURNING id, nome",
-                (nome,),
-            )
-            row = cur.fetchone()
-        conn.commit()
-        if isinstance(row, dict):
-            return {"ok": True, **row}
-        return {"ok": True, "id": row[0] if row else None, "nome": nome}
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Errore salvataggio reseller: {e}")
-    finally:
-        conn.close()
+    return await _crea_voce_tabella("reseller", request, ("nome", "reseller", "valore", "descrizione"))
 
 
 @app.delete("/api/reseller/{item_id}")
 @app.delete("/api/resellers/{item_id}")
 def api_reseller_elimina(item_id: int, request: Request):
-    _verifica_utente_se_disponibile(request)
-    try:
-        from db import db_conn
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database non disponibile: {e}")
+    return _elimina_voce_tabella("reseller", item_id, request)
 
-    conn = db_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT to_regclass('public.reseller') AS tab")
-            tab_row = cur.fetchone()
-            tab_exists = bool(
-                tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
-            )
-            if tab_exists:
-                cur.execute("DELETE FROM reseller WHERE id = %s", (int(item_id),))
-        conn.commit()
-        return {"ok": True}
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Errore eliminazione reseller: {e}")
-    finally:
-        conn.close()
+
+@app.get("/api/procuratori")
+@app.get("/api/procuratore")
+def api_procuratori_lista(request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    for tab in ("procuratori", "procuratore"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        if rows:
+            return rows
+    return []
+
+
+@app.post("/api/procuratori")
+@app.post("/api/procuratore")
+async def api_procuratori_crea(request: Request):
+    return await _crea_voce_tabella("procuratori", request, ("nome", "procuratore", "valore", "descrizione"))
+
+
+@app.delete("/api/procuratori/{item_id}")
+@app.delete("/api/procuratore/{item_id}")
+def api_procuratori_elimina(item_id: int, request: Request):
+    return _elimina_voce_tabella("procuratori", item_id, request)
+
+
+@app.get("/api/operatori")
+@app.get("/api/operatore")
+def api_operatori_lista(request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    for tab in ("operatori", "operatore"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        if rows:
+            return rows
+    return []
+
+
+@app.post("/api/operatori")
+@app.post("/api/operatore")
+async def api_operatori_crea(request: Request):
+    return await _crea_voce_tabella("operatori", request, ("nome", "operatore", "valore", "descrizione"))
+
+
+@app.delete("/api/operatori/{item_id}")
+@app.delete("/api/operatore/{item_id}")
+def api_operatori_elimina(item_id: int, request: Request):
+    return _elimina_voce_tabella("operatori", item_id, request)
+
+
+@app.get("/api/dispositivi")
+@app.get("/api/dispositivo")
+def api_dispositivi_lista(request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    for tab in ("dispositivi", "dispositivo"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        if rows:
+            return rows
+    return []
+
+
+@app.post("/api/dispositivi")
+@app.post("/api/dispositivo")
+async def api_dispositivi_crea(request: Request):
+    return await _crea_voce_tabella("dispositivi", request, ("nome", "dispositivo", "valore", "descrizione"))
+
+
+@app.delete("/api/dispositivi/{item_id}")
+@app.delete("/api/dispositivo/{item_id}")
+def api_dispositivi_elimina(item_id: int, request: Request):
+    return _elimina_voce_tabella("dispositivi", item_id, request)
+
+
+@app.get("/api/permessi")
+@app.get("/api/permesso")
+def api_permessi_lista(request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    for tab in ("permessi", "permesso"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        if rows:
+            return rows
+    return []
+
+
+@app.post("/api/permessi")
+@app.post("/api/permesso")
+async def api_permessi_crea(request: Request):
+    return await _crea_voce_tabella("permessi", request, ("nome", "permesso", "valore", "descrizione"))
+
+
+@app.delete("/api/permessi/{item_id}")
+@app.delete("/api/permesso/{item_id}")
+def api_permessi_elimina(item_id: int, request: Request):
+    return _elimina_voce_tabella("permessi", item_id, request)
+
+
+@app.get("/api/tabelle/{table_name}")
+def api_tabella_generica_lista(table_name: str, request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    return _leggi_tabella_semplice(table_name, "id")
+
+
+@app.post("/api/tabelle/{table_name}")
+async def api_tabella_generica_crea(table_name: str, request: Request):
+    return await _crea_voce_tabella(table_name, request, ("nome", "valore", "descrizione"))
+
+
+@app.delete("/api/tabelle/{table_name}/{item_id}")
+def api_tabella_generica_elimina(table_name: str, item_id: int, request: Request):
+    return _elimina_voce_tabella(table_name, item_id, request)
 
 
 @app.get("/{page_name}.html")
