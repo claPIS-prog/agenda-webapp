@@ -227,5 +227,21 @@ def serve_contabilita_dettagli():
     raise HTTPException(status_code=404, detail="contabilita_dettagli.html non trovato")
 
 
+@app.get("/tabelle.html")
+@app.get("/tabella.html")
+def serve_tabelle():
+    for candidate in (
+        "tabelle.html",
+        "tabella.html",
+        "static/tabelle.html",
+        "static/tabella.html",
+        "templates/tabelle.html",
+        "templates/tabella.html",
+    ):
+        if os.path.exists(candidate):
+            return FileResponse(candidate)
+    raise HTTPException(status_code=404, detail="tabelle.html non trovato")
+
+
 if os.path.isdir("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
