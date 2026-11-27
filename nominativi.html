@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carica Nominativo</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="/auth.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f5f5f5;
+  }
+  body {
+    padding: 16px;
+  }
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  h2 {
+    text-align: center;
+    margin: 0 0 6px;
+    color: #333333;
+    font-size: 20px;
+  }
+  .badge-wrap {
+    text-align: center;
+    margin-bottom: 18px;
+  }
+  .badge {
+    display: inline-block;
+    background: #0088cc;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+  .form-group {
+    margin-bottom: 14px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: bold;
+    color: #444444;
+    margin-bottom: 6px;
+  }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #ffffff;
+    color: #222222;
+  }
+  textarea {
+    min-height: 76px;
+    resize: vertical;
+  }
+  .row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #ffffff;
+    background: #2e7d32;
+    margin-top: 6px;
+  }
+  .btn-secondary {
+    background: #607d8b;
+    margin-top: 10px;
+  }
+  .btn:active {
+    opacity: 0.85;
+  }
+  .msg {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: none;
+  }
+  .msg.ok {
+    display: block;
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #a5d6a7;
+  }
+  .msg.err {
+    display: block;
+    background: #ffebee;
+    color: #b71c1c;
+    border: 1px solid #ef9a9a;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>👤 Carica Nominativo</h2>
+  <div class="badge-wrap"><span class="badge">Contatti</span></div>
+
+  <form id="formNominativo">
+    <div class="form-group">
+      <label for="nominativo">Nominativo</label>
+      <input type="text" id="nominativo" name="nominativo" placeholder="Inserisci nome e cognome o ragione sociale" required>
+    </div>
+
+    <div class="row-2">
+      <div class="form-group">
+        <label for="telefono">Telefono</label>
+        <input type="text" id="telefono" name="telefono" placeholder="Numero di telefono">
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="nome@esempio.it">
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div class="form-group">
+        <label for="data">Data</label>
+        <input type="date" id="data" name="data">
+      </div>
+      <div class="form-group">
+        <label for="stato">Stato / Categoria</label>
+        <input type="text" id="stato" name="stato" placeholder="Es. Cliente, Contatto">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="note">Note</label>
+      <textarea id="note" name="note" placeholder="Eventuali note sul nominativo..."></textarea>
+    </div>
+
+    <button type="submit" class="btn">💾 Salva Nominativo</button>
+    <button type="button" id="btnVaiListaContatti" class="btn btn-secondary" onclick="vaiListaContatti()">📋 Vai a Lista Contatti</button>
+  </form>
+
+  <div id="msgBox" class="msg"></div>
+</div>
+
+<script>
+  try {
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.expand();
+    }
+  } catch (e) {}
+
+  function getAuthHeaders() {
+    const headers = { "Content-Type": "application/json" };
+    try {
+      if (typeof window.getAuthHeaders === "function" && window.getAuthHeaders !== getAuthHeaders) {
+        Object.assign(headers, window.getAuthHeaders());
+      } else if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+        headers["X-Telegram-Init-Data"] = window.Telegram.WebApp.initData;
+      }
+    } catch (e) {}
+    return headers;
+  }
+
+  function mostraMessaggio(testo, ok) {
+    const box = document.getElementById("msgBox");
+    box.textContent = testo;
+    box.className = "msg " + (ok ? "ok" : "err");
+  }
+
+  function vaiListaContatti() {
+    window.location.href = "/lista.html?t=" + Date.now();
+  }
+
+  (function impostaDataOggi() {
+    const oggi = new Date().toISOString().slice(0, 10);
+    const dataEl = document.getElementById("data");
+    if (dataEl && !dataEl.value) dataEl.value = oggi;
+  })();
+
+  document.getElementById("formNominativo").addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    const payload = {
+      nominativo: document.getElementById("nominativo").value.trim(),
+      nome: document.getElementById("nominativo").value.trim(),
+      telefono: document.getElementById("telefono").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      data: document.getElementById("data").value,
+      stato: document.getElementById("stato").value.trim(),
+      note: document.getElementById("note").value.trim()
+    };
+
+    if (!payload.nominativo) {
+      mostraMessaggio("Inserisci un nominativo prima di salvare.", false);
+      return;
+    }
+
+    const endpoints = ["/api/nominativi", "/api/contatti", "/api/clienti"];
+    let salvato = false;
+    let ultimoErrore = "Errore durante il salvataggio del nominativo";
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          salvato = true;
+          break;
+        }
+        if (res.status !== 404 && res.status !== 405) {
+          const txt = await res.text();
+          ultimoErrore = `Errore HTTP ${res.status}: ${txt || url}`;
+          break;
+        }
+      } catch (e) {
+        ultimoErrore = "Errore di rete: " + e.message;
+      }
+    }
+
+    if (salvato) {
+      mostraMessaggio("Nominativo salvato correttamente. Puoi aprire Lista Contatti.", true);
+      document.getElementById("nominativo").value = "";
+      document.getElementById("telefono").value = "";
+      document.getElementById("email").value = "";
+      document.getElementById("note").value = "";
+    } else {
+      mostraMessaggio(ultimoErrore, false);
+    }
+  });
+</script>
+</body>
+</html>

@@ -407,12 +407,9 @@ def api_nominativi(request: Request = None):
                     tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
                 )
                 if tab_exists:
-                    cur.execute("SELECT DISTINCT nominativo FROM nominativi WHERE nominativo IS NOT NULL AND nominativo <> '' ORDER BY nominativo ASC")
+                    cur.execute("SELECT * FROM nominativi ORDER BY id DESC")
                     rows = cur.fetchall() or []
-                    return [
-                        {"nominativo": r["nominativo"] if isinstance(r, dict) else r[0]}
-                        for r in rows
-                    ]
+                    return [dict(r) for r in rows]
         finally:
             conn.close()
     except HTTPException:
@@ -420,6 +417,80 @@ def api_nominativi(request: Request = None):
     except Exception:
         pass
     return []
+
+
+@app.post("/api/nominativi")
+async def api_nominativi_crea(request: Request):
+    _verifica_utente_se_disponibile(request)
+    try:
+        payload = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"JSON non valido: {e}")
+
+    data = payload or {}
+    nominativo = str(data.get("nominativo") or data.get("nome") or "").strip()
+    if not nominativo:
+        raise HTTPException(status_code=400, detail="Nominativo obbligatorio")
+
+    try:
+        from db import db_conn
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database non disponibile: {e}")
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.nominativi') AS tab")
+            tab_row = cur.fetchone()
+            tab_exists = bool(
+                tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+            )
+            if not tab_exists:
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS nominativi (
+                        id SERIAL PRIMARY KEY,
+                        nominativo TEXT NOT NULL,
+                        telefono TEXT,
+                        email TEXT,
+                        data TEXT,
+                        stato TEXT,
+                        note TEXT
+                    )
+                    """
+                )
+
+            telefono = str(data.get("telefono") or "").strip()
+            email = str(data.get("email") or "").strip()
+            data_op = str(data.get("data") or "").strip()
+            stato = str(data.get("stato") or "").strip()
+            note = str(data.get("note") or "").strip()
+
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO nominativi (nominativo, telefono, email, data, stato, note)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING id, nominativo, telefono, email, data, stato, note
+                    """,
+                    (nominativo, telefono, email, data_op, stato, note),
+                )
+            except Exception:
+                conn.rollback()
+                cur.execute(
+                    "INSERT INTO nominativi (nominativo) VALUES (%s) RETURNING id, nominativo",
+                    (nominativo,),
+                )
+            row = cur.fetchone()
+        conn.commit()
+        if isinstance(row, dict):
+            return {"ok": True, **row}
+        return {"ok": True, "nominativo": nominativo}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore salvataggio nominativo: {e}")
+    finally:
+        conn.close()
 
 
 @app.get("/api/metodi_pagamento")
