@@ -38,6 +38,44 @@ def _trova_file_html(page_name: str):
     return None
 
 
+def _verifica_utente_se_disponibile(request: Request = None):
+    try:
+        from db import get_current_user
+        if request is not None:
+            get_current_user(request)
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
+
+def _leggi_tabella_semplice(table_name: str, order_col: str = "id"):
+    try:
+        from db import db_conn
+    except Exception:
+        return []
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{table_name}",))
+            tab_row = cur.fetchone()
+            tab_exists = bool(
+                tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+            )
+            if not tab_exists:
+                return []
+            try:
+                cur.execute(f"SELECT * FROM {table_name} ORDER BY {order_col} ASC")
+            except Exception:
+                conn.rollback()
+                cur.execute(f"SELECT * FROM {table_name}")
+            rows = cur.fetchall() or []
+            return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
 def _leggi_calcoli_fallback(
     nominativo: str = "",
     nominativo_da: str = "",
@@ -48,12 +86,10 @@ def _leggi_calcoli_fallback(
     request: Request = None,
 ):
     try:
-        from db import db_conn, get_current_user
-        if request is not None:
-            try:
-                get_current_user(request)
-            except Exception:
-                pass
+        from db import db_conn
+        _verifica_utente_se_disponibile(request)
+    except HTTPException:
+        raise
     except Exception:
         return {"righe": [], "items": [], "totale": 0, "count": 0, "nuovi": 0, "rinnovi": 0, "omaggi": 0}
 
@@ -175,12 +211,8 @@ def health():
 @app.get("/api/nominativi")
 def api_nominativi(request: Request = None):
     try:
-        from db import db_conn, get_current_user
-        if request is not None:
-            try:
-                get_current_user(request)
-            except Exception:
-                pass
+        from db import db_conn
+        _verifica_utente_se_disponibile(request)
         conn = db_conn()
         try:
             with conn.cursor() as cur:
@@ -198,6 +230,8 @@ def api_nominativi(request: Request = None):
                     ]
         finally:
             conn.close()
+    except HTTPException:
+        raise
     except Exception:
         pass
     return []
@@ -206,30 +240,110 @@ def api_nominativi(request: Request = None):
 @app.get("/api/metodi_pagamento")
 def api_metodi_pagamento(request: Request = None):
     try:
-        from db import db_conn, get_current_user
-        if request is not None:
-            try:
-                get_current_user(request)
-            except Exception:
-                pass
-        conn = db_conn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute("SELECT to_regclass('public.metodi_pagamento') AS tab")
-                tab_row = cur.fetchone()
-                tab_exists = bool(
-                    tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
-                )
-                if tab_exists:
-                    cur.execute("SELECT * FROM metodi_pagamento ORDER BY id ASC")
-                    rows = cur.fetchall() or []
-                    if rows:
-                        return [dict(r) for r in rows]
-        finally:
-            conn.close()
+        _verifica_utente_se_disponibile(request)
+        rows = _leggi_tabella_semplice("metodi_pagamento", "id")
+        if rows:
+            return rows
+    except HTTPException:
+        raise
     except Exception:
         pass
     return MODALITA_PAGAMENTO_DEFAULT
+
+
+@app.get("/api/reseller")
+@app.get("/api/resellers")
+def api_reseller_lista(request: Request = None):
+    try:
+        _verifica_utente_se_disponibile(request)
+        for tab in ("reseller", "resellers"):
+            rows = _leggi_tabella_semplice(tab, "id")
+            if rows:
+                return rows
+        return []
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Errore lettura reseller: {e}")
+
+
+@app.post("/api/reseller")
+@app.post("/api/resellers")
+async def api_reseller_crea(request: Request):
+    _verifica_utente_se_disponibile(request)
+    try:
+        payload = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"JSON non valido: {e}")
+
+    nome = str((payload or {}).get("nome") or (payload or {}).get("reseller") or "").strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="Nome reseller obbligatorio")
+
+    try:
+        from db import db_conn
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database non disponibile: {e}")
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.reseller') AS tab")
+            tab_row = cur.fetchone()
+            tab_exists = bool(
+                tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+            )
+            if not tab_exists:
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS reseller (
+                        id SERIAL PRIMARY KEY,
+                        nome TEXT NOT NULL
+                    )
+                    """
+                )
+            cur.execute(
+                "INSERT INTO reseller (nome) VALUES (%s) RETURNING id, nome",
+                (nome,),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        if isinstance(row, dict):
+            return {"ok": True, **row}
+        return {"ok": True, "id": row[0] if row else None, "nome": nome}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore salvataggio reseller: {e}")
+    finally:
+        conn.close()
+
+
+@app.delete("/api/reseller/{item_id}")
+@app.delete("/api/resellers/{item_id}")
+def api_reseller_elimina(item_id: int, request: Request):
+    _verifica_utente_se_disponibile(request)
+    try:
+        from db import db_conn
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database non disponibile: {e}")
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT to_regclass('public.reseller') AS tab")
+            tab_row = cur.fetchone()
+            tab_exists = bool(
+                tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+            )
+            if tab_exists:
+                cur.execute("DELETE FROM reseller WHERE id = %s", (int(item_id),))
+        conn.commit()
+        return {"ok": True}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore eliminazione reseller: {e}")
+    finally:
+        conn.close()
 
 
 @app.get("/{page_name}.html")
