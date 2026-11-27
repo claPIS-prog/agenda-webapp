@@ -242,6 +242,23 @@ def _leggi_calcoli_fallback(
         conn.close()
 
 
+def _assicura_colonne_rinnovi(cur, tab_name: str = "calcoli"):
+    tab = _nome_tabella_sicuro(tab_name)
+    colonne_extra = [
+        ("numeraz_trans_crediti", "TEXT"),
+        ("credito_richiesto", "NUMERIC DEFAULT 0"),
+        ("credito_dato", "NUMERIC DEFAULT 0"),
+        ("credito_resta", "NUMERIC DEFAULT 0"),
+        ("importo_acconto", "NUMERIC DEFAULT 0"),
+        ("importo_resta", "NUMERIC DEFAULT 0"),
+    ]
+    for col, col_type in colonne_extra:
+        try:
+            cur.execute(f"ALTER TABLE {tab} ADD COLUMN IF NOT EXISTS {col} {col_type}")
+        except Exception:
+            pass
+
+
 _router_calcoli_caricato = False
 try:
     from routers.calcoli import router as calcoli_router
@@ -334,6 +351,32 @@ async def api_rinnovi_crea(request: Request):
     if not nominativo:
         raise HTTPException(status_code=400, detail="Nominativo obbligatorio")
 
+    def _num(chiavi, default=0.0):
+        for k in chiavi:
+            if k in data and data.get(k) not in (None, ""):
+                try:
+                    return float(str(data.get(k)).replace(",", "."))
+                except Exception:
+                    pass
+        return float(default)
+
+    data_op = str(data.get("data") or "").strip()
+    scadenza = str(data.get("scadenza") or "").strip()
+    numeraz_trans_crediti = str(
+        data.get("NumerazTransCrediti")
+        or data.get("numeraz_trans_crediti")
+        or data.get("numeraztranscrediti")
+        or ""
+    ).strip()
+    credito_richiesto = _num(["CreditoRichiesto", "credito_richiesto", "creditorichiesto"], 0.0)
+    credito_dato = _num(["CreditoDato", "credito_dato", "creditodato"], 0.0)
+    credito_resta = _num(["CreditoResta", "credito_resta", "creditoresta"], credito_richiesto - credito_dato)
+    importo = _num(["importo", "Importo"], 0.0)
+    importo_acconto = _num(["ImportoAcconto", "importo_acconto", "importoacconto"], 0.0)
+    importo_resta = _num(["ImportoResta", "importo_resta", "importoresta"], importo - importo_acconto)
+    metodo = str(data.get("metodo_pagamento") or "").strip()
+    note = str(data.get("note") or "").strip()
+
     try:
         from db import db_conn
     except Exception as e:
@@ -357,35 +400,85 @@ async def api_rinnovi_crea(request: Request):
                         categoria TEXT,
                         data TEXT,
                         scadenza TEXT,
+                        numeraz_trans_crediti TEXT,
+                        credito_richiesto NUMERIC DEFAULT 0,
+                        credito_dato NUMERIC DEFAULT 0,
+                        credito_resta NUMERIC DEFAULT 0,
                         importo NUMERIC DEFAULT 0,
+                        importo_acconto NUMERIC DEFAULT 0,
+                        importo_resta NUMERIC DEFAULT 0,
                         metodo_pagamento TEXT,
                         note TEXT
                     )
                     """
                 )
+            else:
+                _assicura_colonne_rinnovi(cur, "calcoli")
 
-            data_op = str(data.get("data") or "").strip()
-            scadenza = str(data.get("scadenza") or "").strip()
             try:
-                importo = float(data.get("importo") or 0)
+                cur.execute(
+                    """
+                    INSERT INTO calcoli (
+                        nominativo, tipo, categoria, data, scadenza,
+                        numeraz_trans_crediti, credito_richiesto, credito_dato, credito_resta,
+                        importo, importo_acconto, importo_resta, metodo_pagamento, note
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id, nominativo, tipo, categoria, data, scadenza,
+                              numeraz_trans_crediti, credito_richiesto, credito_dato, credito_resta,
+                              importo, importo_acconto, importo_resta, metodo_pagamento, note
+                    """,
+                    (
+                        nominativo,
+                        "Rinnovo",
+                        "Rinnovo",
+                        data_op,
+                        scadenza,
+                        numeraz_trans_crediti,
+                        credito_richiesto,
+                        credito_dato,
+                        credito_resta,
+                        importo,
+                        importo_acconto,
+                        importo_resta,
+                        metodo,
+                        note,
+                    ),
+                )
             except Exception:
-                importo = 0.0
-            metodo = str(data.get("metodo_pagamento") or "").strip()
-            note = str(data.get("note") or "").strip()
-
-            cur.execute(
-                """
-                INSERT INTO calcoli (nominativo, tipo, categoria, data, scadenza, importo, metodo_pagamento, note)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id, nominativo, tipo, categoria, data, scadenza, importo, metodo_pagamento, note
-                """,
-                (nominativo, "Rinnovo", "Rinnovo", data_op, scadenza, importo, metodo, note),
-            )
+                conn.rollback()
+                cur.execute(
+                    """
+                    INSERT INTO calcoli (nominativo, tipo, categoria, data, scadenza, importo, metodo_pagamento, note)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id, nominativo, tipo, categoria, data, scadenza, importo, metodo_pagamento, note
+                    """,
+                    (nominativo, "Rinnovo", "Rinnovo", data_op, scadenza, importo, metodo, note),
+                )
             row = cur.fetchone()
         conn.commit()
         if isinstance(row, dict):
-            return {"ok": True, **row}
-        return {"ok": True, "nominativo": nominativo, "tipo": "Rinnovo"}
+            return {
+                "ok": True,
+                "NumerazTransCrediti": numeraz_trans_crediti,
+                "CreditoRichiesto": credito_richiesto,
+                "CreditoDato": credito_dato,
+                "CreditoResta": credito_resta,
+                "ImportoAcconto": importo_acconto,
+                "ImportoResta": importo_resta,
+                **row,
+            }
+        return {
+            "ok": True,
+            "nominativo": nominativo,
+            "tipo": "Rinnovo",
+            "NumerazTransCrediti": numeraz_trans_crediti,
+            "CreditoRichiesto": credito_richiesto,
+            "CreditoDato": credito_dato,
+            "CreditoResta": credito_resta,
+            "ImportoAcconto": importo_acconto,
+            "ImportoResta": importo_resta,
+        }
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Errore salvataggio rinnovo: {e}")
@@ -491,6 +584,26 @@ async def api_nominativi_crea(request: Request):
         raise HTTPException(status_code=500, detail=f"Errore salvataggio nominativo: {e}")
     finally:
         conn.close()
+
+
+@app.get("/api/crediti")
+@app.get("/api/crediti/lista")
+def api_crediti_lista(request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    for tab in ("crediti", "transazioni_crediti", "movimenti_crediti"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        if rows:
+            return rows
+    return []
+
+
+@app.post("/api/crediti")
+async def api_crediti_crea(request: Request):
+    return await _crea_voce_tabella(
+        "crediti",
+        request,
+        ("NumerazTransCrediti", "numeraz_trans_crediti", "codice", "nome", "nominativo"),
+    )
 
 
 @app.get("/api/metodi_pagamento")

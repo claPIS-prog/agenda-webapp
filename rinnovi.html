@@ -20,7 +20,7 @@
     padding: 16px;
   }
   .container {
-    max-width: 680px;
+    max-width: 720px;
     margin: 0 auto;
     background: #ffffff;
     border-radius: 10px;
@@ -46,8 +46,26 @@
     padding: 4px 10px;
     border-radius: 999px;
   }
-  .form-group {
+  .section-box {
+    background: #fafafa;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px;
     margin-bottom: 14px;
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #0088cc;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .form-group {
+    margin-bottom: 12px;
+  }
+  .form-group:last-child {
+    margin-bottom: 0;
   }
   label {
     display: block;
@@ -65,6 +83,11 @@
     background: #ffffff;
     color: #222222;
   }
+  input[readonly] {
+    background: #eef2f6;
+    color: #1e293b;
+    font-weight: bold;
+  }
   textarea {
     min-height: 76px;
     resize: vertical;
@@ -73,6 +96,11 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
+  }
+  @media (max-width: 600px) {
+    .row-2 {
+      grid-template-columns: 1fr;
+    }
   }
   .btn {
     width: 100%;
@@ -89,6 +117,9 @@
   .btn-secondary {
     background: #607d8b;
     margin-top: 10px;
+  }
+  .btn:active {
+    opacity: 0.85;
   }
   .msg {
     margin-top: 14px;
@@ -117,31 +148,75 @@
   <div class="badge-wrap"><span class="badge">Tipo: Rinnovo</span></div>
 
   <form id="formRinnovo">
-    <div class="form-group">
-      <label for="nominativo">Nominativo</label>
-      <input type="text" id="nominativo" name="nominativo" list="listaNominativi" placeholder="Inserisci o seleziona nominativo" required>
-      <datalist id="listaNominativi"></datalist>
+    <div class="section-box">
+      <div class="section-title">Dati Nominativo e Date</div>
+      <div class="form-group">
+        <label for="nominativo">Nominativo</label>
+        <input type="text" id="nominativo" name="nominativo" list="listaNominativi" placeholder="Inserisci o seleziona nominativo" required>
+        <datalist id="listaNominativi"></datalist>
+      </div>
+
+      <div class="row-2">
+        <div class="form-group">
+          <label for="data">Data operazione</label>
+          <input type="date" id="data" name="data">
+        </div>
+        <div class="form-group">
+          <label for="scadenza">Nuova scadenza</label>
+          <input type="date" id="scadenza" name="scadenza">
+        </div>
+      </div>
     </div>
 
-    <div class="row-2">
-      <div class="form-group">
-        <label for="data">Data operazione</label>
-        <input type="date" id="data" name="data">
+    <div class="section-box">
+      <div class="section-title">Crediti e Transazione</div>
+      <div class="row-2">
+        <div class="form-group">
+          <label for="NumerazTransCrediti">NumerazTransCrediti</label>
+          <select id="NumerazTransCrediti" name="NumerazTransCrediti">
+            <option value="">- Seleziona da Crediti -</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="CreditoRichiesto">CreditoRichiesto</label>
+          <input type="number" step="0.01" id="CreditoRichiesto" name="CreditoRichiesto" placeholder="0.00" oninput="aggiornaCalcoli()">
+        </div>
       </div>
-      <div class="form-group">
-        <label for="scadenza">Nuova scadenza</label>
-        <input type="date" id="scadenza" name="scadenza">
+
+      <div class="row-2">
+        <div class="form-group">
+          <label for="CreditoDato">CreditoDato</label>
+          <input type="number" step="0.01" id="CreditoDato" name="CreditoDato" placeholder="0.00" oninput="aggiornaCalcoli()">
+        </div>
+        <div class="form-group">
+          <label for="CreditoResta">CreditoResta</label>
+          <input type="number" step="0.01" id="CreditoResta" name="CreditoResta" value="0.00" readonly>
+        </div>
       </div>
     </div>
 
-    <div class="row-2">
-      <div class="form-group">
-        <label for="importo">Importo (€)</label>
-        <input type="number" step="0.01" id="importo" name="importo" placeholder="0.00">
+    <div class="section-box">
+      <div class="section-title">Importi e Pagamento</div>
+      <div class="row-2">
+        <div class="form-group">
+          <label for="importo">Importo (€)</label>
+          <input type="number" step="0.01" id="importo" name="importo" placeholder="0.00" oninput="aggiornaCalcoli()">
+        </div>
+        <div class="form-group">
+          <label for="metodo_pagamento">Metodo pagamento</label>
+          <select id="metodo_pagamento" name="metodo_pagamento"></select>
+        </div>
       </div>
-      <div class="form-group">
-        <label for="metodo_pagamento">Metodo pagamento</label>
-        <select id="metodo_pagamento" name="metodo_pagamento"></select>
+
+      <div class="row-2">
+        <div class="form-group">
+          <label for="ImportoAcconto">ImportoAcconto</label>
+          <input type="number" step="0.01" id="ImportoAcconto" name="ImportoAcconto" placeholder="0.00" oninput="aggiornaCalcoli()">
+        </div>
+        <div class="form-group">
+          <label for="ImportoResta">ImportoResta</label>
+          <input type="number" step="0.01" id="ImportoResta" name="ImportoResta" value="0.00" readonly>
+        </div>
       </div>
     </div>
 
@@ -176,6 +251,28 @@
     return headers;
   }
 
+  function numVal(id) {
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    const v = parseFloat(String(el.value || "0").replace(",", "."));
+    return Number.isFinite(v) ? v : 0;
+  }
+
+  function aggiornaCalcoli() {
+    const credRichiesto = numVal("CreditoRichiesto");
+    const credDato = numVal("CreditoDato");
+    const credResta = credRichiesto - credDato;
+
+    const importoTot = numVal("importo");
+    const acconto = numVal("ImportoAcconto");
+    const impResta = importoTot - acconto;
+
+    const elCredResta = document.getElementById("CreditoResta");
+    const elImpResta = document.getElementById("ImportoResta");
+    if (elCredResta) elCredResta.value = credResta.toFixed(2);
+    if (elImpResta) elImpResta.value = impResta.toFixed(2);
+  }
+
   function mostraMessaggio(testo, ok) {
     const box = document.getElementById("msgBox");
     box.textContent = testo;
@@ -186,10 +283,63 @@
     window.location.href = "/lista_rinnovi.html?t=" + Date.now();
   }
 
+  function estraiLista(data) {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === "object") {
+      for (const k of ["righe", "items", "crediti", "data", "results"]) {
+        if (Array.isArray(data[k])) return data[k];
+      }
+    }
+    return [];
+  }
+
+  async function popolaNumerazTransCrediti() {
+    const sel = document.getElementById("NumerazTransCrediti");
+    if (!sel) return;
+
+    const urls = ["/api/crediti", "/api/lista_crediti", "/api/crediti_disponibili"];
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const righe = estraiLista(json);
+        if (!Array.isArray(righe) || !righe.length) continue;
+
+        const visti = new Set();
+        righe.forEach((r) => {
+          if (!r || typeof r !== "object") return;
+          const idVal = r.id != null ? String(r.id).trim() : "";
+          const codice = r.NumerazTransCrediti
+            || r.numeraz_trans_crediti
+            || r.numeraztranscrediti
+            || r.numero_transazione
+            || r.transazione
+            || (idVal ? `CRED-${idVal}` : "");
+          const valoreOpzione = String(codice || idVal).trim();
+          if (valoreOpzione && !visti.has(valoreOpzione)) {
+            visti.add(valoreOpzione);
+            const opt = document.createElement("option");
+            opt.value = valoreOpzione;
+            const parti = [valoreOpzione];
+            if (r.fornitore) parti.push(String(r.fornitore).trim());
+            if (r.data_acquisto) parti.push(String(r.data_acquisto).trim());
+            if (r.quantita != null && r.quantita !== "") parti.push(`qta ${r.quantita}`);
+            opt.textContent = parti.join(" | ");
+            sel.appendChild(opt);
+          }
+        });
+        if (visti.size > 0) return;
+      } catch (e) {}
+    }
+  }
+
   async function caricaDatiIniziali() {
     const oggi = new Date().toISOString().slice(0, 10);
     const dataEl = document.getElementById("data");
     if (dataEl && !dataEl.value) dataEl.value = oggi;
+
+    aggiornaCalcoli();
 
     const selMetodo = document.getElementById("metodo_pagamento");
     try {
@@ -233,10 +383,14 @@
         });
       }
     } catch (e) {}
+
+    await popolaNumerazTransCrediti();
   }
 
   document.getElementById("formRinnovo").addEventListener("submit", async function (ev) {
     ev.preventDefault();
+    aggiornaCalcoli();
+
     const payload = {
       nominativo: document.getElementById("nominativo").value.trim(),
       tipo: "Rinnovo",
@@ -244,7 +398,19 @@
       operazione: "Rinnovo",
       data: document.getElementById("data").value,
       scadenza: document.getElementById("scadenza").value,
-      importo: parseFloat(document.getElementById("importo").value || "0") || 0,
+      NumerazTransCrediti: document.getElementById("NumerazTransCrediti").value.trim(),
+      numeraz_trans_crediti: document.getElementById("NumerazTransCrediti").value.trim(),
+      CreditoRichiesto: numVal("CreditoRichiesto"),
+      credito_richiesto: numVal("CreditoRichiesto"),
+      CreditoDato: numVal("CreditoDato"),
+      credito_dato: numVal("CreditoDato"),
+      CreditoResta: numVal("CreditoResta"),
+      credito_resta: numVal("CreditoResta"),
+      importo: numVal("importo"),
+      ImportoAcconto: numVal("ImportoAcconto"),
+      importo_acconto: numVal("ImportoAcconto"),
+      ImportoResta: numVal("ImportoResta"),
+      importo_resta: numVal("ImportoResta"),
       metodo_pagamento: document.getElementById("metodo_pagamento").value,
       note: document.getElementById("note").value.trim()
     };
@@ -282,8 +448,12 @@
     if (salvato) {
       mostraMessaggio("Rinnovo salvato correttamente.", true);
       document.getElementById("nominativo").value = "";
+      document.getElementById("CreditoRichiesto").value = "";
+      document.getElementById("CreditoDato").value = "";
       document.getElementById("importo").value = "";
+      document.getElementById("ImportoAcconto").value = "";
       document.getElementById("note").value = "";
+      aggiornaCalcoli();
     } else {
       mostraMessaggio(ultimoErrore, false);
     }

@@ -127,7 +127,7 @@
 
     <div class="row-2">
       <div class="form-group">
-        <label for="telefono">Telefono</label>
+        <label for="telefono">Telefono / Cellulare</label>
         <input type="text" id="telefono" name="telefono" placeholder="Numero di telefono">
       </div>
       <div class="form-group">
@@ -138,8 +138,10 @@
 
     <div class="row-2">
       <div class="form-group">
-        <label for="data">Data</label>
-        <input type="date" id="data" name="data">
+        <label for="procuratore">Procuratore</label>
+        <select id="procuratore" name="procuratore">
+          <option value="">- Seleziona -</option>
+        </select>
       </div>
       <div class="form-group">
         <label for="stato">Stato / Categoria</label>
@@ -147,13 +149,24 @@
       </div>
     </div>
 
+    <div class="row-2">
+      <div class="form-group">
+        <label for="data">Data Iscrizione</label>
+        <input type="date" id="data" name="data">
+      </div>
+      <div class="form-group">
+        <label for="data_fine">Data Fine</label>
+        <input type="date" id="data_fine" name="data_fine">
+      </div>
+    </div>
+
     <div class="form-group">
-      <label for="note">Note</label>
+      <label for="note">Informazioni / Note</label>
       <textarea id="note" name="note" placeholder="Eventuali note sul nominativo..."></textarea>
     </div>
 
     <button type="submit" class="btn">💾 Salva Nominativo</button>
-    <button type="button" id="btnVaiListaContatti" class="btn btn-secondary" onclick="vaiListaContatti()">📋 Vai a Lista Contatti</button>
+    <button type="button" id="btnVaiLista" class="btn btn-secondary" onclick="vaiListaContatti()">📋 Vai a Lista</button>
   </form>
 
   <div id="msgBox" class="msg"></div>
@@ -188,11 +201,28 @@
     window.location.href = "/lista.html?t=" + Date.now();
   }
 
-  (function impostaDataOggi() {
+  async function caricaOpzioniIniziali() {
     const oggi = new Date().toISOString().slice(0, 10);
     const dataEl = document.getElementById("data");
     if (dataEl && !dataEl.value) dataEl.value = oggi;
-  })();
+
+    try {
+      const res = await fetch("/api/procuratori", { headers: getAuthHeaders() });
+      if (res.ok) {
+        const items = await res.json();
+        const sel = document.getElementById("procuratore");
+        (Array.isArray(items) ? items : []).forEach((it) => {
+          const val = typeof it === "string" ? it : (it.nome || it.procuratore || it.valore || "");
+          if (val) {
+            const opt = document.createElement("option");
+            opt.value = val;
+            opt.textContent = val;
+            sel.appendChild(opt);
+          }
+        });
+      }
+    } catch (e) {}
+  }
 
   document.getElementById("formNominativo").addEventListener("submit", async function (ev) {
     ev.preventDefault();
@@ -200,8 +230,11 @@
       nominativo: document.getElementById("nominativo").value.trim(),
       nome: document.getElementById("nominativo").value.trim(),
       telefono: document.getElementById("telefono").value.trim(),
+      cellulare: document.getElementById("telefono").value.trim(),
       email: document.getElementById("email").value.trim(),
+      procuratore: document.getElementById("procuratore").value.trim(),
       data: document.getElementById("data").value,
+      data_fine: document.getElementById("data_fine").value,
       stato: document.getElementById("stato").value.trim(),
       note: document.getElementById("note").value.trim()
     };
@@ -246,6 +279,8 @@
       mostraMessaggio(ultimoErrore, false);
     }
   });
+
+  caricaOpzioniIniziali();
 </script>
 </body>
 </html>
