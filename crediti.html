@@ -29,6 +29,7 @@ textarea { min-height: 68px; resize: vertical; }
 .btn-primary { width: 100%; padding: 12px; background: #0088cc; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; }
 .btn-save { width: 100%; padding: 13px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px; }
 .btn-save:disabled { background: #95a5a6; cursor: not-allowed; }
+.btn-cancel { width: 100%; padding: 11px; background: #ecf0f1; color: #333; border: 1px solid #d0d7de; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
 .error-msg { background: #e74c3c; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; font-size: 13px; font-weight: 600; }
 .success-msg { background: #27ae60; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; display: none; text-align: center; font-size: 13px; font-weight: 600; }
 .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -43,6 +44,7 @@ textarea { min-height: 68px; resize: vertical; }
 .btn-action { width: 32px; height: 32px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; color: white; display: flex; align-items: center; justify-content: center; }
 .btn-action:active { transform: scale(0.92); }
 .btn-info { background: #0088cc; color: white; }
+.btn-edit { background: #f39c12; color: white; }
 .btn-del { background: #e74c3c; color: white; }
 .empty-state { text-align: center; padding: 24px; color: #888; background: white; border-radius: 10px; border: 1px solid #e0e0e0; }
 .modal-overlay {
@@ -162,15 +164,68 @@ textarea { min-height: 68px; resize: vertical; }
     <div id="listaCreditiContainer"></div>
 </div>
 
-<!-- Modal Dettaglio Movimento Crediti (stile Lista Contatti) -->
+<!-- Modal Note / Dettaglio Movimento Crediti -->
 <div class="modal-overlay" id="infoModal" onclick="chiudiInfoOverlay(event)">
     <div class="modal">
         <button type="button" class="close-modal" onclick="chiudiInfoCredito()">×</button>
-        <h3>ℹ️ Dettaglio Movimento Crediti</h3>
+        <h3>ℹ️ Note / Dettaglio Movimento Crediti</h3>
         <div id="infoContent"></div>
     </div>
 </div>
 
-<script src="js/crediti.js?v=2"></script>
+<!-- Modal Modifica Completa Movimento Crediti -->
+<div class="modal-overlay" id="editModal" onclick="chiudiEditOverlay(event)">
+    <div class="modal">
+        <button type="button" class="close-modal" onclick="chiudiEditCredito()">×</button>
+        <h3>✏️ Modifica Movimento Crediti</h3>
+        <input type="hidden" id="edit-id">
+
+        <div class="form-group">
+            <label for="edit-fornitore">Fornitore:</label>
+            <select id="edit-fornitore">
+                <option value="">-- Seleziona Fornitore --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="edit-modalita">Modalità di Pagamento:</label>
+            <select id="edit-modalita">
+                <option value="">-- Seleziona Modalità di Pagamento --</option>
+            </select>
+        </div>
+
+        <div class="row-2">
+            <div class="form-group">
+                <label for="edit-data">Data Acquisto:</label>
+                <input type="date" id="edit-data">
+            </div>
+            <div class="form-group">
+                <label for="edit-qta">Quantità Crediti:</label>
+                <input type="number" id="edit-qta" min="0" step="1" oninput="aggiornaValoreModifica()">
+            </div>
+        </div>
+
+        <div class="row-2">
+            <div class="form-group">
+                <label for="edit-prezzo-unit">Prezzo Unitario (€):</label>
+                <input type="number" id="edit-prezzo-unit" min="0" step="0.01" oninput="aggiornaValoreModifica()">
+            </div>
+            <div class="form-group">
+                <label for="edit-valore-tot">Valore Totale (€):</label>
+                <input type="number" id="edit-valore-tot" min="0" step="0.01" oninput="aggiornaPrezzoUnitarioModifica()">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="edit-note">Note:</label>
+            <textarea id="edit-note" placeholder="Note del movimento..."></textarea>
+        </div>
+
+        <button type="button" class="btn-save" id="btn-salva-modifica" onclick="salvaModificaCredito()">💾 Salva Modifiche</button>
+        <button type="button" class="btn-cancel" onclick="chiudiEditCredito()">Annulla</button>
+    </div>
+</div>
+
+<script src="js/crediti.js?v=3"></script>
 </body>
 </html>
