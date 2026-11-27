@@ -84,11 +84,13 @@
   }
   .search-input {
     flex: 1;
+    width: 100%;
     min-width: 220px;
     padding: 10px 12px;
     border: 1px solid #d0d7de;
     border-radius: 6px;
     font-size: 14px;
+    background: #ffffff;
   }
   .btn {
     padding: 9px 13px;
@@ -316,8 +318,8 @@
   </div>
 
   <div class="toolbar">
-    <input type="text" id="filtroNominativo" class="search-input" placeholder="Cerca per nominativo..." oninput="applicaFiltri()">
-    <button type="button" class="btn" onclick="caricaScadenze()">🔄 Aggiorna</button>
+    <input type="text" id="filtroNominativo" class="search-input" list="listaNominativi" placeholder="Cerca per nominativo..." oninput="applicaFiltri()" onchange="applicaFiltri()">
+    <datalist id="listaNominativi"></datalist>
   </div>
 
   <div id="statusBanner" class="status-banner"></div>
@@ -390,6 +392,7 @@
 
 <script>
   let tutteScadenze = [];
+  let elencoNominativi = [];
   let mappaRinnoviPerNominativo = {};
   let filtroPeriodoCorrente = "tutti";
   let idxCorrente = -1;
@@ -481,6 +484,7 @@
   }
 
   function leggiNome(it) {
+    if (typeof it === "string") return it;
     return (
       it.nominativo ||
       it.nome ||
@@ -492,6 +496,24 @@
 
   function normalizzaChiaveNome(nome) {
     return String(nome || "").trim().toLowerCase();
+  }
+
+  function popolaDatalistNominativi(listaNomi) {
+    const dl = document.getElementById("listaNominativi");
+    if (!dl) return;
+    const unici = [];
+    const visti = new Set();
+    for (const n of listaNomi) {
+      const pulito = String(n || "").trim();
+      if (!pulito) continue;
+      const chiave = pulito.toLowerCase();
+      if (!visti.has(chiave)) {
+        visti.add(chiave);
+        unici.push(pulito);
+      }
+    }
+    unici.sort((a, b) => a.localeCompare(b, "it", { sensitivity: "base" }));
+    dl.innerHTML = unici.map((nome) => `<option value="${nome.replace(/"/g, "&quot;")}"></option>`).join("");
   }
 
   function isRinnovataInAnticipo(item, listaCompleta, rinnoviList) {
@@ -563,11 +585,8 @@
         return false;
       }
       if (!q) return true;
-      const blob = Object.values(it || {})
-        .filter((v) => v !== null && v !== undefined && typeof v !== "object")
-        .join(" ")
-        .toLowerCase();
-      return blob.includes(q);
+      const nomeVal = leggiNome(it).toLowerCase();
+      return nomeVal.includes(q);
     });
     renderScadenze(filtrati);
   }
@@ -899,6 +918,24 @@
     );
   }
 
+  async function caricaNominativiPerRicerca(fallbackRighe) {
+    for (const urlNom of ["/api/nominativi", "/api/contatti"]) {
+      try {
+        const res = await fetch(urlNom, { headers: getAuthHeaders() });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const arr = estraiArray(json);
+        if (arr.length > 0) {
+          elencoNominativi = arr.map(leggiNome).filter(Boolean);
+          popolaDatalistNominativi(elencoNominativi);
+          return;
+        }
+      } catch (e) {}
+    }
+    elencoNominativi = (fallbackRighe || []).map(leggiNome).filter(Boolean);
+    popolaDatalistNominativi(elencoNominativi);
+  }
+
   async function caricaScadenze() {
     nascondiBanner();
     const box = document.getElementById("listaScadenze");
@@ -940,6 +977,8 @@
         }
       } catch (e) {}
     }
+
+    await caricaNominativiPerRicerca(grezze);
 
     const soloConScadenza = grezze.filter((it) => {
       const scad = it.data_fine || it.scadenza || it.data_scadenza || "";
