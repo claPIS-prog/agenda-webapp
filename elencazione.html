@@ -3,322 +3,230 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <title>Lista Contatti</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="/auth.js"></script>
 <style>
-body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 600px; margin: 0 auto; }
-h2 { text-align: center; margin-top: 0; color: #333; }
-.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
-.counter-wrapper { text-align: center; }
-.search { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; margin-bottom: 15px; }
-.item { background: #fff; padding: 12px 15px; margin: 8px 0; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; }
-.item-name { font-weight: bold; font-size: 16px; color: #222; flex-grow: 1; }
-.item-actions { display: flex; gap: 5px; margin-left: 10px; flex-shrink: 0; }
-.btn { padding: 6px 10px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold; text-align: center; white-space: nowrap; min-width: 32px; }
-.btn-info { background: #0088cc; color: white; }
-.btn-edit { background: #ff9800; color: white; }
-.btn-wa { background: #25d366; color: white; }
-.btn-del { background: #f44336; color: white; }
-.empty { text-align: center; color: #888; padding: 30px; }
-.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
-.toast.show { opacity: 1; }
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
-.modal-overlay.active { display: flex; }
-.modal { background: white; border-radius: 12px; padding: 25px; width: 90%; max-width: 450px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative; }
-.modal h3 { margin-top: 0; text-align: center; color: #333; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; margin-bottom: 15px; }
-.info-grid { display: grid; grid-template-columns: 1fr; gap: 8px; font-size: 14px; }
-.info-row { display: flex; border-bottom: 1px solid #f0f0f0; padding-bottom: 6px; }
-.info-label { font-weight: bold; color: #555; width: 130px; flex-shrink: 0; }
-.info-value { color: #222; word-break: break-word; }
-.info-section-title { font-size: 12px; color: #0088cc; font-weight: bold; text-transform: uppercase; margin-top: 12px; margin-bottom: 6px; border-bottom: 1px solid #e0e0e0; padding-bottom: 2px; }
-.close-modal { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; color: #999; cursor: pointer; line-height: 1; }
-.row { display: flex; gap: 8px; }
-.row > div { flex: 1; }
-label { display: block; font-weight: bold; margin: 10px 0 4px; color: #333; font-size: 13px; }
-input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; font-family: inherit; }
-textarea { resize: vertical; min-height: 60px; }
-.section-title { font-size: 12px; color: #0088cc; font-weight: bold; margin: 14px 0 6px; text-transform: uppercase; border-bottom: 1px solid #e0e0e0; padding-bottom: 3px; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f5f5f5;
+  }
+  body {
+    padding: 16px;
+  }
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  h2 {
+    text-align: center;
+    margin: 0 0 6px;
+    color: #333333;
+    font-size: 20px;
+  }
+  .badge-wrap {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .badge {
+    display: inline-block;
+    background: #0088cc;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .search-input {
+    flex: 1;
+    min-width: 220px;
+    padding: 10px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .btn {
+    padding: 10px 14px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #ffffff;
+    background: #0088cc;
+  }
+  .btn-green {
+    background: #2e7d32;
+  }
+  .empty-box {
+    text-align: center;
+    padding: 28px 16px;
+    color: #666666;
+    font-size: 14px;
+    background: #fafafa;
+    border: 1px dashed #d0d7de;
+    border-radius: 8px;
+  }
+  .card-item {
+    border: 1px solid #e0e0e0;
+    border-left: 4px solid #0088cc;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background: #fcfcfc;
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+    color: #222222;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .card-meta {
+    font-size: 13px;
+    color: #555555;
+    line-height: 1.5;
+  }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>📋 Lista Contatti</h2>
-<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
-<input type="text" class="search" id="search" placeholder="🔍 Cerca per nominativo...">
-<div id="lista"><div class="empty">Caricamento...</div></div>
-</div>
+  <h2>📋 Lista Contatti</h2>
+  <div class="badge-wrap"><span class="badge" id="badgeCount">Totale: 0</span></div>
 
-<div class="modal-overlay" id="infoModal">
-    <div class="modal">
-        <button class="close-modal" onclick="chiudiInfo()">×</button>
-        <h3>ℹ️ Dettagli Contatto</h3>
-        <div id="infoContent"></div>
-    </div>
-</div>
+  <div class="toolbar">
+    <input type="text" id="filtroContatto" class="search-input" placeholder="Cerca per nominativo, telefono, server o note..." oninput="applicaFiltro()">
+    <button type="button" class="btn" onclick="caricaContatti()">🔄 Aggiorna</button>
+    <button type="button" class="btn btn-green" onclick="vaiNuovoNominativo()">➕ Nuovo Nominativo</button>
+  </div>
 
-<div class="modal-overlay" id="editModal">
-<div class="modal" style="max-width: 500px;">
-<button class="close-modal" onclick="chiudiEdit()">×</button>
-<h3>✏️ Modifica Contatto</h3>
-<div id="modal_form"></div>
-<div style="display:flex; gap:10px; margin-top:15px;">
-<button class="btn" style="flex:1; background:#9e9e9e; color:white; padding:12px;" onclick="chiudiEdit()">Annulla</button>
-<button class="btn" style="flex:1; background:#4caf50; color:white; padding:12px;" onclick="salvaModifica()">💾 Salva</button>
+  <div id="listaContainer"></div>
 </div>
-</div>
-</div>
-
-<div class="toast" id="toast"></div>
 
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
+  let tuttiContatti = [];
 
-function getHeaders(contentType) {
-    const headers = {};
-    if (contentType) headers['Content-Type'] = contentType;
-    const initData = tg.initData;
-    if (initData) headers['X-Telegram-Init-Data'] = initData;
+  try {
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.expand();
+    }
+  } catch (e) {}
+
+  function getAuthHeaders() {
+    const headers = { "Content-Type": "application/json" };
+    try {
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+        headers["X-Telegram-Init-Data"] = window.Telegram.WebApp.initData;
+      }
+    } catch (e) {}
     return headers;
-}
+  }
 
-let contatti = [];
-let idModifica = null;
-let dropdowns = { dispositivi: [], sistemiOp: [], buffetts: [], metodiPag: [], procuratori: [], servers: [], resellers: [], operatoriIt: [] };
-const tipiLineaList = ["FIBRA GByte", "FIBRA MByte", "LTE", "ADSL", "CONNESSIONE DATI"];
-const apkList = ["ivuplay (PRIVAT)", "Cricfy V6.7", "SportzX [Mobile] v2.1", "StartApp", "Paradise", "Send Files To TV v1.4.22b", "Private Server", "0Player 300626", "XCloud-1.0.15"];
-const cadenzeList = ["TEST", "MENSILE", "BIMENSILE", "TRIMESTRALE", "SEMESTRALE", "ANNUALE"];
-const tipiList = ["rinnovo", "nuovo", "omaggio"];
-const tipiLabel = { "rinnovo": "🔄 Rinnovo", "nuovo": "🆕 Nuovo", "omaggio": "🎁 Omaggio" };
+  function vaiNuovoNominativo() {
+    window.location.href = "/index.html?t=" + Date.now();
+  }
 
-async function carica() {
-    const box = document.getElementById('lista');
-    try {
-        const res = await fetch('/api/contatti', { headers: getHeaders() });
-        if (!res.ok) { box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>'; return; }
-        contatti = await res.json();
-        aggiornaContatore(contatti.length);
-        await caricaDropdowns();
-        render();
-    } catch (e) { box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>'; }
-}
-
-async function caricaDropdowns() {
-    const ok = async (url) => {
-        try {
-            const res = await fetch(url, { headers: getHeaders() });
-            if (!res.ok) return [];
-            const data = await res.json();
-            return Array.isArray(data) ? data : [];
-        } catch (e) { return []; }
-    };
-    dropdowns.dispositivi = await ok('/api/dispositivi');
-    dropdowns.sistemiOp = await ok('/api/sistemi_operativi');
-    dropdowns.buffetts = await ok('/api/buffett');
-    dropdowns.metodiPag = await ok('/api/metodi_pagamento');
-    dropdowns.procuratori = await ok('/api/procuratori');
-    dropdowns.servers = await ok('/api/servers');
-    dropdowns.resellers = await ok('/api/resellers');
-    dropdowns.operatoriIt = await ok('/api/operatori_it');
-}
-
-function aggiornaContatore(totale) { document.getElementById('counter').textContent = 'Totale: ' + totale; }
-
-function optSelect(items, placeholder, campo, selected) {
-    let html = '<option value="">' + placeholder + '</option>';
-    for (let i = 0; i < items.length; i++) {
-        const val = items[i][campo] || '';
-        const sel = val === selected ? 'selected' : '';
-        html += '<option value="' + val + '" ' + sel + '>' + val + '</option>';
+  function estraiArray(data) {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === "object") {
+      for (const k of ["righe", "items", "contatti", "nominativi", "clienti", "data", "results"]) {
+        if (Array.isArray(data[k])) return data[k];
+      }
     }
-    return html;
-}
+    return [];
+  }
 
-function optSelectStatic(items, placeholder, selected) {
-    let html = '<option value="">' + placeholder + '</option>';
-    for (let i = 0; i < items.length; i++) {
-        const sel = items[i] === selected ? 'selected' : '';
-        html += '<option value="' + items[i] + '" ' + sel + '>' + items[i] + '</option>';
+  function renderLista(items) {
+    const box = document.getElementById("listaContainer");
+    const badge = document.getElementById("badgeCount");
+    if (badge) badge.textContent = `Totale: ${items.length}`;
+
+    if (!items.length) {
+      box.innerHTML = '<div class="empty-box">Nessun contatto trovato</div>';
+      return;
     }
-    return html;
-}
 
-function optSelectTipo(selected) {
-    let html = '<option value="">-- Seleziona --</option>';
-    tipiList.forEach(t => {
-        const sel = t === selected ? 'selected' : '';
-        html += '<option value="' + t + '" ' + sel + '>' + tipiLabel[t] + '</option>';
+    box.innerHTML = items.map((it) => {
+      if (typeof it === "string") {
+        return `<div class="card-item"><div class="card-top"><span>${it}</span></div></div>`;
+      }
+      const nom = it.nominativo || it.nome || it.cliente || "Senza nominativo";
+      const tel = it.telefono || it.cellulare || "-";
+      const tipo = it.tipo ? ` &nbsp;|&nbsp; <strong>Tipo:</strong> ${String(it.tipo)}` : "";
+      const srv = it.server ? ` &nbsp;|&nbsp; <strong>Server:</strong> ${String(it.server)}` : "";
+      const res = it.reseller ? ` &nbsp;|&nbsp; <strong>Reseller:</strong> ${String(it.reseller)}` : "";
+      const scad = it.data_fine ? ` &nbsp;|&nbsp; <strong>Scadenza:</strong> ${String(it.data_fine)}` : "";
+      const note = (it.informazioni || it.note) ? `<br><strong>Note:</strong> ${String(it.informazioni || it.note)}` : "";
+      return `
+        <div class="card-item">
+          <div class="card-top">
+            <span>${String(nom)}</span>
+            <span>${String(tel)}</span>
+          </div>
+          <div class="card-meta">
+            ${tipo}${srv}${res}${scad}${note}
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function applicaFiltro() {
+    const q = (document.getElementById("filtroContatto").value || "").trim().toLowerCase();
+    if (!q) {
+      renderLista(tuttiContatti);
+      return;
+    }
+    const filtrati = tuttiContatti.filter((it) => {
+      if (typeof it === "string") return it.toLowerCase().includes(q);
+      const blob = [
+        it.nominativo, it.nome, it.cliente, it.telefono, it.cellulare,
+        it.tipo, it.server, it.reseller, it.citta, it.informazioni, it.note
+      ].filter(Boolean).join(" ").toLowerCase();
+      return blob.includes(q);
     });
-    return html;
-}
+    renderLista(filtrati);
+  }
 
-function render(filter) {
-    filter = (filter || '').toLowerCase();
-    const f = contatti.filter(c => (c.nominativo || '').toLowerCase().includes(filter));
-    if (f.length === 0) {
-        document.getElementById('lista').innerHTML = '<div class="empty">Nessun contatto trovato.</div>';
+  async function caricaContatti() {
+    const box = document.getElementById("listaContainer");
+    box.innerHTML = '<div class="empty-box">Caricamento contatti...</div>';
+
+    const urls = ["/api/contatti", "/api/nominativi"];
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const arr = estraiArray(json);
+        tuttiContatti = arr;
+        applicaFiltro();
         return;
+      } catch (e) {}
     }
-    document.getElementById('lista').innerHTML = f.map((c, index) => {
-        return '<div class="item">' +
-            '<div class="item-name"><span style="color:#888; font-size:12px; margin-right:8px;">' + (index + 1) + ' -</span> ' + (c.nominativo || '') + '</div>' +
-            '<div class="item-actions">' +
-            '<button class="btn btn-info" onclick="apriInfo(' + c.id + ')">ℹ️</button>' +
-            '<button class="btn btn-edit" onclick="apriModifica(' + c.id + ')">✏️</button>' +
-            '<button class="btn btn-wa" onclick="whatsapp(\'' + (c.nominativo || '').replace(/'/g,"\\'") + '\')">💬</button>' +
-            '<button class="btn btn-del" onclick="cancella(' + c.id + ', \'' + (c.nominativo || '').replace(/'/g,"\\'") + '\')">🗑️</button>' +
-            '</div></div>';
-    }).join('');
-}
 
-function apriInfo(id) {
-    const c = contatti.find(x => x.id === id);
-    if (!c) return;
-    const v = (val) => val ? val : '-';
-    const tipoDisplay = tipiLabel[c.tipo] || c.tipo || '-';
-    let html = '<div class="info-grid">';
-    html += '<div class="info-section-title">Generale</div>';
-    html += `<div class="info-row"><div class="info-label">Nominativo:</div><div class="info-value">${v(c.nominativo)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Tipo:</div><div class="info-value">${tipoDisplay}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Prezzo:</div><div class="info-value">${c.prezzo ? '€ ' + c.prezzo : '-'}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Cadenza:</div><div class="info-value">${v(c.cadenza)}</div></div>`;
-    html += '<div class="info-section-title">Accesso</div>';
-    html += `<div class="info-row"><div class="info-label">User ID:</div><div class="info-value">${v(c.user_id)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Password:</div><div class="info-value">${v(c.password)}</div></div>`;
-    html += '<div class="info-section-title">Server & Reseller</div>';
-    html += `<div class="info-row"><div class="info-label">Tipo Linea:</div><div class="info-value">${v(c.tipo_linea)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Operatore IT:</div><div class="info-value">${v(c.operatore_it)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Server:</div><div class="info-value">${v(c.server)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Reseller:</div><div class="info-value">${v(c.reseller)}</div></div>`;
-    html += '<div class="info-section-title">Dettagli Tecnici</div>';
-    html += `<div class="info-row"><div class="info-label">Dispositivo:</div><div class="info-value">${v(c.dispositivo)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Sistema Op.:</div><div class="info-value">${v(c.sistema_operativo)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Buffett:</div><div class="info-value">${v(c.buffett)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Metodo Pag.:</div><div class="info-value">${v(c.metodo_pagamento)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">APK:</div><div class="info-value">${v(c.apk_utilizzata)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">VPN:</div><div class="info-value">${c.uso_vpn == 1 ? 'Sì (' + v(c.quale_vpn) + ')' : 'No'}</div></div>`;
-    html += '<div class="info-section-title">Contatti</div>';
-    html += `<div class="info-row"><div class="info-label">Cellulare:</div><div class="info-value">${v(c.cellulare)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Procuratore:</div><div class="info-value">${v(c.procuratore)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Città:</div><div class="info-value">${v(c.citta)}</div></div>`;
-    html += '<div class="info-section-title">Date & Note</div>';
-    html += `<div class="info-row"><div class="info-label">Data Iscrizione:</div><div class="info-value">${v(c.data_iscrizione)}</div></div>`;
-    html += `<div class="info-row"><div class="info-label">Data Fine:</div><div class="info-value">${v(c.data_fine)}</div></div>`;
-    html += `<div class="info-row" style="flex-direction:column;"><div class="info-label" style="width:100%;margin-bottom:4px;">Informazioni:</div><div class="info-value" style="background:#f9f9f9;padding:8px;border-radius:4px;">${v(c.informazioni)}</div></div>`;
-    html += '</div>';
-    document.getElementById('infoContent').innerHTML = html;
-    document.getElementById('infoModal').classList.add('active');
-}
+    tuttiContatti = [];
+    renderLista([]);
+  }
 
-function chiudiInfo() { document.getElementById('infoModal').classList.remove('active'); }
-
-function apriModifica(id) {
-    const c = contatti.find(x => x.id === id);
-    if (!c) return;
-    idModifica = id;
-    let html = '';
-    html += '<label>Nominativo:</label><input type="text" id="m_nominativo" value="' + (c.nominativo || '') + '">';
-    html += '<label>Tipo:</label><select id="m_tipo">' + optSelectTipo(c.tipo) + '</select>';
-    html += '<div class="row"><div><label>Prezzo (€):</label><input type="number" id="m_prezzo" step="0.01" value="' + (c.prezzo || 0) + '"></div>';
-    html += '<div><label>Cadenza:</label><select id="m_cadenza">' + optSelectStatic(cadenzeList, '--', c.cadenza) + '</select></div></div>';
-    html += '<div class="section-title">Accesso (B)</div>';
-    html += '<label>User ID:</label><input type="text" id="m_user_id" value="' + (c.user_id || '') + '">';
-    html += '<label>Password:</label><input type="text" id="m_password" value="' + (c.password || '') + '">';
-    html += '<label>Tipo Linea:</label><select id="m_tipo_linea">' + optSelectStatic(tipiLineaList, '--', c.tipo_linea || c.tipo) + '</select>';
-    html += '<label>Operatore IT:</label><select id="m_operatore_it">' + optSelect(dropdowns.operatoriIt, '--', 'nome', c.operatore_it) + '</select>';
-    html += '<div class="section-title">Server / Reseller</div>';
-    html += '<label>Server:</label><select id="m_server">' + optSelect(dropdowns.servers, '--', 'nominativo', c.server) + '</select>';
-    html += '<label>Reseller:</label><select id="m_reseller">' + optSelect(dropdowns.resellers, '--', 'nominativo', c.reseller) + '</select>';
-    html += '<div class="section-title">Dettagli tecnici</div>';
-    html += '<label>Dispositivo:</label><select id="m_dispositivo">' + optSelect(dropdowns.dispositivi, '--', 'nome', c.dispositivo) + '</select>';
-    html += '<label>Sistema Operativo:</label><select id="m_sistema_operativo">' + optSelect(dropdowns.sistemiOp, '--', 'nome', c.sistema_operativo) + '</select>';
-    html += '<label>Buffett:</label><select id="m_buffett">' + optSelect(dropdowns.buffetts, '--', 'nome', c.buffett) + '</select>';
-    html += '<label>Metodo Pagamento:</label><select id="m_metodo_pagamento">' + optSelect(dropdowns.metodiPag, '--', 'nome', c.metodo_pagamento) + '</select>';
-    html += '<div class="section-title">Contatti</div>';
-    html += '<label>Num Cellulare:</label><input type="tel" id="m_cellulare" value="' + (c.cellulare || '') + '">';
-    html += '<label>Procuratore:</label><select id="m_procuratore">' + optSelect(dropdowns.procuratori, '--', 'nominativo', c.procuratore) + '</select>';
-    html += '<label>APK Utilizzata:</label><select id="m_apk_utilizzata"><option value="">-- Seleziona --</option>';
-    for (let i = 0; i < apkList.length; i++) {
-        const sel = apkList[i] === c.apk_utilizzata ? 'selected' : '';
-        html += '<option value="' + apkList[i] + '" ' + sel + '>' + apkList[i] + '</option>';
-    }
-    html += '</select>';
-    html += '<div class="row"><div><label>Uso VPN:</label><select id="m_uso_vpn"><option value="0" ' + (c.uso_vpn == 0 ? 'selected' : '') + '>No</option><option value="1" ' + (c.uso_vpn == 1 ? 'selected' : '') + '>Sì</option></select></div>';
-    html += '<div><label>Quale VPN:</label><input type="text" id="m_quale_vpn" value="' + (c.quale_vpn || '') + '"></div></div>';
-    html += '<label>Città:</label><input type="text" id="m_citta" value="' + (c.citta || '') + '">';
-    html += '<div class="section-title">Date e note</div>';
-    html += '<div class="row"><div><label>Data Iscrizione:</label><input type="date" id="m_data_iscrizione" value="' + (c.data_iscrizione || '') + '"></div>';
-    html += '<div><label>Data Fine:</label><input type="date" id="m_data_fine" value="' + (c.data_fine || '') + '"></div></div>';
-    html += '<label>Informazioni:</label><textarea id="m_informazioni">' + (c.informazioni || '') + '</textarea>';
-    document.getElementById('modal_form').innerHTML = html;
-    document.getElementById('editModal').classList.add('active');
-}
-
-function chiudiEdit() { document.getElementById('editModal').classList.remove('active'); idModifica = null; }
-
-async function salvaModifica() {
-    if (!idModifica) return;
-    const nominativo = document.getElementById('m_nominativo').value.trim();
-    if (!nominativo) { mostraToast('⚠️ Nominativo obbligatorio'); return; }
-    const dati = {
-        azione: 'modifica', id: idModifica, nominativo: nominativo,
-        tipo: document.getElementById('m_tipo').value,
-        prezzo: parseFloat(document.getElementById('m_prezzo').value) || 0,
-        cadenza: document.getElementById('m_cadenza').value,
-        user_id: document.getElementById('m_user_id').value.trim(),
-        password: document.getElementById('m_password').value.trim(),
-        tipo_linea: document.getElementById('m_tipo_linea').value,
-        operatore_it: document.getElementById('m_operatore_it').value,
-        server: document.getElementById('m_server').value,
-        reseller: document.getElementById('m_reseller').value,
-        dispositivo: document.getElementById('m_dispositivo').value,
-        sistema_operativo: document.getElementById('m_sistema_operativo').value,
-        buffett: document.getElementById('m_buffett').value,
-        metodo_pagamento: document.getElementById('m_metodo_pagamento').value,
-        cellulare: document.getElementById('m_cellulare').value.trim(),
-        procuratore: document.getElementById('m_procuratore').value,
-        apk_utilizzata: document.getElementById('m_apk_utilizzata').value,
-        uso_vpn: parseInt(document.getElementById('m_uso_vpn').value) || 0,
-        quale_vpn: document.getElementById('m_quale_vpn').value.trim(),
-        citta: document.getElementById('m_citta').value.trim(),
-        data_iscrizione: document.getElementById('m_data_iscrizione').value,
-        data_fine: document.getElementById('m_data_fine').value,
-        informazioni: document.getElementById('m_informazioni').value.trim()
-    };
-    try {
-        const res = await fetch('/api/azione', { method: 'POST', headers: getHeaders('application/json'), body: JSON.stringify({ dati: dati }) });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        chiudiEdit(); mostraToast('✅ Contatto modificato!'); await carica();
-    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
-}
-
-async function cancella(id, nome) {
-    if (!confirm('Cancellare "' + nome + '"?\n\nQuesta azione è irreversibile.')) return;
-    try {
-        const res = await fetch('/api/azione', { method: 'POST', headers: getHeaders('application/json'), body: JSON.stringify({ dati: { azione: 'cancella', id: id } }) });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        mostraToast('🗑️ Contatto cancellato'); await carica();
-    } catch (e) { mostraToast('❌ Errore: ' + e.message); }
-}
-
-function whatsapp(nome) {
-    const testo = 'Ciao ' + nome + ', ti contatto dal bot AgendaGest.';
-    window.open('https://wa.me/?text=' + encodeURIComponent(testo), '_blank');
-}
-
-function mostraToast(msg) {
-    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
-    setTimeout(() => { t.classList.remove('show'); }, 2500);
-}
-
-document.getElementById('search').addEventListener('input', e => render(e.target.value));
-carica();
+  caricaContatti();
 </script>
 </body>
 </html>
