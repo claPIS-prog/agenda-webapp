@@ -186,7 +186,7 @@ def _aggiorna_record_dinamico(item_id: int, data: dict, request: Request = None)
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            for tab in ("nominativi", "contatti", "clienti", "anagrafica"):
+            for tab in ("nominativi", "contatti", "clienti", "anagrafica", "scadenze", "calcoli"):
                 cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{tab}",))
                 tab_row = cur.fetchone()
                 tab_exists = bool(
@@ -250,7 +250,7 @@ def _elimina_record_nominativo(item_id: int, request: Request = None):
     conn = db_conn()
     try:
         with conn.cursor() as cur:
-            for tab in ("nominativi", "contatti", "clienti", "anagrafica"):
+            for tab in ("nominativi", "contatti", "clienti", "anagrafica", "scadenze"):
                 cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{tab}",))
                 tab_row = cur.fetchone()
                 tab_exists = bool(
@@ -342,6 +342,29 @@ def _leggi_calcoli_fallback(
         conn.close()
 
 
+def _leggi_scadenze_aggregate(request: Request = None):
+    _verifica_utente_se_disponibile(request)
+    rows_tab = _leggi_tabella_semplice("scadenze", "id")
+    if rows_tab:
+        return rows_tab
+
+    risultati = []
+    for tab in ("nominativi", "contatti", "clienti", "anagrafica", "calcoli"):
+        rows = _leggi_tabella_semplice(tab, "id")
+        for r in rows:
+            scad = r.get("data_fine") or r.get("scadenza") or r.get("data_scadenza") or ""
+            if str(scad).strip():
+                copia = dict(r)
+                if not copia.get("scadenza"):
+                    copia["scadenza"] = str(scad).strip()
+                if not copia.get("data_fine"):
+                    copia["data_fine"] = str(scad).strip()
+                risultati.append(copia)
+        if risultati:
+            return risultati
+    return []
+
+
 def _assicura_colonne_rinnovi(cur, tab_name: str = "calcoli"):
     tab = _nome_tabella_sicuro(tab_name)
     colonne_extra = [
@@ -351,6 +374,8 @@ def _assicura_colonne_rinnovi(cur, tab_name: str = "calcoli"):
         ("credito_resta", "NUMERIC DEFAULT 0"),
         ("importo_acconto", "NUMERIC DEFAULT 0"),
         ("importo_resta", "NUMERIC DEFAULT 0"),
+        ("data_credito_saldo", "TEXT"),
+        ("numero_credito_saldo", "TEXT"),
     ]
     for col, col_type in colonne_extra:
         try:
@@ -420,6 +445,117 @@ def root():
 @app.head("/health")
 def health():
     return {"ok": True}
+
+
+@app.get("/api/scadenze")
+@app.get("/api/scadenza")
+def api_scadenze_lista(request: Request = None):
+    return _leggi_scadenze_aggregate(request)
+
+
+@app.put("/api/scadenze/{item_id}")
+@app.patch("/api/scadenze/{item_id}")
+async def api_scadenze_aggiorna(item_id: int, request: Request):
+    try:
+        payload = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"JSON non valido: {e}")
+    return _aggiorna_record_dinamico(item_id, payload or {}, request)
+
+
+@app.delete("/api/scadenze/{item_id}")
+def api_scadenze_elimina(item_id: int, request: Request):
+    return _elimina_record_nominativo(item_id, request)
+
+
+@app.post("/api/rinnovi/saldo_credito")
+async def api_rinnovi_saldo_credito(request: Request):
+    _verifica_utente_se_disponibile(request)
+    try:
+        payload = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"JSON non valido: {e}")
+
+    data = payload or {}
+    nominativo = str(data.get("nominativo") or "").strip()
+    rinnovo_id = data.get("rinnovo_id")
+    data_credito_saldo = str(data.get("DataCreditoSaldo") or data.get("data_credito_saldo") or "").strip()
+    numero_credito_saldo = str(data.get("NumeroCreditoSaldo") or data.get("numero_credito_saldo") or "").strip()
+
+    if not data_credito_saldo or not numero_credito_saldo:
+        raise HTTPException(status_code=400, detail="DataCreditoSaldo e NumeroCreditoSaldo sono obbligatori")
+
+    try:
+        from db import db_conn
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database non disponibile: {e}")
+
+    conn = db_conn()
+    try:
+        with conn.cursor() as cur:
+            aggiornato = False
+            for tab in ("calcoli", "rinnovi"):
+                cur.execute("SELECT to_regclass(%s) AS tab", (f"public.{tab}",))
+                tab_row = cur.fetchone()
+                tab_exists = bool(
+                    tab_row and (tab_row["tab"] if isinstance(tab_row, dict) else tab_row[0])
+                )
+                if not tab_exists:
+                    continue
+
+                _assicura_colonne_rinnovi(cur, tab)
+
+                if rinnovo_id not in (None, ""):
+                    cur.execute(
+                        f"""
+                        UPDATE {tab}
+                        SET data_credito_saldo = %s,
+                            numero_credito_saldo = %s,
+                            credito_dato = COALESCE(NULLIF(credito_richiesto, 0), credito_dato),
+                            credito_resta = 0
+                        WHERE id = %s
+                        RETURNING id
+                        """,
+                        (data_credito_saldo, numero_credito_saldo, int(rinnovo_id)),
+                    )
+                    if cur.fetchone():
+                        aggiornato = True
+                        break
+
+                if not aggiornato and nominativo:
+                    cur.execute(
+                        f"""
+                        UPDATE {tab}
+                        SET data_credito_saldo = %s,
+                            numero_credito_saldo = %s,
+                            credito_dato = COALESCE(NULLIF(credito_richiesto, 0), credito_dato),
+                            credito_resta = 0
+                        WHERE id = (
+                            SELECT id FROM {tab}
+                            WHERE LOWER(COALESCE(nominativo::text, '')) = LOWER(%s)
+                            ORDER BY id DESC
+                            LIMIT 1
+                        )
+                        RETURNING id
+                        """,
+                        (data_credito_saldo, numero_credito_saldo, nominativo),
+                    )
+                    if cur.fetchone():
+                        aggiornato = True
+                        break
+
+        conn.commit()
+        return {
+            "ok": True,
+            "aggiornato": aggiornato,
+            "DataCreditoSaldo": data_credito_saldo,
+            "NumeroCreditoSaldo": numero_credito_saldo,
+        }
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Errore aggiornamento saldo credito: {e}")
+    finally:
+        conn.close()
 
 
 @app.get("/api/rinnovi")
@@ -507,6 +643,8 @@ async def api_rinnovi_crea(request: Request):
                         importo NUMERIC DEFAULT 0,
                         importo_acconto NUMERIC DEFAULT 0,
                         importo_resta NUMERIC DEFAULT 0,
+                        data_credito_saldo TEXT,
+                        numero_credito_saldo TEXT,
                         metodo_pagamento TEXT,
                         note TEXT
                     )

@@ -3,133 +3,964 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <title>Scadenze</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="/auth.js"></script>
 <style>
-body { font-family: -apple-system, Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 15px; }
-.container { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); max-width: 600px; margin: 0 auto; }
-h2 { text-align: center; margin-top: 0; color: #333; }
-.counter { text-align: center; background: #0088cc; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin: 0 auto 15px; display: inline-block; }
-.counter-wrapper { text-align: center; }
-.search { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 15px; margin-bottom: 15px; }
-.item { background: #fff; padding: 12px 15px; margin: 8px 0; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; }
-.item-name { font-weight: bold; font-size: 16px; color: #222; flex-grow: 1; }
-.item-sub { font-size: 12px; color: #666; margin-top: 2px; }
-.item-actions { display: flex; gap: 5px; margin-left: 10px; flex-shrink: 0; }
-.btn { padding: 6px 10px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: bold; text-align: center; white-space: nowrap; min-width: 32px; }
-.btn-rinnova { background: #4caf50; color: white; }
-.btn-wa { background: #25d366; color: white; }
-.badge { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; color: white; margin-bottom: 4px; }
-.badge-scaduta { background: #f44336; }
-.badge-oggi { background: #ff9800; }
-.badge-prossimi { background: #4caf50; }
-.empty { text-align: center; color: #888; padding: 30px; }
-.error { text-align: center; color: #c62828; padding: 20px; background: #ffebee; border-radius: 6px; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 6px; z-index: 9999; opacity: 0; transition: opacity 0.3s; font-size: 14px; }
-.toast.show { opacity: 1; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f5f5f5;
+  }
+  body {
+    padding: 16px;
+  }
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  h2 {
+    text-align: center;
+    margin: 0 0 6px;
+    color: #222222;
+    font-size: 20px;
+  }
+  .badge-wrap {
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .badge {
+    display: inline-block;
+    background: #0088cc;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+  .filter-pills {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .pill {
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    background: #ffffff;
+    color: #334155;
+  }
+  .pill.active {
+    background: #0088cc;
+    border-color: #0088cc;
+    color: #ffffff;
+  }
+  .pill-scadute { border-color: #ef4444; color: #b91c1c; }
+  .pill-scadute.active { background: #dc2626; border-color: #dc2626; color: #ffffff; }
+  .pill-7 { border-color: #f97316; color: #c2410c; }
+  .pill-7.active { background: #ea580c; border-color: #ea580c; color: #ffffff; }
+  .pill-14 { border-color: #eab308; color: #a16207; }
+  .pill-14.active { background: #ca8a04; border-color: #ca8a04; color: #ffffff; }
+  .pill-ok { border-color: #22c55e; color: #15803d; }
+  .pill-ok.active { background: #16a34a; border-color: #16a34a; color: #ffffff; }
+
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .search-input {
+    flex: 1;
+    min-width: 220px;
+    padding: 10px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .btn {
+    padding: 9px 13px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #ffffff;
+    background: #0088cc;
+  }
+  .btn:active { opacity: 0.85; }
+  .btn-sm { padding: 6px 10px; font-size: 12px; }
+  .btn-info { background: #0277bd; }
+  .btn-warn { background: #ef6c00; }
+  .btn-danger { background: #c62828; }
+  .btn-wa { background: #25D366; color: #ffffff; }
+  .btn-green { background: #2e7d32; }
+  .btn-gray { background: #607d8b; }
+  .btn-purple { background: #6a1b9a; }
+
+  .empty-box {
+    text-align: center;
+    padding: 28px 16px;
+    color: #666666;
+    font-size: 14px;
+    background: #fafafa;
+    border: 1px dashed #d0d7de;
+    border-radius: 8px;
+  }
+
+  .card-item {
+    border: 1px solid #e2e8f0;
+    border-left-width: 6px;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background: #ffffff;
+  }
+  .card-scaduta {
+    border-left-color: #dc2626;
+    background: #fef2f2;
+  }
+  .card-entro7 {
+    border-left-color: #ea580c;
+    background: #fff7ed;
+  }
+  .card-entro14 {
+    border-left-color: #ca8a04;
+    background: #fefce8;
+  }
+  .card-futura {
+    border-left-color: #16a34a;
+    background: #f0fdf4;
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+    color: #1e293b;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .period-tag {
+    font-size: 11px;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 999px;
+    color: #ffffff;
+  }
+  .tag-scaduta { background: #dc2626; }
+  .tag-entro7 { background: #ea580c; }
+  .tag-entro14 { background: #ca8a04; }
+  .tag-futura { background: #16a34a; }
+
+  .card-meta {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .credito-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .credito-alert {
+    color: #b91c1c;
+    font-weight: bold;
+  }
+  .credito-ok {
+    color: #15803d;
+    font-weight: bold;
+  }
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .status-banner {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: none;
+  }
+  .status-banner.ok {
+    display: block;
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #a5d6a7;
+  }
+  .status-banner.err {
+    display: block;
+    background: #ffebee;
+    color: #b71c1c;
+    border: 1px solid #ef9a9a;
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 999;
+  }
+  .modal-backdrop.open {
+    display: flex;
+  }
+  .modal-box {
+    width: 100%;
+    max-width: 680px;
+    max-height: 88vh;
+    overflow-y: auto;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 18px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 10px;
+  }
+  .modal-title {
+    font-size: 17px;
+    font-weight: bold;
+    color: #222222;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  @media (max-width: 600px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+  .field {
+    margin-bottom: 10px;
+  }
+  .field label {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    color: #444444;
+    margin-bottom: 4px;
+  }
+  .field input, .field textarea, .field select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #222222;
+    background: #ffffff;
+  }
+  .field textarea {
+    min-height: 72px;
+    resize: vertical;
+  }
+  .detail-row {
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 13px;
+    color: #333333;
+  }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
 </style>
 </head>
 <body>
 <div class="container">
-<h2>⏰ Scadenze</h2>
-<div class="counter-wrapper"><div class="counter" id="counter">Totale: 0</div></div>
-<div style="text-align:center; margin-bottom:15px;">
-    <span class="badge badge-scaduta">Scaduta</span>
-    <span class="badge badge-oggi">Oggi/Domani</span>
-    <span class="badge badge-prossimi">Entro 7 gg</span>
+  <h2>📅 Scadenze</h2>
+  <div class="badge-wrap"><span class="badge" id="badgeCount">Totale: 0</span></div>
+
+  <div class="filter-pills">
+    <button type="button" class="pill active" data-filtro="tutti" onclick="impostaFiltroPeriodo('tutti', this)">Tutti</button>
+    <button type="button" class="pill pill-scadute" data-filtro="scadute" onclick="impostaFiltroPeriodo('scadute', this)">Scadute</button>
+    <button type="button" class="pill pill-7" data-filtro="entro7" onclick="impostaFiltroPeriodo('entro7', this)">Entro 7 giorni</button>
+    <button type="button" class="pill pill-14" data-filtro="entro14" onclick="impostaFiltroPeriodo('entro14', this)">Entro 14 giorni</button>
+    <button type="button" class="pill pill-ok" data-filtro="oltre14" onclick="impostaFiltroPeriodo('oltre14', this)">Oltre 14 giorni</button>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="filtroNominativo" class="search-input" placeholder="Cerca per nominativo..." oninput="applicaFiltri()">
+    <button type="button" class="btn" onclick="caricaScadenze()">🔄 Aggiorna</button>
+  </div>
+
+  <div id="statusBanner" class="status-banner"></div>
+  <div id="listaScadenze"></div>
 </div>
-<input type="text" class="search" id="search" placeholder="🔍 Cerca per nominativo..." oninput="render(this.value)">
-<div id="lista"><div class="empty">Caricamento...</div></div>
+
+<!-- Modale Note / Dettaglio -->
+<div id="modalDettaglio" class="modal-backdrop" onclick="chiudiModaleSeSfondo(event, 'modalDettaglio')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="dettaglioTitolo">Dettaglio Scadenza</div>
+      <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalDettaglio')">✕</button>
+    </div>
+    <div id="dettaglioCorpo"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-warn btn-sm" id="btnDettaglioModifica">✏️ Modifica</button>
+      <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalDettaglio')">Chiudi</button>
+    </div>
+  </div>
 </div>
-<div class="toast" id="toast"></div>
+
+<!-- Modale Modifica Completa -->
+<div id="modalModifica" class="modal-backdrop" onclick="chiudiModaleSeSfondo(event, 'modalModifica')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Modifica Record Scadenza</div>
+      <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalModifica')">✕</button>
+    </div>
+    <form id="formModificaScadenza" onsubmit="salvaModifica(event)">
+      <div id="editCampiDinamici" class="grid-2"></div>
+      <div class="field" style="margin-top:10px;">
+        <label for="edit_note">Note / Informazioni</label>
+        <textarea id="edit_note"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalModifica')">Annulla</button>
+        <button type="submit" class="btn btn-green btn-sm">💾 Salva Modifiche</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modale Ricarica Saldo Credito -->
+<div id="modalSaldoCredito" class="modal-backdrop" onclick="chiudiModaleSeSfondo(event, 'modalSaldoCredito')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">⚡ Ricarica Saldo Credito</div>
+      <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalSaldoCredito')">✕</button>
+    </div>
+    <form id="formRicaricaSaldo" onsubmit="confermaRicaricaSaldoCredito(event)">
+      <div class="detail-row" id="saldoRiepilogoNominativo"></div>
+      <div class="grid-2" style="margin-top:12px;">
+        <div class="field">
+          <label for="DataCreditoSaldo">DataCreditoSaldo</label>
+          <input type="date" id="DataCreditoSaldo" name="DataCreditoSaldo" required>
+        </div>
+        <div class="field">
+          <label for="NumeroCreditoSaldo">NumeroCreditoSaldo</label>
+          <input type="text" id="NumeroCreditoSaldo" name="NumeroCreditoSaldo" list="listaCreditiDisponibili" placeholder="Seleziona o inserisci numero transazione" required>
+          <datalist id="listaCreditiDisponibili"></datalist>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalSaldoCredito')">Annulla</button>
+        <button type="submit" class="btn btn-purple btn-sm">⚡ Conferma Ricarica Saldo</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
+  let tutteScadenze = [];
+  let mappaRinnoviPerNominativo = {};
+  let filtroPeriodoCorrente = "tutti";
+  let idxCorrente = -1;
 
-function getHeaders(contentType) {
-    const headers = {};
-    if (contentType) headers['Content-Type'] = contentType;
-    const initData = tg.initData;
-    if (initData) headers['X-Telegram-Init-Data'] = initData;
-    return headers;
-}
-
-// Helper per convertire YYYY-MM-DD in GG/MM/AAAA
-const formatItalianDate = (dateStr) => {
-    if (!dateStr) return '-';
-    if (dateStr.includes('-')) {
-        const parts = dateStr.split('-');
-        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  try {
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.expand();
     }
-    return dateStr;
-};
+  } catch (e) {}
 
-let scadenze = [];
-
-async function carica() {
-    const box = document.getElementById('lista');
+  function getAuthHeaders() {
+    const headers = { "Content-Type": "application/json" };
     try {
-        const res = await fetch('/api/scadenze', { headers: getHeaders() });
-        if (!res.ok) { box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>'; return; }
-        scadenze = await res.json();
-        aggiornaContatore(scadenze.length);
-        render();
-    } catch (e) { box.innerHTML = '<div class="error">Errore: ' + e.message + '</div>'; }
-}
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+        headers["X-Telegram-Init-Data"] = window.Telegram.WebApp.initData;
+      }
+    } catch (e) {}
+    return headers;
+  }
 
-function aggiornaContatore(totale) { document.getElementById('counter').textContent = 'Totale: ' + totale; }
+  function mostraBanner(testo, ok) {
+    const el = document.getElementById("statusBanner");
+    el.textContent = testo;
+    el.className = "status-banner " + (ok ? "ok" : "err");
+  }
 
-// --- RENDER CON CONTATORE E LAYOUT LISTA CONTATTI ---
-function render(filter) {
-    filter = (filter || '').toLowerCase();
-    const f = scadenze.filter(s => (s.nominativo || '').toLowerCase().includes(filter));
-    
-    if (f.length === 0) {
-        document.getElementById('lista').innerHTML = '<div class="empty">Nessuna scadenza trovata. 🎉</div>';
-        return;
+  function nascondiBanner() {
+    const el = document.getElementById("statusBanner");
+    el.className = "status-banner";
+    el.textContent = "";
+  }
+
+  function estraiArray(data) {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === "object") {
+      for (const k of ["righe", "items", "scadenze", "contatti", "nominativi", "rinnovi", "data", "results"]) {
+        if (Array.isArray(data[k])) return data[k];
+      }
     }
-    
-    document.getElementById('lista').innerHTML = f.map((s, index) => {
-        let badgeClass = s.giorni < 0 ? 'badge-scaduta' : (s.giorni <= 1 ? 'badge-oggi' : 'badge-prossimi');
-        let badgeText = s.giorni < 0 ? 'Scaduta da ' + Math.abs(s.giorni) + ' giorni' : (s.giorni === 0 ? 'Scade oggi' : 'Tra ' + s.giorni + ' giorni');
-        
-        // Formatta la data in italiano per la visualizzazione
-        const scadenzaIt = formatItalianDate(s.scadenza);
-        
-        return '<div class="item">' +
-            '<div class="item-name">' + 
-                '<span style="color:#888; font-size:12px; margin-right:8px;">' + (index + 1) + ' -</span> ' + 
-                '<span class="' + badgeClass + '">' + badgeText + '</span><br>' +
-                (s.nominativo || '') + 
-                '<div class="item-sub">📅 Scadenza: ' + scadenzaIt + (s.orario_scadenza ? ' ore ' + s.orario_scadenza : '') + '</div>' +
-            '</div>' +
-            '<div class="item-actions">' +
-            '<button class="btn btn-rinnova" onclick="rinnova(' + s.nominativo_id + ', \'' + (s.nominativo || '').replace(/'/g,"\\'") + '\')">🔄 Rinnova</button>' +
-            '<button class="btn btn-wa" onclick="whatsapp(\'' + (s.nominativo || '').replace(/'/g,"\\'") + '\')">💬 WhatsApp</button>' +
-            '</div></div>';
-    }).join('');
-}
+    return [];
+  }
 
-function rinnova(id, nome) {
-    tg.showAlert('Funzione di rinnovo rapido per: ' + nome);
-}
+  function parseData(str) {
+    if (!str) return null;
+    const s = String(str).trim();
+    const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (iso) {
+      return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    }
+    const it = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (it) {
+      return new Date(Number(it[3]), Number(it[2]) - 1, Number(it[1]));
+    }
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
 
-function whatsapp(nome) {
-    const testo = 'Ciao ' + nome + ', ti contatto per la scadenza in corso dal bot AgendaGest.';
-    window.open('https://wa.me/?text=' + encodeURIComponent(testo), '_blank');
-}
+  function formattaDataIT(str) {
+    const d = parseData(str);
+    if (!d) return str ? String(str) : "-";
+    const gg = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const aaaa = d.getFullYear();
+    return `${gg}/${mm}/${aaaa}`;
+  }
 
-function mostraToast(msg) {
-    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
-    setTimeout(() => { t.classList.remove('show'); }, 2500);
-}
+  function calcolaGiorniDaOggi(dataScadStr) {
+    const d = parseData(dataScadStr);
+    if (!d) return null;
+    const now = new Date();
+    const oggi = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffMs = d.getTime() - oggi.getTime();
+    return Math.round(diffMs / 86400000);
+  }
 
-carica();
+  function classificaPeriodo(giorni) {
+    if (giorni === null) return { key: "oltre14", label: "Data n/d", cardClass: "card-futura", tagClass: "tag-futura" };
+    if (giorni < 0) return { key: "scadute", label: `Scaduta da ${Math.abs(giorni)} gg`, cardClass: "card-scaduta", tagClass: "tag-scaduta" };
+    if (giorni === 0) return { key: "entro7", label: "Scade oggi", cardClass: "card-entro7", tagClass: "tag-entro7" };
+    if (giorni <= 7) return { key: "entro7", label: `Scade tra ${giorni} gg`, cardClass: "card-entro7", tagClass: "tag-entro7" };
+    if (giorni <= 14) return { key: "entro14", label: `Scade tra ${giorni} gg`, cardClass: "card-entro14", tagClass: "tag-entro14" };
+    return { key: "oltre14", label: `Scade tra ${giorni} gg`, cardClass: "card-futura", tagClass: "tag-futura" };
+  }
+
+  function numVal(v) {
+    if (v === null || v === undefined || v === "") return 0;
+    const n = parseFloat(String(v).replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function leggiNome(it) {
+    return (
+      it.nominativo ||
+      it.nome ||
+      it.cliente ||
+      it.user_id ||
+      "Senza nominativo"
+    );
+  }
+
+  function normalizzaChiaveNome(nome) {
+    return String(nome || "").trim().toLowerCase();
+  }
+
+  function isRinnovataInAnticipo(item, listaCompleta, rinnoviList) {
+    const stato = String(item.stato || item.status || "").trim().toLowerCase();
+    if (item.rinnovato === true || item.rinnovata === true || stato === "rinnovato" || stato === "rinnovata") {
+      return true;
+    }
+
+    const nomeKey = normalizzaChiaveNome(leggiNome(item));
+    const dCorrente = parseData(item.data_fine || item.scadenza || item.data_scadenza);
+    if (!nomeKey || !dCorrente) return false;
+
+    const now = new Date();
+    const oggi = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (dCorrente.getTime() < oggi.getTime()) return false;
+
+    const candidati = [...listaCompleta, ...rinnoviList];
+    for (const altro of candidati) {
+      if (!altro || altro === item) continue;
+      if (normalizzaChiaveNome(leggiNome(altro)) !== nomeKey) continue;
+      const dAltra = parseData(altro.data_fine || altro.scadenza || altro.data_scadenza);
+      if (dAltra && dAltra.getTime() > dCorrente.getTime()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function trovaInfoCreditoPerNominativo(item) {
+    const nomeKey = normalizzaChiaveNome(leggiNome(item));
+    const rinn = mappaRinnoviPerNominativo[nomeKey] || null;
+    const sorgente = rinn || item;
+
+    const credRich = numVal(sorgente.credito_richiesto ?? sorgente.CreditoRichiesto);
+    const credDato = numVal(sorgente.credito_dato ?? sorgente.CreditoDato);
+    let credResta = numVal(sorgente.credito_resta ?? sorgente.CreditoResta);
+    if (credResta === 0 && credRich > credDato) {
+      credResta = credRich - credDato;
+    }
+
+    const trans = sorgente.numeraz_trans_crediti || sorgente.NumerazTransCrediti || "";
+    const dataSaldo = sorgente.data_credito_saldo || sorgente.DataCreditoSaldo || "";
+    const numSaldo = sorgente.numero_credito_saldo || sorgente.NumeroCreditoSaldo || "";
+
+    return {
+      rinnovoRecord: rinn,
+      creditoRichiesto: credRich,
+      creditoDato: credDato,
+      creditoResta: credResta,
+      numerazTransCrediti: trans,
+      dataCreditoSaldo: dataSaldo,
+      numeroCreditoSaldo: numSaldo
+    };
+  }
+
+  function impostaFiltroPeriodo(periodo, btnEl) {
+    filtroPeriodoCorrente = periodo;
+    document.querySelectorAll(".filter-pills .pill").forEach((p) => p.classList.remove("active"));
+    if (btnEl) btnEl.classList.add("active");
+    applicaFiltri();
+  }
+
+  function applicaFiltri() {
+    const q = (document.getElementById("filtroNominativo").value || "").trim().toLowerCase();
+    const filtrati = tutteScadenze.filter((it) => {
+      const giorni = calcolaGiorniDaOggi(it.data_fine || it.scadenza || it.data_scadenza);
+      const infoPeriodo = classificaPeriodo(giorni);
+      if (filtroPeriodoCorrente !== "tutti" && infoPeriodo.key !== filtroPeriodoCorrente) {
+        return false;
+      }
+      if (!q) return true;
+      const blob = Object.values(it || {})
+        .filter((v) => v !== null && v !== undefined && typeof v !== "object")
+        .join(" ")
+        .toLowerCase();
+      return blob.includes(q);
+    });
+    renderScadenze(filtrati);
+  }
+
+  function renderScadenze(items) {
+    const box = document.getElementById("listaScadenze");
+    const badge = document.getElementById("badgeCount");
+    if (badge) badge.textContent = `Totale: ${items.length}`;
+
+    if (!items.length) {
+      box.innerHTML = '<div class="empty-box">Nessuna scadenza trovata</div>';
+      return;
+    }
+
+    box.innerHTML = items.map((it) => {
+      const idx = tutteScadenze.indexOf(it);
+      const nom = leggiNome(it);
+      const scadRaw = it.data_fine || it.scadenza || it.data_scadenza || "";
+      const scadIT = formattaDataIT(scadRaw);
+      const giorni = calcolaGiorniDaOggi(scadRaw);
+      const per = classificaPeriodo(giorni);
+
+      const tel = it.telefono || it.cellulare || it.num_cellulare || "-";
+      const srv = it.server ? ` &nbsp;|&nbsp; <strong>Server:</strong> ${String(it.server)}` : "";
+      const res = it.reseller ? ` &nbsp;|&nbsp; <strong>Reseller:</strong> ${String(it.reseller)}` : "";
+      const noteText = it.informazioni || it.note || "";
+      const noteHtml = noteText ? `<br><strong>Note:</strong> ${String(noteText)}` : "";
+
+      const cred = trovaInfoCreditoPerNominativo(it);
+      const haResiduo = cred.creditoResta > 0;
+      const infoSaldoExtra = cred.dataCreditoSaldo
+        ? ` (Saldato il ${formattaDataIT(cred.dataCreditoSaldo)}${cred.numeroCreditoSaldo ? ` - Rif. ${cred.numeroCreditoSaldo}` : ""})`
+        : "";
+      const infoTransParziale = cred.numerazTransCrediti
+        ? ` &nbsp;|&nbsp; Ultima ricarica: <strong>${cred.numerazTransCrediti}</strong>`
+        : "";
+
+      return `
+        <div class="card-item ${per.cardClass}">
+          <div class="card-top">
+            <span>${String(nom)} &nbsp;•&nbsp; Scadenza: ${scadIT}</span>
+            <span class="period-tag ${per.tagClass}">${per.label}</span>
+          </div>
+          <div class="card-meta">
+            <strong>Tel:</strong> ${String(tel)}${srv}${res}${noteHtml}
+          </div>
+          <div class="credito-box">
+            <div>
+              <strong>Saldo Credito (ultima ricarica parziale):</strong>
+              <span class="${haResiduo ? "credito-alert" : "credito-ok"}">
+                ${cred.creditoResta.toFixed(2)}
+              </span>
+              ${infoTransParziale}${infoSaldoExtra}
+            </div>
+            <button type="button" class="btn btn-purple btn-sm" onclick="apriRicaricaSaldo(${idx})">
+              ⚡ Ricarica Saldo Credito
+            </button>
+          </div>
+          <div class="card-actions">
+            <button type="button" class="btn btn-info btn-sm" onclick="apriNoteDettaglio(${idx})">📝 Note / Dettaglio</button>
+            <button type="button" class="btn btn-warn btn-sm" onclick="apriModifica(${idx})">✏️ Modifica</button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="eliminaScadenza(${idx})">🗑️ Cancellazione</button>
+            <button type="button" class="btn btn-wa btn-sm" onclick="inviaWhatsApp(${idx})">💬 WhatsApp</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function inviaWhatsApp(idx) {
+    const item = tutteScadenze[idx];
+    if (!item) return;
+
+    const nome = leggiNome(item);
+    const scadIT = formattaDataIT(item.data_fine || item.scadenza || item.data_scadenza);
+    const messaggio = `Ciao ${nome} il tuo rinnovo scade il ${scadIT}`;
+
+    let tel = String(item.telefono || item.cellulare || item.num_cellulare || "").replace(/[^\d+]/g, "");
+    if (tel.startsWith("+")) tel = tel.slice(1);
+    if (tel && tel.length === 10 && tel.startsWith("3")) {
+      tel = "39" + tel;
+    }
+
+    const url = tel
+      ? `https://wa.me/${tel}?text=${encodeURIComponent(messaggio)}`
+      : `https://wa.me/?text=${encodeURIComponent(messaggio)}`;
+
+    window.open(url, "_blank");
+  }
+
+  function chiudiModale(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove("open");
+  }
+
+  function chiudiModaleSeSfondo(ev, id) {
+    if (ev && ev.target && ev.target.id === id) {
+      chiudiModale(id);
+    }
+  }
+
+  function apriNoteDettaglio(idx) {
+    const item = tutteScadenze[idx];
+    if (!item) return;
+    idxCorrente = idx;
+
+    document.getElementById("dettaglioTitolo").textContent = `📄 Dettaglio: ${leggiNome(item)}`;
+    const corpo = document.getElementById("dettaglioCorpo");
+    corpo.innerHTML = Object.entries(item).map(([k, v]) => {
+      const val = v === null || v === undefined || v === "" ? "-" : String(v);
+      return `<div class="detail-row"><strong>${k}:</strong> ${val}</div>`;
+    }).join("");
+
+    document.getElementById("btnDettaglioModifica").onclick = function () {
+      chiudiModale("modalDettaglio");
+      apriModifica(idx);
+    };
+
+    document.getElementById("modalDettaglio").classList.add("open");
+  }
+
+  function apriModifica(idx) {
+    const item = tutteScadenze[idx];
+    if (!item) return;
+    idxCorrente = idx;
+
+    const campiNoteKeys = ["note", "informazioni", "info"];
+    let noteVal = "";
+    for (const k of campiNoteKeys) {
+      if (item[k] !== undefined && item[k] !== null && String(item[k]).trim() !== "") {
+        noteVal = String(item[k]);
+        break;
+      }
+    }
+    document.getElementById("edit_note").value = noteVal;
+
+    const contenitore = document.getElementById("editCampiDinamici");
+    const escluse = new Set(["id", ...campiNoteKeys]);
+    const chiavi = Object.keys(item).filter((k) => !escluse.has(k));
+
+    contenitore.innerHTML = chiavi.map((chiave) => {
+      const val = item[chiave] === null || item[chiave] === undefined ? "" : String(item[chiave]);
+      const safeVal = val.replace(/"/g, "&quot;");
+      return `
+        <div class="field">
+          <label for="edit_field_${chiave}">${chiave}</label>
+          <input type="text" id="edit_field_${chiave}" data-campo="${chiave}" value="${safeVal}">
+        </div>
+      `;
+    }).join("");
+
+    document.getElementById("modalModifica").classList.add("open");
+  }
+
+  async function salvaModifica(ev) {
+    ev.preventDefault();
+    const item = tutteScadenze[idxCorrente];
+    if (!item) return;
+
+    const aggiornato = { ...item };
+    document.querySelectorAll("#editCampiDinamici input[data-campo]").forEach((inp) => {
+      aggiornato[inp.getAttribute("data-campo")] = inp.value;
+    });
+
+    const noteNuove = document.getElementById("edit_note").value;
+    if ("note" in aggiornato || !("informazioni" in aggiornato)) aggiornato.note = noteNuove;
+    if ("informazioni" in aggiornato) aggiornato.informazioni = noteNuove;
+
+    const idRecord = item.id;
+    let ok = false;
+    if (idRecord !== undefined && idRecord !== null) {
+      for (const url of [
+        `/api/scadenze/${encodeURIComponent(idRecord)}`,
+        `/api/contatti/${encodeURIComponent(idRecord)}`,
+        `/api/nominativi/${encodeURIComponent(idRecord)}`
+      ]) {
+        try {
+          const res = await fetch(url, {
+            method: "PUT",
+            headers: getAuthHeaders(),
+            body: JSON.stringify(aggiornato)
+          });
+          if (res.ok) {
+            ok = true;
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+
+    tutteScadenze[idxCorrente] = aggiornato;
+    applicaFiltri();
+    chiudiModale("modalModifica");
+    mostraBanner(ok ? "Scadenza modificata e salvata su server." : "Scadenza aggiornata in elenco.", true);
+  }
+
+  async function eliminaScadenza(idx) {
+    const item = tutteScadenze[idx];
+    if (!item) return;
+
+    const nome = leggiNome(item);
+    if (!window.confirm(`Vuoi davvero eliminare la scadenza di "${nome}"?`)) return;
+
+    const idRecord = item.id;
+    let ok = false;
+    if (idRecord !== undefined && idRecord !== null) {
+      for (const url of [
+        `/api/scadenze/${encodeURIComponent(idRecord)}`,
+        `/api/contatti/${encodeURIComponent(idRecord)}`,
+        `/api/nominativi/${encodeURIComponent(idRecord)}`
+      ]) {
+        try {
+          const res = await fetch(url, {
+            method: "DELETE",
+            headers: getAuthHeaders()
+          });
+          if (res.ok) {
+            ok = true;
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+
+    tutteScadenze.splice(idx, 1);
+    applicaFiltri();
+    mostraBanner(ok ? `Record "${nome}" eliminato dal database.` : `Record "${nome}" rimosso dall'elenco.`, true);
+  }
+
+  async function caricaCreditiDisponibiliDatalist() {
+    const dl = document.getElementById("listaCreditiDisponibili");
+    if (!dl) return;
+    dl.innerHTML = "";
+    try {
+      const res = await fetch("/api/crediti", { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      const json = await res.json();
+      const righe = estraiArray(json);
+      righe.forEach((r) => {
+        const idVal = r.id != null ? String(r.id).trim() : "";
+        const codice = r.NumerazTransCrediti || r.numeraz_trans_crediti || (idVal ? `CRED-${idVal}` : "");
+        if (codice) {
+          const opt = document.createElement("option");
+          opt.value = codice;
+          opt.label = `${codice} - ${r.fornitore || ""} (${r.data_acquisto || ""})`;
+          dl.appendChild(opt);
+        }
+      });
+    } catch (e) {}
+  }
+
+  async function apriRicaricaSaldo(idx) {
+    const item = tutteScadenze[idx];
+    if (!item) return;
+    idxCorrente = idx;
+
+    const nome = leggiNome(item);
+    const cred = trovaInfoCreditoPerNominativo(item);
+    const oggi = new Date().toISOString().slice(0, 10);
+
+    document.getElementById("saldoRiepilogoNominativo").innerHTML =
+      `<strong>Nominativo:</strong> ${nome} &nbsp;|&nbsp; <strong>Saldo Credito da saldare:</strong> ${cred.creditoResta.toFixed(2)}`;
+    document.getElementById("DataCreditoSaldo").value = oggi;
+    document.getElementById("NumeroCreditoSaldo").value = cred.numeroCreditoSaldo || "";
+
+    await caricaCreditiDisponibiliDatalist();
+    document.getElementById("modalSaldoCredito").classList.add("open");
+  }
+
+  async function confermaRicaricaSaldoCredito(ev) {
+    ev.preventDefault();
+    const item = tutteScadenze[idxCorrente];
+    if (!item) return;
+
+    const nome = leggiNome(item);
+    const nomeKey = normalizzaChiaveNome(nome);
+    const dataCreditoSaldo = document.getElementById("DataCreditoSaldo").value.trim();
+    const numeroCreditoSaldo = document.getElementById("NumeroCreditoSaldo").value.trim();
+
+    if (!dataCreditoSaldo || !numeroCreditoSaldo) {
+      mostraBanner("Compila DataCreditoSaldo e NumeroCreditoSaldo.", false);
+      return;
+    }
+
+    const cred = trovaInfoCreditoPerNominativo(item);
+    const payload = {
+      nominativo: nome,
+      rinnovo_id: cred.rinnovoRecord ? cred.rinnovoRecord.id : null,
+      contatto_id: item.id || null,
+      DataCreditoSaldo: dataCreditoSaldo,
+      data_credito_saldo: dataCreditoSaldo,
+      NumeroCreditoSaldo: numeroCreditoSaldo,
+      numero_credito_saldo: numeroCreditoSaldo
+    };
+
+    let salvato = false;
+    try {
+      const res = await fetch("/api/rinnovi/saldo_credito", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) salvato = true;
+    } catch (e) {}
+
+    if (cred.rinnovoRecord) {
+      cred.rinnovoRecord.data_credito_saldo = dataCreditoSaldo;
+      cred.rinnovoRecord.DataCreditoSaldo = dataCreditoSaldo;
+      cred.rinnovoRecord.numero_credito_saldo = numeroCreditoSaldo;
+      cred.rinnovoRecord.NumeroCreditoSaldo = numeroCreditoSaldo;
+      cred.rinnovoRecord.credito_dato = cred.creditoRichiesto || cred.creditoDato;
+      cred.rinnovoRecord.credito_resta = 0;
+      mappaRinnoviPerNominativo[nomeKey] = cred.rinnovoRecord;
+    }
+
+    item.data_credito_saldo = dataCreditoSaldo;
+    item.DataCreditoSaldo = dataCreditoSaldo;
+    item.numero_credito_saldo = numeroCreditoSaldo;
+    item.NumeroCreditoSaldo = numeroCreditoSaldo;
+    item.credito_resta = 0;
+
+    chiudiModale("modalSaldoCredito");
+    applicaFiltri();
+    mostraBanner(
+      salvato
+        ? `Saldo credito aggiornato sul rinnovo di "${nome}" (Data: ${formattaDataIT(dataCreditoSaldo)}, Rif: ${numeroCreditoSaldo}).`
+        : `Saldo credito aggiornato localmente per "${nome}".`,
+      true
+    );
+  }
+
+  async function caricaScadenze() {
+    nascondiBanner();
+    const box = document.getElementById("listaScadenze");
+    box.innerHTML = '<div class="empty-box">Caricamento scadenze...</div>';
+
+    let rinnoviList = [];
+    for (const urlRinn of ["/api/rinnovi", "/api/calcoli?tipo=Rinnovo"]) {
+      try {
+        const resR = await fetch(urlRinn, { headers: getAuthHeaders() });
+        if (!resR.ok) continue;
+        const jsonR = await resR.json();
+        const arrR = estraiArray(jsonR);
+        if (arrR.length > 0) {
+          rinnoviList = arrR;
+          break;
+        }
+      } catch (e) {}
+    }
+
+    mappaRinnoviPerNominativo = {};
+    rinnoviList.forEach((r) => {
+      const k = normalizzaChiaveNome(leggiNome(r));
+      if (!k) return;
+      if (!mappaRinnoviPerNominativo[k]) {
+        mappaRinnoviPerNominativo[k] = r;
+      }
+    });
+
+    let grezze = [];
+    for (const url of ["/api/scadenze", "/api/contatti", "/api/nominativi"]) {
+      try {
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const arr = estraiArray(json);
+        if (arr.length > 0) {
+          grezze = arr;
+          break;
+        }
+      } catch (e) {}
+    }
+
+    const soloConScadenza = grezze.filter((it) => {
+      const scad = it.data_fine || it.scadenza || it.data_scadenza || "";
+      if (!String(scad).trim()) return false;
+      return !isRinnovataInAnticipo(it, grezze, rinnoviList);
+    });
+
+    soloConScadenza.sort((a, b) => {
+      const da = parseData(a.data_fine || a.scadenza || a.data_scadenza);
+      const db = parseData(b.data_fine || b.scadenza || b.data_scadenza);
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return da.getTime() - db.getTime();
+    });
+
+    tutteScadenze = soloConScadenza;
+    applicaFiltri();
+  }
+
+  caricaScadenze();
 </script>
 </body>
 </html>
