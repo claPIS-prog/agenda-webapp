@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lista Contatti - Movimenti Nominativi</title>
+<title>Lista Contatti</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   * { box-sizing: border-box; }
@@ -34,7 +34,7 @@
   }
   .badge-wrap {
     text-align: center;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
   .badge {
     display: inline-block;
@@ -42,29 +42,23 @@
     color: #ffffff;
     font-size: 12px;
     font-weight: bold;
-    padding: 4px 10px;
+    padding: 4px 12px;
     border-radius: 999px;
   }
-  .section-box {
-    background: #fafafa;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 14px;
-    margin-bottom: 14px;
-  }
-  .section-title {
-    font-size: 12px;
+  .section-label {
+    font-size: 11px;
     font-weight: bold;
-    color: #0088cc;
-    margin-bottom: 10px;
-    text-transform: uppercase;
     letter-spacing: 0.4px;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 8px;
   }
   .toolbar {
     display: flex;
     gap: 10px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     flex-wrap: wrap;
+    align-items: center;
   }
   .search-input {
     flex: 1;
@@ -91,19 +85,18 @@
   .btn-warn { background: #ef6c00; }
   .btn-danger { background: #c62828; }
   .btn-gray { background: #607d8b; }
-  .btn-sm {
-    padding: 6px 10px;
-    font-size: 12px;
-  }
+  .btn-sm { padding: 6px 10px; font-size: 12px; }
+
   .empty-box {
     text-align: center;
     padding: 28px 16px;
     color: #666666;
     font-size: 14px;
-    background: #ffffff;
+    background: #fafafa;
     border: 1px dashed #d0d7de;
     border-radius: 8px;
   }
+
   .card-item {
     border: 1px solid #e0e0e0;
     border-left: 4px solid #0088cc;
@@ -133,6 +126,27 @@
     gap: 8px;
     flex-wrap: wrap;
   }
+
+  .status-banner {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: none;
+  }
+  .status-banner.ok {
+    display: block;
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #a5d6a7;
+  }
+  .status-banner.err {
+    display: block;
+    background: #ffebee;
+    color: #b71c1c;
+    border: 1px solid #ef9a9a;
+  }
+
   .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -148,7 +162,7 @@
   }
   .modal-box {
     width: 100%;
-    max-width: 700px;
+    max-width: 680px;
     max-height: 88vh;
     overflow-y: auto;
     background: #ffffff;
@@ -212,68 +226,47 @@
     margin-top: 14px;
     flex-wrap: wrap;
   }
-  .status-banner {
-    margin-bottom: 12px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    font-size: 13px;
-    display: none;
-  }
-  .status-banner.ok {
-    display: block;
-    background: #e8f5e9;
-    color: #1b5e20;
-    border: 1px solid #a5d6a7;
-  }
-  .status-banner.err {
-    display: block;
-    background: #ffebee;
-    color: #b71c1c;
-    border: 1px solid #ef9a9a;
-  }
 </style>
 </head>
 <body>
 <div class="container">
-  <h2>📋 Lista Contatti</h2>
+  <h2>👥 Lista Contatti</h2>
   <div class="badge-wrap"><span class="badge" id="badgeCount">Totale: 0</span></div>
+  <div class="section-label">MOVIMENTI NOMINATIVI</div>
 
-  <div class="section-box">
-    <div class="section-title">Movimenti Nominativi</div>
-    <div class="toolbar">
-      <input type="text" id="filtroContatto" class="search-input" placeholder="Cerca per nominativo, telefono, server, reseller o note..." oninput="applicaFiltro()">
-      <button type="button" class="btn" onclick="caricaContatti()">🔄 Aggiorna</button>
-      <button type="button" class="btn btn-green" onclick="vaiNuovoNominativo()">➕ Nuovo Nominativo</button>
-    </div>
-    <div id="statusBanner" class="status-banner"></div>
-    <div id="listaContainer"></div>
+  <div class="toolbar">
+    <input type="text" id="filtroContatti" class="search-input" list="listaNominativi" placeholder="Cerca per nominativo, telefono, server, reseller..." oninput="applicaFiltro()" onchange="applicaFiltro()">
+    <datalist id="listaNominativi"></datalist>
+    <button type="button" class="btn btn-green" onclick="vaiNuovoNominativo()">➕ Nuovo Nominativo</button>
   </div>
+
+  <div id="statusBanner" class="status-banner"></div>
+  <div id="listaContatti"></div>
 </div>
 
 <!-- Modale Note / Dettaglio -->
 <div id="modalDettaglio" class="modal-backdrop" onclick="chiudiModaleSeSfondo(event, 'modalDettaglio')">
   <div class="modal-box">
     <div class="modal-header">
-      <div class="modal-title" id="dettaglioTitolo">Note / Dettaglio Nominativo</div>
+      <div class="modal-title" id="dettaglioTitolo">Note / Dettaglio Contatto</div>
       <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalDettaglio')">✕</button>
     </div>
     <div id="dettaglioCorpo"></div>
     <div class="modal-footer">
-      <button type="button" class="btn btn-warn btn-sm" id="btnDettaglioModifica">✏️ Modifica Tutti i Campi</button>
+      <button type="button" class="btn btn-warn btn-sm" id="btnDettaglioModifica">✏️ Modifica</button>
       <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalDettaglio')">Chiudi</button>
     </div>
   </div>
 </div>
 
-<!-- Modale Modifica Completa -->
+<!-- Modale Modifica Tutti i Campi -->
 <div id="modalModifica" class="modal-backdrop" onclick="chiudiModaleSeSfondo(event, 'modalModifica')">
   <div class="modal-box">
     <div class="modal-header">
       <div class="modal-title">✏️ Modifica Nominativo (Tutti i Campi)</div>
       <button type="button" class="btn btn-gray btn-sm" onclick="chiudiModale('modalModifica')">✕</button>
     </div>
-    <form id="formModificaNominativo" onsubmit="salvaModificaNominativo(event)">
-      <input type="hidden" id="edit_id">
+    <form id="formModificaContatto" onsubmit="salvaModifica(event)">
       <div id="editCampiDinamici" class="grid-2"></div>
       <div class="field" style="margin-top:10px;">
         <label for="edit_note">Note / Informazioni</label>
@@ -289,7 +282,7 @@
 
 <script>
   let tuttiContatti = [];
-  let contattoCorrenteIdx = -1;
+  let idxCorrente = -1;
 
   try {
     if (window.Telegram && window.Telegram.WebApp) {
@@ -308,19 +301,17 @@
   }
 
   function vaiNuovoNominativo() {
-    window.location.href = "/index.html?t=" + Date.now();
+    window.location.href = "/nominativo.html?t=" + Date.now();
   }
 
   function mostraBanner(testo, ok) {
     const el = document.getElementById("statusBanner");
-    if (!el) return;
     el.textContent = testo;
     el.className = "status-banner " + (ok ? "ok" : "err");
   }
 
   function nascondiBanner() {
     const el = document.getElementById("statusBanner");
-    if (!el) return;
     el.className = "status-banner";
     el.textContent = "";
   }
@@ -328,7 +319,7 @@
   function estraiArray(data) {
     if (Array.isArray(data)) return data;
     if (data && typeof data === "object") {
-      for (const k of ["righe", "items", "contatti", "nominativi", "clienti", "data", "results"]) {
+      for (const k of ["righe", "items", "contatti", "nominativi", "data", "results"]) {
         if (Array.isArray(data[k])) return data[k];
       }
     }
@@ -337,24 +328,29 @@
 
   function leggiNome(it) {
     if (typeof it === "string") return it;
-    return (
-      it.nominativo ||
-      it.nome ||
-      it.cliente ||
-      it.user_id ||
-      it.username ||
-      it.telefono ||
-      it.cellulare ||
-      "Senza nominativo"
-    );
+    return it.nominativo || it.nome || it.cliente || "Senza nominativo";
   }
 
-  function trovaIndiceContatto(item) {
-    return tuttiContatti.indexOf(item);
+  function popolaDatalistNominativi(listaNomi) {
+    const dl = document.getElementById("listaNominativi");
+    if (!dl) return;
+    const unici = [];
+    const visti = new Set();
+    for (const n of listaNomi) {
+      const pulito = String(n || "").trim();
+      if (!pulito) continue;
+      const chiave = pulito.toLowerCase();
+      if (!visti.has(chiave)) {
+        visti.add(chiave);
+        unici.push(pulito);
+      }
+    }
+    unici.sort((a, b) => a.localeCompare(b, "it", { sensitivity: "base" }));
+    dl.innerHTML = unici.map((nome) => `<option value="${nome.replace(/"/g, "&quot;")}"></option>`).join("");
   }
 
-  function renderLista(items) {
-    const box = document.getElementById("listaContainer");
+  function renderContatti(items) {
+    const box = document.getElementById("listaContatti");
     const badge = document.getElementById("badgeCount");
     if (badge) badge.textContent = `Totale: ${items.length}`;
 
@@ -364,32 +360,34 @@
     }
 
     box.innerHTML = items.map((it) => {
-      if (typeof it === "string") {
-        return `<div class="card-item"><div class="card-top"><span>${it}</span></div></div>`;
-      }
-      const idx = trovaIndiceContatto(it);
+      const idx = tuttiContatti.indexOf(it);
       const nom = leggiNome(it);
-      const tel = it.telefono || it.cellulare || it.num_cellulare || "-";
-      const tipo = it.tipo ? ` &nbsp;|&nbsp; <strong>Tipo:</strong> ${String(it.tipo)}` : "";
-      const srv = it.server ? ` &nbsp;|&nbsp; <strong>Server:</strong> ${String(it.server)}` : "";
-      const res = it.reseller ? ` &nbsp;|&nbsp; <strong>Reseller:</strong> ${String(it.reseller)}` : "";
-      const scad = (it.data_fine || it.scadenza) ? ` &nbsp;|&nbsp; <strong>Scadenza:</strong> ${String(it.data_fine || it.scadenza)}` : "";
-      const noteText = it.informazioni || it.note || it.info || "";
-      const note = noteText ? `<br><strong>Note:</strong> ${String(noteText)}` : "";
+      const tipo = it.tipo || "-";
+      const srv = it.server || "-";
+      const res = it.reseller || "-";
+      const scad = it.data_fine || it.scadenza || it.data_scadenza || "-";
+      const tel = it.telefono || it.cellulare || it.num_cellulare || "";
+      const telHtml = tel ? ` &nbsp;|&nbsp; <strong>Tel:</strong> ${String(tel)}` : "";
+      const noteText = it.informazioni || it.note || "";
+      const noteHtml = noteText ? `<br><strong>Note:</strong> ${String(noteText)}` : "";
 
       return `
         <div class="card-item">
           <div class="card-top">
             <span>${String(nom)}</span>
-            <span>${String(tel)}</span>
           </div>
           <div class="card-meta">
-            ${tipo}${srv}${res}${scad}${note}
+            <strong>Tipo:</strong> ${String(tipo)} &nbsp;|&nbsp;
+            <strong>Server:</strong> ${String(srv)} &nbsp;|&nbsp;
+            <strong>Reseller:</strong> ${String(res)} &nbsp;|&nbsp;
+            <strong>Scadenza:</strong> ${String(scad)}
+            ${telHtml}
+            ${noteHtml}
           </div>
           <div class="card-actions">
             <button type="button" class="btn btn-info btn-sm" onclick="apriNoteDettaglio(${idx})">📝 Note / Dettaglio</button>
             <button type="button" class="btn btn-warn btn-sm" onclick="apriModifica(${idx})">✏️ Modifica</button>
-            <button type="button" class="btn btn-danger btn-sm" onclick="eliminaNominativo(${idx})">🗑️ Elimina</button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="eliminaContatto(${idx})">🗑️ Elimina</button>
           </div>
         </div>
       `;
@@ -397,20 +395,16 @@
   }
 
   function applicaFiltro() {
-    const q = (document.getElementById("filtroContatto").value || "").trim().toLowerCase();
+    const q = (document.getElementById("filtroContatti").value || "").trim().toLowerCase();
     if (!q) {
-      renderLista(tuttiContatti);
+      renderContatti(tuttiContatti);
       return;
     }
     const filtrati = tuttiContatti.filter((it) => {
-      if (typeof it === "string") return it.toLowerCase().includes(q);
-      const blob = Object.values(it || {})
-        .filter((v) => v !== null && v !== undefined && typeof v !== "object")
-        .join(" ")
-        .toLowerCase();
-      return blob.includes(q);
+      const testo = JSON.stringify(it).toLowerCase();
+      return testo.includes(q);
     });
-    renderLista(filtrati);
+    renderContatti(filtrati);
   }
 
   function chiudiModale(id) {
@@ -426,20 +420,17 @@
 
   function apriNoteDettaglio(idx) {
     const item = tuttiContatti[idx];
-    if (!item || typeof item !== "object") return;
-    contattoCorrenteIdx = idx;
+    if (!item) return;
+    idxCorrente = idx;
 
     document.getElementById("dettaglioTitolo").textContent = `📄 Dettaglio: ${leggiNome(item)}`;
     const corpo = document.getElementById("dettaglioCorpo");
-    const entries = Object.entries(item);
-
-    corpo.innerHTML = entries.map(([chiave, valore]) => {
-      const valStr = valore === null || valore === undefined || valore === "" ? "-" : String(valore);
-      return `<div class="detail-row"><strong>${chiave}:</strong> ${valStr}</div>`;
+    corpo.innerHTML = Object.entries(item).map(([k, v]) => {
+      const val = v === null || v === undefined || v === "" ? "-" : String(v);
+      return `<div class="detail-row"><strong>${k}:</strong> ${val}</div>`;
     }).join("");
 
-    const btnMod = document.getElementById("btnDettaglioModifica");
-    btnMod.onclick = function () {
+    document.getElementById("btnDettaglioModifica").onclick = function () {
       chiudiModale("modalDettaglio");
       apriModifica(idx);
     };
@@ -449,13 +440,10 @@
 
   function apriModifica(idx) {
     const item = tuttiContatti[idx];
-    if (!item || typeof item !== "object") return;
-    contattoCorrenteIdx = idx;
+    if (!item) return;
+    idxCorrente = idx;
 
-    const idVal = item.id !== undefined && item.id !== null ? String(item.id) : "";
-    document.getElementById("edit_id").value = idVal;
-
-    const campiNoteKeys = ["note", "informazioni", "info", "annotazioni"];
+    const campiNoteKeys = ["note", "informazioni", "info"];
     let noteVal = "";
     for (const k of campiNoteKeys) {
       if (item[k] !== undefined && item[k] !== null && String(item[k]).trim() !== "") {
@@ -466,8 +454,8 @@
     document.getElementById("edit_note").value = noteVal;
 
     const contenitore = document.getElementById("editCampiDinamici");
-    const chiaviEscluse = new Set(["id", ...campiNoteKeys]);
-    const chiavi = Object.keys(item).filter((k) => !chiaviEscluse.has(k));
+    const escluse = new Set(["id", ...campiNoteKeys]);
+    const chiavi = Object.keys(item).filter((k) => !escluse.has(k));
 
     contenitore.innerHTML = chiavi.map((chiave) => {
       const val = item[chiave] === null || item[chiave] === undefined ? "" : String(item[chiave]);
@@ -483,51 +471,31 @@
     document.getElementById("modalModifica").classList.add("open");
   }
 
-  async function salvaModificaNominativo(ev) {
+  async function salvaModifica(ev) {
     ev.preventDefault();
-    const item = tuttiContatti[contattoCorrenteIdx];
-    if (!item || typeof item !== "object") return;
+    const item = tuttiContatti[idxCorrente];
+    if (!item) return;
 
     const aggiornato = { ...item };
-    const inputs = document.querySelectorAll("#editCampiDinamici input[data-campo]");
-    inputs.forEach((inp) => {
-      const campo = inp.getAttribute("data-campo");
-      aggiornato[campo] = inp.value;
+    document.querySelectorAll("#editCampiDinamici input[data-campo]").forEach((inp) => {
+      aggiornato[inp.getAttribute("data-campo")] = inp.value;
     });
 
     const noteNuove = document.getElementById("edit_note").value;
-    if ("note" in aggiornato || !("informazioni" in aggiornato)) {
-      aggiornato.note = noteNuove;
-    }
-    if ("informazioni" in aggiornato) {
-      aggiornato.informazioni = noteNuove;
-    }
+    if ("note" in aggiornato || !("informazioni" in aggiornato)) aggiornato.note = noteNuove;
+    if ("informazioni" in aggiornato) aggiornato.informazioni = noteNuove;
 
     const idRecord = item.id;
-    const urlsPut = idRecord !== undefined && idRecord !== null
-      ? [`/api/contatti/${encodeURIComponent(idRecord)}`, `/api/nominativi/${encodeURIComponent(idRecord)}`]
-      : [];
-
     let ok = false;
-    for (const url of urlsPut) {
-      try {
-        const res = await fetch(url, {
-          method: "PUT",
-          headers: getAuthHeaders(),
-          body: JSON.stringify(aggiornato)
-        });
-        if (res.ok) {
-          ok = true;
-          break;
-        }
-      } catch (e) {}
-    }
-
-    if (!ok) {
-      for (const url of ["/api/contatti", "/api/nominativi"]) {
+    if (idRecord !== undefined && idRecord !== null) {
+      for (const url of [
+        `/api/contatti/${encodeURIComponent(idRecord)}`,
+        `/api/nominativi/${encodeURIComponent(idRecord)}`,
+        `/api/scadenze/${encodeURIComponent(idRecord)}`
+      ]) {
         try {
           const res = await fetch(url, {
-            method: "POST",
+            method: "PUT",
             headers: getAuthHeaders(),
             body: JSON.stringify(aggiornato)
           });
@@ -539,39 +507,34 @@
       }
     }
 
-    tuttiContatti[contattoCorrenteIdx] = aggiornato;
+    tuttiContatti[idxCorrente] = aggiornato;
     applicaFiltro();
     chiudiModale("modalModifica");
-    mostraBanner(
-      ok ? "Modifiche salvate su server e aggiornate in lista." : "Modifiche aggiornate in lista (endpoint di salvataggio non trovato).",
-      true
-    );
+    mostraBanner(ok ? "Contatto modificato e salvato su server." : "Contatto aggiornato in elenco.", true);
   }
 
-  async function eliminaNominativo(idx) {
+  async function eliminaContatto(idx) {
     const item = tuttiContatti[idx];
-    if (!item || typeof item !== "object") return;
+    if (!item) return;
 
     const nome = leggiNome(item);
-    const conferma = window.confirm(`Vuoi davvero eliminare "${nome}"?`);
-    if (!conferma) return;
+    if (!window.confirm(`Vuoi davvero eliminare "${nome}"?`)) return;
 
     const idRecord = item.id;
-    let eliminatoServer = false;
-
+    let ok = false;
     if (idRecord !== undefined && idRecord !== null) {
-      const urlsDel = [
+      for (const url of [
         `/api/contatti/${encodeURIComponent(idRecord)}`,
-        `/api/nominativi/${encodeURIComponent(idRecord)}`
-      ];
-      for (const url of urlsDel) {
+        `/api/nominativi/${encodeURIComponent(idRecord)}`,
+        `/api/scadenze/${encodeURIComponent(idRecord)}`
+      ]) {
         try {
           const res = await fetch(url, {
             method: "DELETE",
             headers: getAuthHeaders()
           });
           if (res.ok) {
-            eliminatoServer = true;
+            ok = true;
             break;
           }
         } catch (e) {}
@@ -580,19 +543,31 @@
 
     tuttiContatti.splice(idx, 1);
     applicaFiltro();
-    mostraBanner(
-      eliminatoServer ? `Nominativo "${nome}" eliminato dal database.` : `Nominativo "${nome}" rimosso dalla lista.`,
-      true
-    );
+    mostraBanner(ok ? `Record "${nome}" eliminato dal database.` : `Record "${nome}" rimosso dall'elenco.`, true);
+  }
+
+  async function caricaNominativiDatalist(fallbackRighe) {
+    for (const url of ["/api/nominativi", "/api/contatti"]) {
+      try {
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const arr = estraiArray(json);
+        if (arr.length > 0) {
+          popolaDatalistNominativi(arr.map(leggiNome));
+          return;
+        }
+      } catch (e) {}
+    }
+    popolaDatalistNominativi((fallbackRighe || []).map(leggiNome));
   }
 
   async function caricaContatti() {
     nascondiBanner();
-    const box = document.getElementById("listaContainer");
+    const box = document.getElementById("listaContatti");
     box.innerHTML = '<div class="empty-box">Caricamento contatti...</div>';
 
-    const urls = ["/api/contatti", "/api/nominativi", "/api/clienti"];
-    for (const url of urls) {
+    for (const url of ["/api/contatti", "/api/nominativi"]) {
       try {
         const res = await fetch(url, { headers: getAuthHeaders() });
         if (!res.ok) continue;
@@ -600,6 +575,7 @@
         const arr = estraiArray(json);
         if (arr.length > 0) {
           tuttiContatti = arr;
+          await caricaNominativiDatalist(arr);
           applicaFiltro();
           return;
         }
@@ -607,7 +583,8 @@
     }
 
     tuttiContatti = [];
-    renderLista([]);
+    await caricaNominativiDatalist([]);
+    renderContatti([]);
   }
 
   caricaContatti();
