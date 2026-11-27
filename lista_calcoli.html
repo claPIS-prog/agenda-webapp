@@ -88,20 +88,33 @@ const tg = window.Telegram.WebApp; tg.expand();
 function getHeaders(contentType) {
     const headers = {};
     if (contentType) headers['Content-Type'] = contentType;
-    const initData = tg.initData;
+    const initData = tg.initData || (typeof window.getTelegramInitData === 'function' ? window.getTelegramInitData() : '');
     if (initData) headers['X-Telegram-Init-Data'] = initData;
     return headers;
 }
 
 let listaDati = [];
 
+function estraiArrayRisposta(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.righe)) return payload.righe;
+    if (payload && Array.isArray(payload.items)) return payload.items;
+    return [];
+}
+
 async function caricaNominativi() {
     try {
         const res = await fetch('/api/nominativi', { headers: getHeaders() });
         if (!res.ok) return;
-        const nominativi = await res.json();
+        const data = await res.json();
+        const nominativi = estraiArrayRisposta(data);
         const sel = document.getElementById('nominativo');
-        nominativi.forEach(n => { sel.innerHTML += '<option value="' + n.nominativo + '">' + n.nominativo + '</option>'; });
+        nominativi.forEach(n => {
+            const nome = typeof n === 'string' ? n : (n.nominativo || n.nome || '');
+            if (nome) {
+                sel.innerHTML += '<option value="' + nome + '">' + nome + '</option>';
+            }
+        });
     } catch (e) { console.error(e); }
 }
 
@@ -115,32 +128,33 @@ async function caricaLista() {
     try {
         const res = await fetch('/api/calcoli/lista?' + p.toString(), { headers: getHeaders() });
         if (!res.ok) { box.innerHTML = '<div class="error">Errore server: HTTP ' + res.status + '</div>'; return; }
-        listaDati = await res.json();
+        const rawData = await res.json();
+        listaDati = estraiArrayRisposta(rawData);
         document.getElementById('counter').textContent = 'Totale: ' + listaDati.length;
         if (listaDati.length === 0) { box.innerHTML = '<div class="empty">Nessun risultato trovato.</div>'; document.getElementById('summary_box').style.display = 'none'; return; }
-        
+
         let totNuovi = 0, totRinnovi = 0, totOmaggi = 0, totDare = 0, totDareOmaggio = 0, totNC = 0, totNCOmaggio = 0;
         listaDati.forEach(i => {
-            const acconto = parseFloat(i.importo_acconto || i.acconto || 0);
+            const acconto = parseFloat(i.importo_acconto || i.acconto || i.importo || 0);
             const saldo = parseFloat(i.importo_saldo || i.saldo || 0);
             const val = acconto + saldo;
             const tipo = (i.tipo || '').toLowerCase();
-            
-            if (tipo === 'nuovo') { 
-                totNuovi += val; 
-                totDare += parseInt(i.num_credito_dare || 0); 
-                totNC += parseFloat(i.val_nc_rich || 0); 
+
+            if (tipo === 'nuovo') {
+                totNuovi += val;
+                totDare += parseInt(i.num_credito_dare || 0);
+                totNC += parseFloat(i.val_nc_rich || 0);
             }
-            else if (tipo === 'omaggio') { 
-                totOmaggi += val; 
-                totDareOmaggio += parseInt(i.num_credito_dare || 0); 
-                totNCOmaggio += parseFloat(i.val_nc_rich || 0); 
+            else if (tipo === 'omaggio') {
+                totOmaggi += val;
+                totDareOmaggio += parseInt(i.num_credito_dare || 0);
+                totNCOmaggio += parseFloat(i.val_nc_rich || 0);
             }
-            else { 
-                totRinnovi += val; 
+            else {
+                totRinnovi += val;
             }
         });
-        
+
         document.getElementById('sum_nuovi').textContent = '€ ' + totNuovi.toFixed(2);
         document.getElementById('sum_rinnovi').textContent = '€ ' + totRinnovi.toFixed(2);
         document.getElementById('sum_omaggi').textContent = '€ ' + totOmaggi.toFixed(2);
@@ -150,12 +164,13 @@ async function caricaLista() {
         document.getElementById('sum_nc_omaggio').textContent = '€ ' + totNCOmaggio.toFixed(2);
         document.getElementById('sum_totale').textContent = '€ ' + (totNuovi + totRinnovi + totOmaggi).toFixed(2);
         document.getElementById('summary_box').style.display = 'block';
-        
+
         box.innerHTML = listaDati.map(i => {
             const tipoClass = i.tipo === 'nuovo' ? 'nuovo' : (i.tipo === 'omaggio' ? 'omaggio' : 'rinnovo');
             const tipoLabel = i.tipo === 'nuovo' ? '🆕 NUOVO' : (i.tipo === 'omaggio' ? '🎁 OMAGGIO' : '🔄 RINNOVO');
-            const data = i.data_operazione ? new Date(i.data_operazione).toLocaleDateString('it-IT') : 'N/D';
-            const acconto = parseFloat(i.importo_acconto || 0).toFixed(2);
+            const rawDataOp = i.data_operazione || i.data;
+            const data = rawDataOp ? new Date(rawDataOp).toLocaleDateString('it-IT') : 'N/D';
+            const acconto = parseFloat(i.importo_acconto || i.importo || 0).toFixed(2);
             const saldo = parseFloat(i.importo_saldo || 0).toFixed(2);
             const rich = i.num_credito_rich || 0;
             const dati = i.num_credito_dato || 0;
@@ -209,12 +224,13 @@ function generaPDFWhatsApp() {
     listaDati.forEach(i => {
         if (y > 260) { doc.addPage(); y = 20; }
         const tipoLabel = i.tipo === 'nuovo' ? 'NUOVO' : (i.tipo === 'omaggio' ? 'OMAGGIO' : 'RINNOVO');
-        const data = i.data_operazione ? new Date(i.data_operazione).toLocaleDateString('it-IT') : 'N/D';
+        const rawDataOp = i.data_operazione || i.data;
+        const data = rawDataOp ? new Date(rawDataOp).toLocaleDateString('it-IT') : 'N/D';
         doc.setFont(undefined, 'bold');
         doc.text(`${tipoLabel} - ${i.nominativo || ''}`, 20, y); y += 5;
         doc.setFont(undefined, 'normal');
         doc.text(`Data: ${data} | Scadenza: ${i.scadenza || 'N/D'}${i.orario_scadenza ? ' ore ' + i.orario_scadenza : ''}`, 20, y); y += 5;
-        const acconto = parseFloat(i.importo_acconto || 0).toFixed(2);
+        const acconto = parseFloat(i.importo_acconto || i.importo || 0).toFixed(2);
         const saldo = parseFloat(i.importo_saldo || 0).toFixed(2);
         doc.text(`Acconto: EUR ${acconto} | Saldo: EUR ${saldo}`, 20, y); y += 5;
         const rich = i.num_credito_rich || 0;
@@ -230,7 +246,7 @@ function generaPDFWhatsApp() {
     doc.setFontSize(10); doc.setFont(undefined, 'normal');
     let totNuovi = 0, totRinnovi = 0, totOmaggi = 0, totDare = 0, totDareOmaggio = 0, totNC = 0, totNCOmaggio = 0;
     listaDati.forEach(i => {
-        const val = parseFloat(i.importo_acconto || 0) + parseFloat(i.importo_saldo || 0);
+        const val = parseFloat(i.importo_acconto || i.importo || 0) + parseFloat(i.importo_saldo || 0);
         if (i.tipo === 'nuovo') { totNuovi += val; totDare += parseInt(i.num_credito_dare || 0); totNC += parseFloat(i.val_nc_rich || 0); }
         else if (i.tipo === 'omaggio') { totOmaggi += val; totDareOmaggio += parseInt(i.num_credito_dare || 0); totNCOmaggio += parseFloat(i.val_nc_rich || 0); }
         else { totRinnovi += val; }
